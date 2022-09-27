@@ -131,14 +131,13 @@ func (mysql *Mysql) Dump(dumpFile string) error {
 		return fmt.Errorf("failed to find mysqldump executable %s %w", mysql.MysqlDumpBinaryPath, err)
 	}
 
+	cmd := exec.Command(mysqldumpBinaryPath, args...)
+
 	dumpOutFile, err := os.Create(dumpFile)
 	if err != nil {
 		return fmt.Errorf("failed to create the dump file %w", err)
 	}
 	defer dumpOutFile.Close()
-
-	cmd := exec.Command(mysqldumpBinaryPath, args...)
-
 	// io copy the content from the stdout to the dump file.
 	cmd.Stdout = dumpOutFile
 
