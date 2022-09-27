@@ -1,11 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"golang.org/x/crypto/ssh"
 	"log"
 	"os"
-	"bytes"
-	"golang.org/x/crypto/ssh"
 )
 
 func main() {
@@ -14,7 +14,7 @@ func main() {
 
 	homeDir, err := os.UserHomeDir()
 
-	if err != nil{
+	if err != nil {
 		log.Fatalln(err)
 	}
 
