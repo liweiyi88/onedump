@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 const CredentialFilePrefix = "mysqldumpcred-"
 
 type Mysql struct {
-	MysqlDumpBinaryPath  string
+	MysqlDumpBinaryPath      string
 	SkipComments             bool
 	UseExtendedInserts       bool
 	UseSingleTransaction     bool
@@ -19,12 +20,13 @@ type Mysql struct {
 	DefaultCharacterSet      string
 	SetGtidPurged            string
 	CreateTables             bool
+	ViaSsh                   bool
 	*DBDumper
 }
 
 func NewMysqlDumper() *Mysql {
 	return &Mysql{
-		MysqlDumpBinaryPath: "mysqldump",
+		MysqlDumpBinaryPath:      "mysqldump",
 		SkipComments:             true,
 		UseExtendedInserts:       true,
 		UseSingleTransaction:     false,
@@ -34,20 +36,36 @@ func NewMysqlDumper() *Mysql {
 		DefaultCharacterSet:      "",
 		SetGtidPurged:            "AUTO",
 		CreateTables:             true,
+		ViaSsh:                   false,
 		DBDumper:                 NewDBDumper(),
 	}
+}
+
+func (mysql *Mysql) GetExecutableCommand(dumpFile string) (string, error) {
+	args, err := mysql.getDumpCommandArgs()
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("mysqldump %s > %s", strings.Join(args, " "), dumpFile), nil
 }
 
 // Store the username password in a temp file, and use it with the mysqldump command.
 // It avoids to expoes credentials when you run the mysqldump command as user can view the whole command via ps aux.
 // Inspired by https://github.com/spatie/db-dumper
 func (mysql *Mysql) getDumpCommandArgs() ([]string, error) {
-	credentialsFileName, err := mysql.createCredentialFile()
-	if err != nil {
-		return nil, err
-	}
 
-	args := []string{"--defaults-extra-file=" + credentialsFileName + ""}
+	args := []string{}
+
+	if !mysql.ViaSsh {
+		credentialsFileName, err := mysql.createCredentialFile()
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, "--defaults-extra-file="+credentialsFileName+"")
+	} else {
+		args = append(args, "-u "+mysql.Username+" -p"+mysql.Password)
+	}
 
 	if !mysql.CreateTables {
 		args = append(args, "--no-create-info")
@@ -138,6 +156,7 @@ func (mysql *Mysql) Dump(dumpFile string) error {
 		return fmt.Errorf("failed to create the dump file %w", err)
 	}
 	defer dumpOutFile.Close()
+
 	// io copy the content from the stdout to the dump file.
 	cmd.Stdout = dumpOutFile
 
@@ -149,6 +168,8 @@ func (mysql *Mysql) Dump(dumpFile string) error {
 	if err != nil {
 		return fmt.Errorf("failed to run dump command %w", err)
 	}
+
+	fmt.Println("db dump succeed, dump file: ", dumpOutFile.Name())
 
 	return nil
 }

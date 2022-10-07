@@ -41,7 +41,7 @@ var mysqlDumpCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(mysqlDumpCmd)
-	mysqlDumpCmd.Flags().StringVarP(&dbName, "dbname", "d", "", "database name")
+	mysqlDumpCmd.Flags().StringVarP(&dbName, "dbname", "d", "", "database name (required) ")
 	mysqlDumpCmd.MarkFlagRequired("dbname")
 	mysqlDumpCmd.Flags().StringVarP(&username, "user", "u", "root", "database username")
 	mysqlDumpCmd.Flags().StringVarP(&password, "password", "p", "", "database password")

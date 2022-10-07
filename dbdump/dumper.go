@@ -4,6 +4,10 @@ type DBDump interface {
 	Dump(dumpFile string) error
 }
 
+type ExecutableDumper interface{
+	GetExecutableCommand(dumpFile string) (string, error)
+}
+
 type DBDumper struct {
 	DBName string
 	Username string
