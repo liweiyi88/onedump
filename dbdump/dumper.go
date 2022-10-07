@@ -4,24 +4,24 @@ type DBDump interface {
 	Dump(dumpFile string) error
 }
 
-type ExecutableDumper interface{
-	GetExecutableCommand(dumpFile string) (string, error)
+type SshDumpCommandProvider interface {
+	GetSshDumpCommand(dumpFile string) (string, error)
 }
 
 type DBDumper struct {
-	DBName string
+	DBName   string
 	Username string
 	Password string
-	Host string
-	Port int
+	Host     string
+	Port     int
 }
 
 func NewDBDumper() *DBDumper {
 	return &DBDumper{
-		DBName: "",
+		DBName:   "",
 		Username: "root",
 		Password: "",
-		Host: "127.0.0.1",
-		Port: 3306,
+		Host:     "127.0.0.1",
+		Port:     3306,
 	}
 }

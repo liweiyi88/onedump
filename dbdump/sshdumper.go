@@ -5,21 +5,28 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"golang.org/x/crypto/ssh"
 )
 
-type SSHDumper struct {
-	User           string
-	Host           string
-	Port           string
-	PrivateKeyFile string
-	DbType         string
-	ExecutableDumper
+type SshDumper struct {
+	User                string
+	Host                string
+	Port                int
+	PrivateKeyFile      string
+	DbType              string
+	DumpCommandProvider SshDumpCommandProvider
 }
 
-func (sshDumper *SSHDumper) Dump(dumpFile string) {
-	host := sshDumper.Host + ":" + sshDumper.Port
+func NewSshDumper() *SshDumper {
+	return &SshDumper{
+		Port: 22,
+	}
+}
+
+func (sshDumper *SshDumper) Dump(dumpFile string) error {
+	host := sshDumper.Host + ":" + strconv.Itoa(sshDumper.Port)
 
 	pKey, err := os.ReadFile(sshDumper.PrivateKeyFile)
 	if err != nil {
@@ -59,8 +66,8 @@ func (sshDumper *SSHDumper) Dump(dumpFile string) {
 	session.Stdout = &remoteOut
 	session.Stderr = &remoteErr
 
-	command, err := sshDumper.GetExecutableCommand(dumpFile)
-	if err !=nil {
+	command, err := sshDumper.DumpCommandProvider.GetSshDumpCommand(dumpFile)
+	if err != nil {
 		log.Fatal(err)
 	}
 
@@ -69,6 +76,5 @@ func (sshDumper *SSHDumper) Dump(dumpFile string) {
 	}
 
 	fmt.Println(remoteOut.String())
-
 	// if provide download option, we download the db to local.
 }

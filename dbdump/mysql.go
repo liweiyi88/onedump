@@ -41,7 +41,8 @@ func NewMysqlDumper() *Mysql {
 	}
 }
 
-func (mysql *Mysql) GetExecutableCommand(dumpFile string) (string, error) {
+// Get dump command used by ssh dumper.
+func (mysql *Mysql) GetSshDumpCommand(dumpFile string) (string, error) {
 	args, err := mysql.getDumpCommandArgs()
 	if err != nil {
 		return "", err
