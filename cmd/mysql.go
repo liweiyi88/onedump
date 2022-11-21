@@ -10,13 +10,13 @@ import (
 
 var (
 	mysqldbName, mysqlUsername, mysqlPassword, mysqlHost string
-	mysqlPort int
-	createTables bool
+	mysqlPort                                            int
+	options                                              []string
 )
 
 var mysqlDumpCmd = &cobra.Command{
-	Use: "mysql",
-	Args: cobra.ExactArgs(1),
+	Use:   "mysql",
+	Args:  cobra.ExactArgs(1),
 	Short: "Dump mysql database to a file",
 	Run: func(cmd *cobra.Command, args []string) {
 		dumpFile := strings.TrimSpace(args[0])
@@ -24,13 +24,7 @@ var mysqlDumpCmd = &cobra.Command{
 			log.Fatal("you must specify the dump file path. e.g. /download/dump.sql")
 		}
 
-		dumper := dbdump.NewMysqlDumper()
-		dumper.DBName = mysqldbName
-		dumper.Username = mysqlUsername
-		dumper.Password = mysqlPassword
-		dumper.Host = mysqlHost
-		dumper.Port = mysqlPort
-		dumper.CreateTables = createTables
+		dumper := dbdump.NewMysqlDumper(mysqldbName, mysqlUsername, mysqlPassword, mysqlHost, mysqlPort, options, false)
 
 		err := dumper.Dump(dumpFile)
 		if err != nil {
@@ -43,9 +37,9 @@ func init() {
 	rootCmd.AddCommand(mysqlDumpCmd)
 	mysqlDumpCmd.Flags().StringVarP(&mysqldbName, "dbname", "d", "", "database name (required) ")
 	mysqlDumpCmd.MarkFlagRequired("dbname")
+	mysqlDumpCmd.Flags().StringArrayVarP(&options, "options", "o", nil, "use options to overwrite or add new mysqldump options")
 	mysqlDumpCmd.Flags().StringVarP(&mysqlUsername, "user", "u", "root", "database username")
 	mysqlDumpCmd.Flags().StringVarP(&mysqlPassword, "password", "p", "", "database password")
 	mysqlDumpCmd.Flags().StringVar(&mysqlHost, "host", "127.0.0.1", "database host")
 	mysqlDumpCmd.Flags().IntVar(&mysqlPort, "port", 3306, "database port")
-	mysqlDumpCmd.Flags().BoolVar(&createTables, "create-tables", true, "if set false, do not write CREATE TABLE statements that re-create each dumped table")
 }

@@ -4,10 +4,6 @@ type DBDump interface {
 	Dump(dumpFile string) error
 }
 
-type SshDumpCommandProvider interface {
-	GetSshDumpCommand(dumpFile string) (string, error)
-}
-
 type DBDumper struct {
 	DBName   string
 	Username string
@@ -16,12 +12,12 @@ type DBDumper struct {
 	Port     int
 }
 
-func NewDBDumper() *DBDumper {
+func NewDBDumper(dbName, user, password, host string, port int) *DBDumper {
 	return &DBDumper{
-		DBName:   "",
-		Username: "root",
-		Password: "",
-		Host:     "127.0.0.1",
-		Port:     3306,
+		DBName:   dbName,
+		Username: user,
+		Password: password,
+		Host:     host,
+		Port:     port,
 	}
 }

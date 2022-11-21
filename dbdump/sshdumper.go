@@ -11,31 +11,33 @@ import (
 )
 
 type SshDumper struct {
-	User                string
-	Host                string
-	Port                int
-	PrivateKeyFile      string
-	DbType              string
-	DumpCommandProvider SshDumpCommandProvider
+	User           string
+	Host           string
+	Port           int
+	PrivateKeyFile string
+	DbType         string
 }
 
-func NewSshDumper() *SshDumper {
+func NewSshDumper(host, user, privateKeyFile string, port int) *SshDumper {
 	return &SshDumper{
-		Port: 22,
+		Host:           host,
+		User:           user,
+		PrivateKeyFile: privateKeyFile,
+		Port:           port,
 	}
 }
 
-func (sshDumper *SshDumper) Dump(dumpFile string) error {
+func (sshDumper *SshDumper) Dump(dumpFile, command string) error {
 	host := sshDumper.Host + ":" + strconv.Itoa(sshDumper.Port)
 
 	pKey, err := os.ReadFile(sshDumper.PrivateKeyFile)
 	if err != nil {
-		log.Fatalln("can not read the private key file")
+		return fmt.Errorf("can not read the private key file :%w", err)
 	}
 
 	signer, err := ssh.ParsePrivateKey(pKey)
 	if err != nil {
-		log.Fatalln("failed to create singer", err)
+		return fmt.Errorf("failed to create singer :%w", err)
 	}
 
 	conf := &ssh.ClientConfig{
@@ -66,15 +68,13 @@ func (sshDumper *SshDumper) Dump(dumpFile string) error {
 	session.Stdout = &remoteOut
 	session.Stderr = &remoteErr
 
-	command, err := sshDumper.DumpCommandProvider.GetSshDumpCommand(dumpFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	if err := session.Run(command); err != nil {
 		log.Fatal(remoteErr.String())
 	}
 
 	fmt.Println(remoteOut.String())
-	// if provide download option, we download the db to local.
+
+	//@TODO if provide download option, we download the db to local.
+
+	return nil
 }

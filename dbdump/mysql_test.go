@@ -8,10 +8,7 @@ import (
 )
 
 func TestDefaultGetDumpCommand(t *testing.T) {
-	mysql := NewMysqlDumper()
-	mysql.DBName = "dump_test"
-	mysql.Username = "admin"
-	mysql.Password = "my_password"
+	mysql := NewMysqlDumper("dump_test", "admin", "my_password", "127.0.0.1", 3306, nil, false)
 
 	args, err := mysql.getDumpCommandArgs()
 	if err != nil {
@@ -33,19 +30,8 @@ func TestDefaultGetDumpCommand(t *testing.T) {
 	}
 }
 
-func TestFullGetDumpCommand(t *testing.T) {
-	mysql := NewMysqlDumper()
-	mysql.DBName = "dump_test"
-	mysql.Username = "admin"
-	mysql.Password = "my_password"
-
-	mysql.CreateTables = false
-	mysql.UseSingleTransaction = true
-	mysql.SkipLockTables = true
-	mysql.DoNotUseColumnStatistics = true
-	mysql.UseQuick = true
-	mysql.DefaultCharacterSet = "utf-8"
-	mysql.SetGtidPurged = "ON"
+func TestGetDumpCommandWithOptions(t *testing.T) {
+	mysql := NewMysqlDumper("dump_test", "admin", "my_password", "127.0.0.1", 3306, []string{"--skip-comments", "--extended-insert", "--no-create-info", "--default-character-set=utf-8", "--single-transaction", "--skip-lock-tables", "--quick", "--set-gtid-purged=ON"}, false)
 
 	args, err := mysql.getDumpCommandArgs()
 	if err != nil {
@@ -88,11 +74,7 @@ func TestFullGetDumpCommand(t *testing.T) {
 }
 
 func TestCreateCredentialFile(t *testing.T) {
-	mysql := NewMysqlDumper()
-
-	mysql.DBName = "dump_test"
-	mysql.Username = "admin"
-	mysql.Password = "my_password"
+	mysql := NewMysqlDumper("dump_test", "admin", "my_password", "127.0.0.1", 3306, nil, false)
 
 	fileName, err := mysql.createCredentialFile()
 	t.Log("create temp credential file", fileName)
@@ -111,7 +93,7 @@ func TestCreateCredentialFile(t *testing.T) {
 user = admin
 password = my_password
 port = 3306
-host = localhost`
+host = 127.0.0.1`
 
 	if actual != expected {
 		t.Errorf("Expected:\n%s \n----should equal to----\n%s", expected, actual)
@@ -125,10 +107,7 @@ host = localhost`
 }
 
 func TestDump(t *testing.T) {
-	mysql := NewMysqlDumper()
-	mysql.Host = "127.0.0.1"
-	mysql.Username = "root"
-	mysql.DBName = "test_local"
+	mysql := NewMysqlDumper("test_local", "root", "", "127.0.0.1", 3306, nil, false)
 
 	dumpfile, err := os.CreateTemp("", "dbdump")
 	if err != nil {

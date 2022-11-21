@@ -10,34 +10,24 @@ import (
 const CredentialFilePrefix = "mysqldumpcred-"
 
 type Mysql struct {
-	MysqlDumpBinaryPath      string
-	SkipComments             bool
-	UseExtendedInserts       bool
-	UseSingleTransaction     bool
-	SkipLockTables           bool
-	DoNotUseColumnStatistics bool
-	UseQuick                 bool
-	DefaultCharacterSet      string
-	SetGtidPurged            string
-	CreateTables             bool
-	ViaSsh                   bool
+	MysqlDumpBinaryPath string
+	Options             []string
+	ViaSsh              bool
 	*DBDumper
 }
 
-func NewMysqlDumper() *Mysql {
+func NewMysqlDumper(dbName, user, password, host string, port int, options []string, viaSsh bool) *Mysql {
+	commandOptions := []string{"--skip-comments", "--extended-insert"}
+
+	if len(options) > 0 {
+		commandOptions = options
+	}
+
 	return &Mysql{
-		MysqlDumpBinaryPath:      "mysqldump",
-		SkipComments:             true,
-		UseExtendedInserts:       true,
-		UseSingleTransaction:     false,
-		SkipLockTables:           false,
-		DoNotUseColumnStatistics: false,
-		UseQuick:                 false,
-		DefaultCharacterSet:      "",
-		SetGtidPurged:            "AUTO",
-		CreateTables:             true,
-		ViaSsh:                   false,
-		DBDumper:                 NewDBDumper(),
+		MysqlDumpBinaryPath: "mysqldump",
+		Options:             commandOptions,
+		ViaSsh:              viaSsh,
+		DBDumper:            NewDBDumper(dbName, user, password, host, port),
 	}
 }
 
@@ -68,44 +58,7 @@ func (mysql *Mysql) getDumpCommandArgs() ([]string, error) {
 		args = append(args, "-u "+mysql.Username+" -p"+mysql.Password)
 	}
 
-	if !mysql.CreateTables {
-		args = append(args, "--no-create-info")
-	}
-
-	if mysql.DefaultCharacterSet != "" {
-		args = append(args, "--default-character-set="+mysql.DefaultCharacterSet)
-	}
-
-	if mysql.UseExtendedInserts {
-		args = append(args, "--extended-insert")
-	} else {
-		args = append(args, "--skip-extended-insert")
-	}
-
-	if mysql.UseSingleTransaction {
-		args = append(args, "--single-transaction")
-	}
-
-	if mysql.SkipComments {
-		args = append(args, "--skip-comments")
-	}
-
-	if mysql.SkipLockTables {
-		args = append(args, "--skip-lock-tables")
-	}
-
-	if mysql.DoNotUseColumnStatistics {
-		args = append(args, "--column-statistics=0")
-	}
-
-	if mysql.UseQuick {
-		args = append(args, "--quick")
-	}
-
-	if mysql.SetGtidPurged != "AUTO" {
-		args = append(args, "--set-gtid-purged="+mysql.SetGtidPurged)
-	}
-
+	args = append(args, mysql.Options...)
 	args = append(args, mysql.DBName)
 
 	return args, nil
