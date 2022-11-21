@@ -9,7 +9,7 @@ import (
 
 
 var rootCmd = &cobra.Command{
-	Short: "godump is database dump, backup and load tool",
+	Short: "onedump is database dump, backup and load tool",
 }
 
 func Execute() {

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/liweiyi88/godump/dbdump"
+	"github.com/liweiyi88/onedump/dbdump"
 	"github.com/spf13/cobra"
 )
 
@@ -61,7 +61,6 @@ var sshDumpCmd = &cobra.Command{
 
 		dbDriver := strings.TrimSpace(args[0])
 
-		fmt.Println(dumpOptions, "dump")
 		command, err := getDumpCommand(dbDriver, databaseDsn, dumpFile, dumpOptions)
 		if err != nil {
 			log.Fatal("failed to get database dump command", err)

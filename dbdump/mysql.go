@@ -13,7 +13,7 @@ type Mysql struct {
 	MysqlDumpBinaryPath string
 	Options             []string
 	ViaSsh              bool
-	*DBDumper
+	*DbConfig
 }
 
 func NewMysqlDumper(dbName, user, password, host string, port int, options []string, viaSsh bool) *Mysql {
@@ -27,7 +27,7 @@ func NewMysqlDumper(dbName, user, password, host string, port int, options []str
 		MysqlDumpBinaryPath: "mysqldump",
 		Options:             commandOptions,
 		ViaSsh:              viaSsh,
-		DBDumper:            NewDBDumper(dbName, user, password, host, port),
+		DbConfig:            NewDbConfig(dbName, user, password, host, port),
 	}
 }
 

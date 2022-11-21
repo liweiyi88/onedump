@@ -4,7 +4,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/liweiyi88/godump/dbdump"
+	"github.com/liweiyi88/onedump/dbdump"
 	"github.com/spf13/cobra"
 )
 

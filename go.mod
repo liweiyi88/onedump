@@ -1,4 +1,4 @@
-module github.com/liweiyi88/godump
+module github.com/liweiyi88/onedump
 
 go 1.19
 
