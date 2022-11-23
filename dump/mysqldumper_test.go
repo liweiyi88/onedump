@@ -1,4 +1,4 @@
-package dbdump
+package dump
 
 import (
 	"os"

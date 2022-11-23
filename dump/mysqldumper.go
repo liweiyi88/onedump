@@ -1,4 +1,4 @@
-package dbdump
+package dump
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ type Mysql struct {
 	MysqlDumpBinaryPath string
 	Options             []string
 	ViaSsh              bool
-	*DbConfig
+	*DBConfig
 }
 
 func NewMysqlDumper(dsn string, options []string, viaSsh bool) (*Mysql, error) {
@@ -46,7 +46,7 @@ func NewMysqlDumper(dsn string, options []string, viaSsh bool) (*Mysql, error) {
 		MysqlDumpBinaryPath: "mysqldump",
 		Options:             commandOptions,
 		ViaSsh:              viaSsh,
-		DbConfig:            NewDbConfig(config.DBName, config.User, config.Passwd, host, dbPort),
+		DBConfig:            NewDBConfig(config.DBName, config.User, config.Passwd, host, dbPort),
 	}, nil
 }
 
@@ -109,7 +109,7 @@ host = %s`
 	return file.Name(), nil
 }
 
-func (mysql *Mysql) Dump(dumpFile string) error {
+func (mysql *Mysql) Dump(dumpFile string, shouldGzip bool) error {
 	args, err := mysql.getDumpCommandArgs()
 
 	if err != nil {
@@ -124,14 +124,16 @@ func (mysql *Mysql) Dump(dumpFile string) error {
 
 	cmd := exec.Command(mysqldumpBinaryPath, args...)
 
-	dumpOutFile, err := os.Create(dumpFile)
+	file, gzipWriter, err := dumpWriters(dumpFile, shouldGzip)
 	if err != nil {
-		return fmt.Errorf("failed to create the dump file %w", err)
+		return fmt.Errorf("failed to get dump writers %w", err)
 	}
-	defer dumpOutFile.Close()
 
-	// io copy the content from the stdout to the dump file.
-	cmd.Stdout = dumpOutFile
+	if shouldGzip {
+		cmd.Stdout = gzipWriter
+	} else {
+		cmd.Stdout = file
+	}
 
 	// by assigning os.Stderr to cmd.Stderr, if it fails to run the command, os.Stderr will also output the error details.
 	cmd.Stderr = os.Stderr
@@ -142,7 +144,11 @@ func (mysql *Mysql) Dump(dumpFile string) error {
 		return fmt.Errorf("failed to run dump command %w", err)
 	}
 
-	fmt.Println("db dump succeed, dump file: ", dumpOutFile.Name())
+	// DO NOT run defer file.Close() as it will add extra unnecessary incorrect uf8 charactor like <0x00><0x00>
+	file.Close()
+	gzipWriter.Close()
+
+	fmt.Println("db dump succeed, dump file: ", file.Name())
 
 	return nil
 }

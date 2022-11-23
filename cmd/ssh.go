@@ -5,19 +5,20 @@ import (
 	"log"
 	"strings"
 
-	"github.com/liweiyi88/onedump/dbdump"
+	"github.com/liweiyi88/onedump/dump"
 	"github.com/spf13/cobra"
 )
 
 var (
 	sshHost, sshUser, sshPrivateKeyFile, databaseDsn string
 	dumpOptions                                      []string
+	gzip                                             bool
 )
 
 func getDumpCommand(dbDriver, dsn, dumpFile string, dumpOptions []string) (string, error) {
 	switch dbDriver {
 	case "mysql":
-		mysqlDumper, err := dbdump.NewMysqlDumper(dsn, dumpOptions, true)
+		mysqlDumper, err := dump.NewMysqlDumper(dsn, dumpOptions, true)
 		if err != nil {
 			return "", err
 		}
@@ -51,8 +52,8 @@ var sshDumpCmd = &cobra.Command{
 			log.Fatal("failed to get database dump command", err)
 		}
 
-		sshDumper := dbdump.NewSshDumper(sshHost, sshUser, sshPrivateKeyFile)
-		err = sshDumper.Dump(dumpFile, command)
+		sshDumper := dump.NewSshDumper(sshHost, sshUser, sshPrivateKeyFile)
+		err = sshDumper.Dump(dumpFile, command, gzip)
 
 		if err != nil {
 			log.Fatal("failed to run dump command via ssh", err)
@@ -69,4 +70,5 @@ func init() {
 	sshDumpCmd.Flags().StringArrayVarP(&dumpOptions, "dump-options", "", nil, "use options to overwrite or add new dump command options. e.g. for mysql: --dump-options \"--no-create-info\" --dump-options \"--skip-comments\"")
 	sshDumpCmd.Flags().StringVarP(&databaseDsn, "dbDsn", "", "", "the database dsn for connection. e.g. <dbUser>:<dbPass>@tcp(<dbHost>:<dbPort>)/<dbName>")
 	sshDumpCmd.MarkFlagRequired("dbDsn")
+	sshDumpCmd.Flags().BoolVarP(&gzip, "gzip", "g", true, "if need to gzip the file")
 }
