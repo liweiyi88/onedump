@@ -79,9 +79,12 @@ func (sshDumper *SshDumper) Dump(dumpFile, command string, shouldGzip bool) erro
 		return fmt.Errorf("remote command error: %s, %v", remoteErr.String(), err)
 	}
 
-	// DO NOT run defer file.Close() as it will add extra unnecessary incorrect uf8 charactor like <0x00><0x00>
+	// If it is gzip, we should firstly close the gzipWriter then close the file.
+	if gzipWriter != nil {
+		gzipWriter.Close()
+	}
+
 	file.Close()
-	gzipWriter.Close()
 
 	log.Printf("file has been successfully dumped to %s", file.Name())
 

@@ -6,7 +6,6 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/spf13/cobra v1.5.0
 	golang.org/x/exp v0.0.0-20220921164117-439092de6870
-	golang.org/x/text v0.3.6
 )
 
 require golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect

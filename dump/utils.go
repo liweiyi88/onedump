@@ -38,6 +38,11 @@ func dumpWriters(dumpFile string, shouldGzip bool) (*os.File, *gzip.Writer, erro
 		return nil, nil, fmt.Errorf("failed to create dump file %w", err)
 	}
 
+	// if it is not gzip, we should not return the gzipWriter to avoid unnecessary line that contains "<0x00><0x00>..."
+	if !shouldGzip {
+		return file, nil, nil
+	}
+
 	gzipWriter := gzip.NewWriter(file)
 
 	return file, gzipWriter, nil
