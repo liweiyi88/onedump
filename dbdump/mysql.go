@@ -51,13 +51,13 @@ func NewMysqlDumper(dsn string, options []string, viaSsh bool) (*Mysql, error) {
 }
 
 // Get dump command used by ssh dumper.
-func (mysql *Mysql) GetSshDumpCommand(dumpFile string) (string, error) {
+func (mysql *Mysql) GetSshDumpCommand() (string, error) {
 	args, err := mysql.getDumpCommandArgs()
 	if err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf("mysqldump %s > %s", strings.Join(args, " "), dumpFile), nil
+	return fmt.Sprintf("mysqldump %s", strings.Join(args, " ")), nil
 }
 
 // Store the username password in a temp file, and use it with the mysqldump command.

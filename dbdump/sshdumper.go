@@ -3,6 +3,7 @@ package dbdump
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -48,7 +49,7 @@ func (sshDumper *SshDumper) Dump(dumpFile, command string) error {
 
 	client, err := ssh.Dial("tcp", host, conf)
 	if err != nil {
-		log.Fatalln("failed to dial: ", err)
+		return fmt.Errorf("failed to dial remote server via ssh %w", err)
 	}
 
 	defer client.Close()
@@ -60,21 +61,35 @@ func (sshDumper *SshDumper) Dump(dumpFile, command string) error {
 
 	defer session.Close()
 
-	var remoteOut bytes.Buffer
+	dumpWriter, err := dumpWriter(dumpFile)
+	if err != nil {
+		return err
+	}
+
+	defer dumpWriter.Close()
+
 	var remoteErr bytes.Buffer
 
-	session.Stdout = &remoteOut
+	session.Stdout = dumpWriter
 	session.Stderr = &remoteErr
 
 	if err := session.Run(command); err != nil {
-		log.Fatal(remoteErr.String())
+		return fmt.Errorf("remote command error: %s, %v", remoteErr.String(), err)
 	}
 
-	fmt.Println(remoteOut.String())
-
-	//@TODO if provide download option, we download the db to local.
+	log.Printf("file has been successfully dumped to %s", dumpFile)
 
 	return nil
+}
+
+func dumpWriter(dumpFile string) (io.WriteCloser, error) {
+	//TODO:check if dumpFile has s3 prefix, if not use local file system
+	file, err := os.Create(dumpFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create dump file %w", err)
+	}
+
+	return file, nil
 }
 
 func ensureHavePort(addr string) string {

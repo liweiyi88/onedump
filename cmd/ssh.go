@@ -22,7 +22,7 @@ func getDumpCommand(dbDriver, dsn, dumpFile string, dumpOptions []string) (strin
 			return "", err
 		}
 
-		command, err := mysqlDumper.GetSshDumpCommand(dumpFile)
+		command, err := mysqlDumper.GetSshDumpCommand()
 
 		if err != nil {
 			return "", err
