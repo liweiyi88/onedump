@@ -9,13 +9,12 @@ import (
 )
 
 var (
-	mysqldbName, mysqlUsername, mysqlPassword, mysqlHost string
-	mysqlPort                                            int
-	options                                              []string
+	dsn     string
+	options []string
 )
 
 var mysqlDumpCmd = &cobra.Command{
-	Use:   "mysql",
+	Use:   "mysql /path/to/dump-file.sql",
 	Args:  cobra.ExactArgs(1),
 	Short: "Dump mysql database to a file",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -24,9 +23,12 @@ var mysqlDumpCmd = &cobra.Command{
 			log.Fatal("you must specify the dump file path. e.g. /download/dump.sql")
 		}
 
-		dumper := dbdump.NewMysqlDumper(mysqldbName, mysqlUsername, mysqlPassword, mysqlHost, mysqlPort, options, false)
+		dumper, err := dbdump.NewMysqlDumper(dsn, options, false)
+		if err != nil {
+			log.Fatal("failed to crete mysql dumper", err)
+		}
 
-		err := dumper.Dump(dumpFile)
+		err = dumper.Dump(dumpFile)
 		if err != nil {
 			log.Fatal("failed to dump mysql datbase", err)
 		}
@@ -35,11 +37,7 @@ var mysqlDumpCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(mysqlDumpCmd)
-	mysqlDumpCmd.Flags().StringVarP(&mysqldbName, "dbname", "d", "", "database name (required) ")
-	mysqlDumpCmd.MarkFlagRequired("dbname")
-	mysqlDumpCmd.Flags().StringArrayVarP(&options, "options", "o", nil, "use options to overwrite or add new mysqldump options")
-	mysqlDumpCmd.Flags().StringVarP(&mysqlUsername, "user", "u", "root", "database username")
-	mysqlDumpCmd.Flags().StringVarP(&mysqlPassword, "password", "p", "", "database password")
-	mysqlDumpCmd.Flags().StringVar(&mysqlHost, "host", "127.0.0.1", "database host")
-	mysqlDumpCmd.Flags().IntVar(&mysqlPort, "port", 3306, "database port")
+	mysqlDumpCmd.Flags().StringVarP(&dsn, "dsn", "d", "", "database dsn (required) ")
+	mysqlDumpCmd.MarkFlagRequired("dsn")
+	mysqlDumpCmd.Flags().StringArrayVarP(&options, "options", "o", nil, "use options to overwrite the default or add new mysqldump options e.g. --dump-options \"--no-create-info\" --dump-options \"--skip-comments\"")
 }

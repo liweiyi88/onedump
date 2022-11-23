@@ -3,40 +3,25 @@ package cmd
 import (
 	"fmt"
 	"log"
-	"net"
-	"strconv"
 	"strings"
 
-	"github.com/go-sql-driver/mysql"
 	"github.com/liweiyi88/onedump/dbdump"
 	"github.com/spf13/cobra"
 )
 
 var (
 	sshHost, sshUser, sshPrivateKeyFile, databaseDsn string
-	sshPort                                          int
 	dumpOptions                                      []string
 )
 
 func getDumpCommand(dbDriver, dsn, dumpFile string, dumpOptions []string) (string, error) {
 	switch dbDriver {
 	case "mysql":
-		config, err := mysql.ParseDSN(dsn)
+		mysqlDumper, err := dbdump.NewMysqlDumper(dsn, dumpOptions, true)
 		if err != nil {
 			return "", err
 		}
 
-		host, port, err := net.SplitHostPort(config.Addr)
-		if err != nil {
-			return "", err
-		}
-
-		dbPort, err := strconv.Atoi(port)
-		if err != nil {
-			return "", err
-		}
-
-		mysqlDumper := dbdump.NewMysqlDumper(config.DBName, config.User, config.Passwd, host, dbPort, dumpOptions, true)
 		command, err := mysqlDumper.GetSshDumpCommand(dumpFile)
 
 		if err != nil {
@@ -45,12 +30,12 @@ func getDumpCommand(dbDriver, dsn, dumpFile string, dumpOptions []string) (strin
 
 		return command, nil
 	default:
-		return "", fmt.Errorf("%s is not a supported database vendor", dbDriver)
+		return "", fmt.Errorf("%s is not a supported database driver", dbDriver)
 	}
 }
 
 var sshDumpCmd = &cobra.Command{
-	Use:   "ssh",
+	Use:   "ssh mysql </path/to/dump-file.sql>",
 	Args:  cobra.ExactArgs(2),
 	Short: "Dump remote database to a file",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -66,7 +51,7 @@ var sshDumpCmd = &cobra.Command{
 			log.Fatal("failed to get database dump command", err)
 		}
 
-		sshDumper := dbdump.NewSshDumper(sshHost, sshUser, sshPrivateKeyFile, sshPort)
+		sshDumper := dbdump.NewSshDumper(sshHost, sshUser, sshPrivateKeyFile)
 		err = sshDumper.Dump(dumpFile, command)
 
 		if err != nil {
@@ -75,16 +60,13 @@ var sshDumpCmd = &cobra.Command{
 	},
 }
 
-// @TODO: use sshHost instead of sshHost and sshPort. then use similar logic to make sure we have default 22 sshport.
-// Check mysql.ensureHavePort func
 func init() {
 	rootCmd.AddCommand(sshDumpCmd)
-	sshDumpCmd.Flags().StringVarP(&sshHost, "sshHost", "", "", "Ssh host name (required) ")
+	sshDumpCmd.Flags().StringVarP(&sshHost, "sshHost", "", "", "SSH host e.g. yourdomain.com (you can omit port as it uses 22 by default) or 56.09.139.09:33. (required) ")
 	sshDumpCmd.MarkFlagRequired("sshHost")
-	sshDumpCmd.Flags().IntVarP(&sshPort, "sshPort", "", 22, "Ssh port")
-	sshDumpCmd.Flags().StringVarP(&sshUser, "sshUser", "", "root", "ssh username")
-	sshDumpCmd.Flags().StringVarP(&sshPrivateKeyFile, "privateKeyFile", "f", "", "private key file path for ssh connection")
-	sshDumpCmd.Flags().StringArrayVarP(&dumpOptions, "dump-options", "", nil, "use options to overwrite or add new dump command options")
-	sshDumpCmd.Flags().StringVarP(&databaseDsn, "dbDsn", "", "", "the database dsn for connection")
+	sshDumpCmd.Flags().StringVarP(&sshUser, "sshUser", "", "root", "SSH username")
+	sshDumpCmd.Flags().StringVarP(&sshPrivateKeyFile, "privateKeyFile", "f", "", "private key file path for SSH connection")
+	sshDumpCmd.Flags().StringArrayVarP(&dumpOptions, "dump-options", "", nil, "use options to overwrite or add new dump command options. e.g. for mysql: --dump-options \"--no-create-info\" --dump-options \"--skip-comments\"")
+	sshDumpCmd.Flags().StringVarP(&databaseDsn, "dbDsn", "", "", "the database dsn for connection. e.g. <dbUser>:<dbPass>@tcp(<dbHost>:<dbPort>)/<dbName>")
 	sshDumpCmd.MarkFlagRequired("dbDsn")
 }

@@ -7,15 +7,18 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+var testDBDsn = "admin:my_password@tcp(127.0.0.1:3306)/dump_test"
+
 func TestDefaultGetDumpCommand(t *testing.T) {
-	mysql := NewMysqlDumper("dump_test", "admin", "my_password", "127.0.0.1", 3306, nil, false)
+	mysql, err := NewMysqlDumper(testDBDsn, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	args, err := mysql.getDumpCommandArgs()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	t.Log(args)
 
 	if slices.Contains(args, "--no-create-info") {
 		t.Error("default option should not contain --no-crete-info option")
@@ -31,14 +34,15 @@ func TestDefaultGetDumpCommand(t *testing.T) {
 }
 
 func TestGetDumpCommandWithOptions(t *testing.T) {
-	mysql := NewMysqlDumper("dump_test", "admin", "my_password", "127.0.0.1", 3306, []string{"--skip-comments", "--extended-insert", "--no-create-info", "--default-character-set=utf-8", "--single-transaction", "--skip-lock-tables", "--quick", "--set-gtid-purged=ON"}, false)
+	mysql, err := NewMysqlDumper(testDBDsn, []string{"--skip-comments", "--extended-insert", "--no-create-info", "--default-character-set=utf-8", "--single-transaction", "--skip-lock-tables", "--quick", "--set-gtid-purged=ON"}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	args, err := mysql.getDumpCommandArgs()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	t.Log(args)
 
 	if !slices.Contains(args, "--no-create-info") {
 		t.Error("it should contain --no-crete-info")
@@ -74,7 +78,10 @@ func TestGetDumpCommandWithOptions(t *testing.T) {
 }
 
 func TestCreateCredentialFile(t *testing.T) {
-	mysql := NewMysqlDumper("dump_test", "admin", "my_password", "127.0.0.1", 3306, nil, false)
+	mysql, err := NewMysqlDumper(testDBDsn, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	fileName, err := mysql.createCredentialFile()
 	t.Log("create temp credential file", fileName)
@@ -107,7 +114,11 @@ host = 127.0.0.1`
 }
 
 func TestDump(t *testing.T) {
-	mysql := NewMysqlDumper("test_local", "root", "", "127.0.0.1", 3306, nil, false)
+	dsn := "root@tcp(127.0.0.1:3306)/test_local"
+	mysql, err := NewMysqlDumper(dsn, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	dumpfile, err := os.CreateTemp("", "dbdump")
 	if err != nil {

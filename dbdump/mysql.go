@@ -2,9 +2,13 @@ package dbdump
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 const CredentialFilePrefix = "mysqldumpcred-"
@@ -16,7 +20,22 @@ type Mysql struct {
 	*DbConfig
 }
 
-func NewMysqlDumper(dbName, user, password, host string, port int, options []string, viaSsh bool) *Mysql {
+func NewMysqlDumper(dsn string, options []string, viaSsh bool) (*Mysql, error) {
+	config, err := mysql.ParseDSN(dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	host, port, err := net.SplitHostPort(config.Addr)
+	if err != nil {
+		return nil, err
+	}
+
+	dbPort, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, err
+	}
+
 	commandOptions := []string{"--skip-comments", "--extended-insert"}
 
 	if len(options) > 0 {
@@ -27,8 +46,8 @@ func NewMysqlDumper(dbName, user, password, host string, port int, options []str
 		MysqlDumpBinaryPath: "mysqldump",
 		Options:             commandOptions,
 		ViaSsh:              viaSsh,
-		DbConfig:            NewDbConfig(dbName, user, password, host, port),
-	}
+		DbConfig:            NewDbConfig(config.DBName, config.User, config.Passwd, host, dbPort),
+	}, nil
 }
 
 // Get dump command used by ssh dumper.
