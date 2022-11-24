@@ -1,9 +1,8 @@
-package dbdump
+package dump
 
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -15,7 +14,6 @@ type SshDumper struct {
 	User           string
 	Host           string
 	PrivateKeyFile string
-	DbType         string
 }
 
 func NewSshDumper(host, user, privateKeyFile string) *SshDumper {
@@ -26,7 +24,9 @@ func NewSshDumper(host, user, privateKeyFile string) *SshDumper {
 	}
 }
 
-func (sshDumper *SshDumper) Dump(dumpFile, command string) error {
+func (sshDumper *SshDumper) Dump(dumpFile, command string, shouldGzip bool) error {
+	defer trace("ssh dump")()
+
 	host := ensureHavePort(sshDumper.Host)
 
 	pKey, err := os.ReadFile(sshDumper.PrivateKeyFile)
@@ -61,35 +61,34 @@ func (sshDumper *SshDumper) Dump(dumpFile, command string) error {
 
 	defer session.Close()
 
-	dumpWriter, err := dumpWriter(dumpFile)
+	file, gzipWriter, err := dumpWriters(dumpFile, shouldGzip)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get dump writers %w", err)
 	}
 
-	defer dumpWriter.Close()
+	if shouldGzip {
+		session.Stdout = gzipWriter
+	} else {
+		session.Stdout = file
+	}
 
 	var remoteErr bytes.Buffer
-
-	session.Stdout = dumpWriter
 	session.Stderr = &remoteErr
 
 	if err := session.Run(command); err != nil {
 		return fmt.Errorf("remote command error: %s, %v", remoteErr.String(), err)
 	}
 
-	log.Printf("file has been successfully dumped to %s", dumpFile)
-
-	return nil
-}
-
-func dumpWriter(dumpFile string) (io.WriteCloser, error) {
-	//TODO:check if dumpFile has s3 prefix, if not use local file system
-	file, err := os.Create(dumpFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create dump file %w", err)
+	// If it is gzip, we should firstly close the gzipWriter then close the file.
+	if gzipWriter != nil {
+		gzipWriter.Close()
 	}
 
-	return file, nil
+	file.Close()
+
+	log.Printf("file has been successfully dumped to %s", file.Name())
+
+	return nil
 }
 
 func ensureHavePort(addr string) string {

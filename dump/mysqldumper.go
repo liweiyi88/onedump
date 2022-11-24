@@ -1,4 +1,4 @@
-package dbdump
+package dump
 
 import (
 	"fmt"
@@ -9,7 +9,14 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
+	"golang.org/x/crypto/ssh"
 )
+
+type Executor interface {
+	*exec.Cmd | *ssh.Session
+	Run() error
+	Close() error
+}
 
 const CredentialFilePrefix = "mysqldumpcred-"
 
@@ -17,7 +24,7 @@ type Mysql struct {
 	MysqlDumpBinaryPath string
 	Options             []string
 	ViaSsh              bool
-	*DbConfig
+	*DBConfig
 }
 
 func NewMysqlDumper(dsn string, options []string, viaSsh bool) (*Mysql, error) {
@@ -46,7 +53,7 @@ func NewMysqlDumper(dsn string, options []string, viaSsh bool) (*Mysql, error) {
 		MysqlDumpBinaryPath: "mysqldump",
 		Options:             commandOptions,
 		ViaSsh:              viaSsh,
-		DbConfig:            NewDbConfig(config.DBName, config.User, config.Passwd, host, dbPort),
+		DBConfig:            NewDBConfig(config.DBName, config.User, config.Passwd, host, dbPort),
 	}, nil
 }
 
@@ -109,7 +116,7 @@ host = %s`
 	return file.Name(), nil
 }
 
-func (mysql *Mysql) Dump(dumpFile string) error {
+func (mysql *Mysql) Dump(dumpFile string, shouldGzip bool) error {
 	args, err := mysql.getDumpCommandArgs()
 
 	if err != nil {
@@ -124,25 +131,34 @@ func (mysql *Mysql) Dump(dumpFile string) error {
 
 	cmd := exec.Command(mysqldumpBinaryPath, args...)
 
-	dumpOutFile, err := os.Create(dumpFile)
-	if err != nil {
-		return fmt.Errorf("failed to create the dump file %w", err)
-	}
-	defer dumpOutFile.Close()
+	file, gzipWriter, err := dumpWriters(dumpFile, shouldGzip)
 
-	// io copy the content from the stdout to the dump file.
-	cmd.Stdout = dumpOutFile
+	if err != nil {
+		return fmt.Errorf("failed to get dump writers %w", err)
+	}
+
+	if shouldGzip {
+		cmd.Stdout = gzipWriter
+	} else {
+		cmd.Stdout = file
+	}
 
 	// by assigning os.Stderr to cmd.Stderr, if it fails to run the command, os.Stderr will also output the error details.
 	cmd.Stderr = os.Stderr
-
 	err = cmd.Run()
 
 	if err != nil {
 		return fmt.Errorf("failed to run dump command %w", err)
 	}
 
-	fmt.Println("db dump succeed, dump file: ", dumpOutFile.Name())
+	// If it is gzip, we should firstly close the gzipWriter then close the file.
+	if gzipWriter != nil {
+		gzipWriter.Close()
+	}
+
+	file.Close()
+
+	fmt.Println("db dump succeed, dump file: ", file.Name())
 
 	return nil
 }

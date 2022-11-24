@@ -1,6 +1,6 @@
-package dbdump
+package dump
 
-type DbConfig struct {
+type DBConfig struct {
 	DBName   string
 	Username string
 	Password string
@@ -8,8 +8,8 @@ type DbConfig struct {
 	Port     int
 }
 
-func NewDbConfig(dbName, user, password, host string, port int) *DbConfig {
-	return &DbConfig{
+func NewDBConfig(dbName, user, password, host string, port int) *DBConfig {
+	return &DBConfig{
 		DBName:   dbName,
 		Username: user,
 		Password: password,

@@ -1,4 +1,4 @@
-package dbdump
+package dump
 
 import (
 	"os"
@@ -126,7 +126,7 @@ func TestDump(t *testing.T) {
 	}
 	defer dumpfile.Close()
 
-	err = mysql.Dump(dumpfile.Name())
+	err = mysql.Dump(dumpfile.Name(), false)
 	if err != nil {
 		t.Fatal(err)
 	}

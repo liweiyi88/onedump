@@ -4,13 +4,14 @@ import (
 	"log"
 	"strings"
 
-	"github.com/liweiyi88/onedump/dbdump"
+	"github.com/liweiyi88/onedump/dump"
 	"github.com/spf13/cobra"
 )
 
 var (
-	dsn     string
-	options []string
+	dsn       string
+	options   []string
+	mysqlGzip bool
 )
 
 var mysqlDumpCmd = &cobra.Command{
@@ -23,12 +24,12 @@ var mysqlDumpCmd = &cobra.Command{
 			log.Fatal("you must specify the dump file path. e.g. /download/dump.sql")
 		}
 
-		dumper, err := dbdump.NewMysqlDumper(dsn, options, false)
+		dumper, err := dump.NewMysqlDumper(dsn, options, false)
 		if err != nil {
 			log.Fatal("failed to crete mysql dumper", err)
 		}
 
-		err = dumper.Dump(dumpFile)
+		err = dumper.Dump(dumpFile, mysqlGzip)
 		if err != nil {
 			log.Fatal("failed to dump mysql datbase", err)
 		}
@@ -40,4 +41,5 @@ func init() {
 	mysqlDumpCmd.Flags().StringVarP(&dsn, "dsn", "d", "", "database dsn (required) ")
 	mysqlDumpCmd.MarkFlagRequired("dsn")
 	mysqlDumpCmd.Flags().StringArrayVarP(&options, "options", "o", nil, "use options to overwrite the default or add new mysqldump options e.g. --dump-options \"--no-create-info\" --dump-options \"--skip-comments\"")
+	mysqlDumpCmd.Flags().BoolVarP(&mysqlGzip, "gzip", "", true, "if need to gzip the file")
 }
