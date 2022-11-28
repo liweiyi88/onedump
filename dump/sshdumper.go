@@ -11,9 +11,7 @@ import (
 )
 
 type SshDumper struct {
-	User           string
-	Host           string
-	PrivateKeyFile string
+	User, Host, PrivateKeyFile string
 }
 
 func NewSshDumper(host, user, privateKeyFile string) *SshDumper {
