@@ -59,32 +59,36 @@ func (sshDumper *SshDumper) Dump(dumpFile, command string, shouldGzip bool) erro
 
 	defer session.Close()
 
-	file, gzipWriter, err := dumpWriters(dumpFile, shouldGzip)
-	if err != nil {
-		return fmt.Errorf("failed to get dump writers %w", err)
-	}
-
-	if shouldGzip {
-		session.Stdout = gzipWriter
-	} else {
-		session.Stdout = file
-	}
-
 	var remoteErr bytes.Buffer
 	session.Stderr = &remoteErr
 
-	if err := session.Run(command); err != nil {
+	remoteStdout, err := session.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get session stdout pipe %w", err)
+	}
+
+	copyDump, persistDump, err := dump(dumpFile, shouldGzip)
+	if err != nil {
+		return err
+	}
+
+	if err := session.Start(command); err != nil {
 		return fmt.Errorf("remote command error: %s, %v", remoteErr.String(), err)
 	}
 
-	// If it is gzip, we should firstly close the gzipWriter then close the file.
-	if gzipWriter != nil {
-		gzipWriter.Close()
+	err = copyDump(remoteStdout)
+	if err != nil {
+		return fmt.Errorf("failed to copy content from remote stdout to io writer. %w", err)
 	}
 
-	file.Close()
+	if err := session.Wait(); err != nil {
+		return fmt.Errorf("remote command error: %s, %v", remoteErr.String(), err)
+	}
 
-	log.Printf("file has been successfully dumped to %s", file.Name())
+	err = persistDump()
+	if err != nil {
+		return fmt.Errorf("faile to persist the dump file %w", err)
+	}
 
 	return nil
 }

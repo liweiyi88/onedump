@@ -9,14 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
-	"golang.org/x/crypto/ssh"
 )
-
-type Executor interface {
-	*exec.Cmd | *ssh.Session
-	Run() error
-	Close() error
-}
 
 const CredentialFilePrefix = "mysqldumpcred-"
 
@@ -131,34 +124,36 @@ func (mysql *Mysql) Dump(dumpFile string, shouldGzip bool) error {
 
 	cmd := exec.Command(mysqldumpBinaryPath, args...)
 
-	file, gzipWriter, err := dumpWriters(dumpFile, shouldGzip)
-
+	copyDump, persistDump, err := dump(dumpFile, shouldGzip)
 	if err != nil {
-		return fmt.Errorf("failed to get dump writers %w", err)
-	}
-
-	if shouldGzip {
-		cmd.Stdout = gzipWriter
-	} else {
-		cmd.Stdout = file
+		return err
 	}
 
 	// by assigning os.Stderr to cmd.Stderr, if it fails to run the command, os.Stderr will also output the error details.
 	cmd.Stderr = os.Stderr
-	err = cmd.Run()
+	stdout, err := cmd.StdoutPipe()
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start command error: %v", err)
+	}
 
 	if err != nil {
-		return fmt.Errorf("failed to run dump command %w", err)
+		return fmt.Errorf("failed to get cmd stdout pipe %w", err)
 	}
 
-	// If it is gzip, we should firstly close the gzipWriter then close the file.
-	if gzipWriter != nil {
-		gzipWriter.Close()
+	err = copyDump(stdout)
+	if err != nil {
+		return fmt.Errorf("failed to copy content from cmd stdout to io writer. %w", err)
 	}
 
-	file.Close()
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("cmd command error: %v", err)
+	}
 
-	fmt.Println("db dump succeed, dump file: ", file.Name())
+	err = persistDump()
+	if err != nil {
+		return fmt.Errorf("faile to persist the dump file %w", err)
+	}
 
 	return nil
 }
