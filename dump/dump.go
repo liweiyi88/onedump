@@ -22,18 +22,32 @@ type CopyDump func(stdout io.Reader) error
 type PersistDumpFile func() error
 
 const s3Prefix = "s3://"
+const remoteDumpCacheDir = ".onedump"
+
+func cacheDir() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user home dir. %w", err)
+	}
+
+	return fmt.Sprintf("%s/%s", homeDir, remoteDumpCacheDir), nil
+}
 
 func createDumpFile(filename string, remoteDump bool) (*os.File, error) {
 	if remoteDump {
-		// Use home dir instead of temp dir because temp dir usually has size limit on different OS
-		homeDir, err := os.UserHomeDir()
+		cacheDir, err := cacheDir()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get user home dir")
+			return nil, err
 		}
 
-		file, err := os.Create(homeDir + "/" + filename)
+		err = os.MkdirAll(cacheDir, 0750)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create dump file in temp dir %w", err)
+			return nil, fmt.Errorf("failed to create cache dir for remote upload. %w", err)
+		}
+
+		file, err := os.Create(fmt.Sprintf("%s/%s", cacheDir, filename))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create dump file in cache dir. %w", err)
 		}
 
 		return file, err
@@ -88,9 +102,6 @@ func dump(dumpFile string, shouldGzip bool) (CopyDump, PersistDumpFile, error) {
 	}
 
 	persistDumpFile := func() error {
-		// Remove file on local machie after uploading to s3 bucket.
-		defer os.Remove(file.Name())
-
 		if gzipWriter != nil {
 			gzipWriter.Close()
 		}
@@ -106,15 +117,28 @@ func dump(dumpFile string, shouldGzip bool) (CopyDump, PersistDumpFile, error) {
 			session := session.Must(session.NewSession())
 			uploader := s3manager.NewUploader(session)
 
+			log.Printf("uploading file %s to s3...", uploadFile.Name())
 			// TODO: implement re-try
-			_, err = uploader.Upload(&s3manager.UploadInput{
+			_, uploadErr := uploader.Upload(&s3manager.UploadInput{
 				Bucket: aws.String(s3BucketInfo.bucket),
 				Key:    aws.String(s3BucketInfo.key),
 				Body:   uploadFile,
 			})
 
+			// Remove file on local machie after uploading to s3 bucket.
+			cacheDir, err := cacheDir()
 			if err != nil {
-				return fmt.Errorf("failed to upload file to s3 bucket %w", err)
+				log.Println("failed to get cache dir after uploading to s3", err)
+			}
+
+			log.Printf("removing cache dir %s ... ", cacheDir)
+			err = os.RemoveAll(cacheDir)
+			if err != nil {
+				log.Println("failed to remove cache dir after uploading to s3", err)
+			}
+
+			if uploadErr != nil {
+				return fmt.Errorf("failed to upload file to s3 bucket %w", uploadErr)
 			}
 
 			log.Printf("file has been successfully uploaded to s3: %s", s3BucketInfo.bucket+"/"+s3BucketInfo.key)
