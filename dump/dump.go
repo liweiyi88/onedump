@@ -114,6 +114,8 @@ func dump(dumpFile string, shouldGzip bool) (CopyDump, PersistDumpFile, error) {
 				return fmt.Errorf("failed to open dumped file %w", err)
 			}
 
+			defer uploadFile.Close()
+
 			session := session.Must(session.NewSession())
 			uploader := s3manager.NewUploader(session)
 
