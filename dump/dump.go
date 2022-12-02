@@ -8,16 +8,62 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
+
+type s3BucketInfo struct {
+	bucket, key, filename string
+}
 
 type CopyDump func(stdout io.Reader) error
 type PersistDumpFile func() error
 
-func dump(dumpFile string, shouldGzip bool) (CopyDump, PersistDumpFile, error) {
-	destDumpFile := ensureDumpFileName(dumpFile, shouldGzip)
-	file, err := os.Create(destDumpFile)
+const s3Prefix = "s3://"
+
+func createDumpFile(filename string, remoteDump bool) (*os.File, error) {
+	if remoteDump {
+		// Use home dir instead of temp dir because temp dir usually has size limit on different OS
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get user home dir")
+		}
+
+		file, err := os.Create(homeDir + "/" + filename)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create dump file in temp dir %w", err)
+		}
+
+		return file, err
+	}
+
+	file, err := os.Create(filename)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create dump file %w", err)
+		return nil, fmt.Errorf("failed to create dump file")
+	}
+
+	return file, nil
+}
+
+func dump(dumpFile string, shouldGzip bool) (CopyDump, PersistDumpFile, error) {
+	dumpFilename := ensureFileSuffix(dumpFile, shouldGzip)
+	s3BucketInfo, isS3Dump := extractS3BucketInfo(dumpFilename)
+
+	var file *os.File
+	var err error
+
+	if isS3Dump {
+		file, err = createDumpFile(s3BucketInfo.filename, true)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create dump file for s3 upload %w", err)
+		}
+	} else {
+		file, err = createDumpFile(dumpFilename, false)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	var gzipWriter *gzip.Writer
@@ -42,49 +88,76 @@ func dump(dumpFile string, shouldGzip bool) (CopyDump, PersistDumpFile, error) {
 	}
 
 	persistDumpFile := func() error {
+		// Remove file on local machie after uploading to s3 bucket.
+		defer os.Remove(file.Name())
+
 		if gzipWriter != nil {
 			gzipWriter.Close()
 		}
 
-		err := file.Close()
-		if err != nil {
-			return err
+		file.Close()
+
+		if isS3Dump {
+			uploadFile, err := os.Open(file.Name())
+			if err != nil {
+				return fmt.Errorf("failed to open dumped file %w", err)
+			}
+
+			session := session.Must(session.NewSession())
+			uploader := s3manager.NewUploader(session)
+
+			// TODO: implement re-try
+			_, err = uploader.Upload(&s3manager.UploadInput{
+				Bucket: aws.String(s3BucketInfo.bucket),
+				Key:    aws.String(s3BucketInfo.key),
+				Body:   uploadFile,
+			})
+
+			if err != nil {
+				return fmt.Errorf("failed to upload file to s3 bucket %w", err)
+			}
+
+			log.Printf("file has been successfully uploaded to s3: %s", s3BucketInfo.bucket+"/"+s3BucketInfo.key)
+		} else {
+			log.Printf("file has been successfully dumped to %s", file.Name())
 		}
-
-		log.Printf("file has been successfully dumped to %s", file.Name())
-		// Upload file to s3
-		// awssession := awssession.Must(awssession.NewSession())
-		// uploader := s3manager.NewUploader(awssession)
-
-		// bucket := "visualgravity"
-
-		// _, err = uploader.Upload(&s3manager.UploadInput{
-		// 	Bucket: aws.String(bucket),
-		// 	Key:    aws.String("/db_backup/bne.sql.gz"),
-		// 	Body:   file,
-		// })
-
-		// if err != nil {
-		// 	return fmt.Errorf("failed to upload file to s3 bucket %w", err)
-		// }
-
 		return nil
 	}
 
 	return copyDump, persistDumpFile, nil
 }
 
-// Ensure it has proper file suffix if gzip is enabled.
-func ensureDumpFileName(dumpFile string, gzip bool) string {
-	if !gzip {
-		return dumpFile
+func ensureFileSuffix(filename string, shouldGzip bool) string {
+	if !shouldGzip {
+		return filename
 	}
 
-	if strings.HasSuffix(dumpFile, ".gz") {
-		return dumpFile
+	if strings.HasSuffix(filename, ".gz") {
+		return filename
 	}
 
-	return dumpFile + ".gz"
+	return filename + ".gz"
+}
+
+func extractS3BucketInfo(filename string) (*s3BucketInfo, bool) {
+	name := strings.TrimSpace(filename)
+
+	if !strings.HasPrefix(name, s3Prefix) {
+		return nil, false
+	}
+
+	path := strings.TrimPrefix(name, s3Prefix)
+
+	pathChunks := strings.Split(path, "/")
+	bucket := pathChunks[0]
+	s3Filename := pathChunks[len(pathChunks)-1]
+	key := strings.Join(pathChunks[1:], "/")
+
+	return &s3BucketInfo{
+		bucket:   bucket,
+		key:      key,
+		filename: s3Filename,
+	}, true
 }
 
 func trace(name string) func() {
@@ -94,21 +167,4 @@ func trace(name string) func() {
 		elapsed := time.Since(start)
 		log.Printf("%s took %s", name, elapsed)
 	}
-}
-
-func dumpWriters(dumpFile string, shouldGzip bool) (*os.File, *gzip.Writer, error) {
-	destDumpFile := ensureDumpFileName(dumpFile, shouldGzip)
-	file, err := os.Create(destDumpFile)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create dump file %w", err)
-	}
-
-	// if it is not gzip, we should not return the gzipWriter to avoid unnecessary line that contains "<0x00><0x00>..."
-	if !shouldGzip {
-		return file, nil, nil
-	}
-
-	gzipWriter := gzip.NewWriter(file)
-
-	return file, gzipWriter, nil
 }
