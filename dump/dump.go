@@ -24,6 +24,8 @@ type PersistDumpFile func() error
 const s3Prefix = "s3://"
 const remoteDumpCacheDir = ".onedump"
 
+// For uploading dump file to remote storage, we need to firstly dump the db content to a dir locally.
+// We use home dir as the cache dir instead of tmp due to the size limit of the tmp dir.
 func cacheDir() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -61,6 +63,10 @@ func createDumpFile(filename string, remoteDump bool) (*os.File, error) {
 	return file, nil
 }
 
+// The core function that dump db content to a file (locally or remotely).
+// It checks the filename to determin if we need to upload the file to remote storage or we keep it locally.
+// For uploading file to S3 bucket, the filename shold follow the pattern: s3://<bucket_name>/<key>
+// For any remote uploadk, we tried to cache it in user home dir instead of tmp dir because there is size limit for tmp dir.
 func dump(dumpFile string, shouldGzip bool) (CopyDump, PersistDumpFile, error) {
 	dumpFilename := ensureFileSuffix(dumpFile, shouldGzip)
 	s3BucketInfo, isS3Dump := extractS3BucketInfo(dumpFilename)
@@ -153,6 +159,7 @@ func dump(dumpFile string, shouldGzip bool) (CopyDump, PersistDumpFile, error) {
 	return copyDump, persistDumpFile, nil
 }
 
+// Ensure a file has proper file extension
 func ensureFileSuffix(filename string, shouldGzip bool) string {
 	if !shouldGzip {
 		return filename
@@ -165,6 +172,7 @@ func ensureFileSuffix(filename string, shouldGzip bool) string {
 	return filename + ".gz"
 }
 
+// Extract S3 bucket information from filename.
 func extractS3BucketInfo(filename string) (*s3BucketInfo, bool) {
 	name := strings.TrimSpace(filename)
 
@@ -186,6 +194,7 @@ func extractS3BucketInfo(filename string) (*s3BucketInfo, bool) {
 	}, true
 }
 
+// Performanece debug function.
 func trace(name string) func() {
 	start := time.Now()
 
