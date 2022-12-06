@@ -13,11 +13,11 @@ import (
 
 const s3Prefix = "s3://"
 
-func createS3Storage(filename string) (*S3Storage, bool) {
+func createS3Storage(filename string) (*S3Storage, bool, error) {
 	name := strings.TrimSpace(filename)
 
 	if !strings.HasPrefix(name, s3Prefix) {
-		return nil, false
+		return nil, false, nil
 	}
 
 	path := strings.TrimPrefix(name, s3Prefix)
@@ -27,33 +27,35 @@ func createS3Storage(filename string) (*S3Storage, bool) {
 	s3Filename := pathChunks[len(pathChunks)-1]
 	key := strings.Join(pathChunks[1:], "/")
 
+	cacheDir, err := uploadCacheDir()
+	if err != nil {
+		return nil, false, err
+	}
+
 	return &S3Storage{
-		CacheFile: filename,
-		Bucket:    bucket,
-		Key:       key,
-		Filename:  s3Filename,
-	}, true
+		CacheDir:      cacheDir,
+		CacheFile:     s3Filename,
+		CacheFilePath: fmt.Sprintf("%s/%s", cacheDir, s3Filename),
+		Bucket:        bucket,
+		Key:           key,
+	}, true, nil
 }
 
 type S3Storage struct {
-	Bucket    string
-	Key       string
-	Filename  string
-	CacheFile string
+	Bucket        string
+	Key           string
+	CacheFile     string
+	CacheDir      string
+	CacheFilePath string
 }
 
 func (s3 *S3Storage) CreateDumpFile() (*os.File, error) {
-	cacheDir, err := uploadCacheDir()
-	if err != nil {
-		return nil, err
-	}
-
-	err = os.MkdirAll(cacheDir, 0750)
+	err := os.MkdirAll(s3.CacheDir, 0750)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create upload cache dir for remote upload. %w", err)
 	}
 
-	file, err := os.Create(fmt.Sprintf("%s/%s", cacheDir, s3.CacheFile))
+	file, err := os.Create(s3.CacheFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create dump file in cache dir. %w", err)
 	}
@@ -61,8 +63,8 @@ func (s3 *S3Storage) CreateDumpFile() (*os.File, error) {
 	return file, err
 }
 
-func (s3 *S3Storage) Upload(filename string) error {
-	uploadFile, err := os.Open(filename)
+func (s3 *S3Storage) Upload() error {
+	uploadFile, err := os.Open(s3.CacheFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to open dumped file %w", err)
 	}
@@ -80,14 +82,9 @@ func (s3 *S3Storage) Upload(filename string) error {
 		Body:   uploadFile,
 	})
 
-	// Remove file on local machie after uploading to s3 bucket.
-	cacheDir, err := uploadCacheDir()
-	if err != nil {
-		log.Println("failed to get cache dir after uploading to s3", err)
-	}
-
-	log.Printf("removing cache dir %s ... ", cacheDir)
-	err = os.RemoveAll(cacheDir)
+	// Remove local cache dir after uploading to s3 bucket.
+	log.Printf("removing cache dir %s ... ", s3.CacheDir)
+	err = os.RemoveAll(s3.CacheDir)
 	if err != nil {
 		log.Println("failed to remove cache dir after uploading to s3", err)
 	}
@@ -96,7 +93,9 @@ func (s3 *S3Storage) Upload(filename string) error {
 		return fmt.Errorf("failed to upload file to s3 bucket %w", uploadErr)
 	}
 
-	log.Printf("file has been successfully uploaded to s3: %s", s3.Bucket+"/"+s3.Key)
-
 	return nil
+}
+
+func (s3 *S3Storage) CloudFilePath() string {
+	return fmt.Sprintf("s3://%s/%s", s3.Bucket, s3.Key)
 }

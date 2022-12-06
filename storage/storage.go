@@ -10,7 +10,8 @@ type Storage interface {
 }
 
 type CloudStorage interface {
-	Upload(filename string) error
+	Upload() error
+	CloudFilePath() string
 }
 
 const uploadDumpCacheDir = ".onedump"
@@ -26,13 +27,17 @@ func uploadCacheDir() (string, error) {
 	return fmt.Sprintf("%s/%s", homeDir, uploadDumpCacheDir), nil
 }
 
-func CreateStorage(filename string) Storage {
-	s3Storage, ok := createS3Storage(filename)
+func CreateStorage(filename string) (Storage, error) {
+	s3Storage, ok, err := createS3Storage(filename)
+	if err != nil {
+		return nil, err
+	}
+
 	if ok {
-		return s3Storage
+		return s3Storage, nil
 	}
 
 	return &LocalStorage{
 		Filename: filename,
-	}
+	}, nil
 }

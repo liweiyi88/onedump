@@ -25,7 +25,10 @@ type PersistDumpFile func() error
 // For any remote uploadk, we tried to cache it in user home dir instead of tmp dir because there is size limit for tmp dir.
 func dump(runner any, dumpFile string, shouldGzip bool, command string) error {
 	dumpFilename := ensureFileSuffix(dumpFile, shouldGzip)
-	store := storage.CreateStorage(dumpFilename)
+	store, err := storage.CreateStorage(dumpFilename)
+	if err != nil {
+		return fmt.Errorf("failed to create storage: %w", err)
+	}
 
 	file, err := store.CreateDumpFile()
 	if err != nil {
@@ -74,11 +77,16 @@ func dump(runner any, dumpFile string, shouldGzip bool, command string) error {
 	}
 
 	cloudStore, ok := store.(storage.CloudStorage)
+
 	if ok {
-		err := cloudStore.Upload(file.Name())
+		err := cloudStore.Upload()
 		if err != nil {
 			return fmt.Errorf("failed to upload file to cloud storage: %w", err)
 		}
+
+		log.Printf("successfully upload dump file to %s", cloudStore.CloudFilePath())
+	} else {
+		log.Printf("successfully dump file to %s", file.Name())
 	}
 
 	return nil
