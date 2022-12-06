@@ -124,35 +124,9 @@ func (mysql *Mysql) Dump(dumpFile string, shouldGzip bool) error {
 
 	cmd := exec.Command(mysqldumpBinaryPath, args...)
 
-	copyDump, persistDump, err := dump(dumpFile, shouldGzip)
+	dump(cmd, dumpFile, shouldGzip, "")
 	if err != nil {
 		return err
-	}
-
-	// by assigning os.Stderr to cmd.Stderr, if it fails to run the command, os.Stderr will also output the error details.
-	cmd.Stderr = os.Stderr
-	stdout, err := cmd.StdoutPipe()
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start command error: %v", err)
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to get cmd stdout pipe %w", err)
-	}
-
-	err = copyDump(stdout)
-	if err != nil {
-		return fmt.Errorf("failed to copy content from cmd stdout to io writer. %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("cmd command error: %v", err)
-	}
-
-	err = persistDump()
-	if err != nil {
-		return fmt.Errorf("faile to persist the dump file %w", err)
 	}
 
 	return nil

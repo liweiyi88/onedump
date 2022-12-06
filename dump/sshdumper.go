@@ -1,7 +1,6 @@
 package dump
 
 import (
-	"bytes"
 	"fmt"
 	"log"
 	"net"
@@ -59,35 +58,9 @@ func (sshDumper *SshDumper) Dump(dumpFile, command string, shouldGzip bool) erro
 
 	defer session.Close()
 
-	var remoteErr bytes.Buffer
-	session.Stderr = &remoteErr
-
-	remoteStdout, err := session.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get session stdout pipe %w", err)
-	}
-
-	copyDump, persistDump, err := dump(dumpFile, shouldGzip)
+	err = dump(session, dumpFile, shouldGzip, command)
 	if err != nil {
 		return err
-	}
-
-	if err := session.Start(command); err != nil {
-		return fmt.Errorf("remote command error: %s, %v", remoteErr.String(), err)
-	}
-
-	err = copyDump(remoteStdout)
-	if err != nil {
-		return fmt.Errorf("failed to copy content from remote stdout to io writer. %w", err)
-	}
-
-	if err := session.Wait(); err != nil {
-		return fmt.Errorf("remote command error: %s, %v", remoteErr.String(), err)
-	}
-
-	err = persistDump()
-	if err != nil {
-		return fmt.Errorf("faile to persist the dump file %w", err)
 	}
 
 	return nil

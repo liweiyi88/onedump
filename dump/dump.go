@@ -1,89 +1,35 @@
 package dump
 
 import (
+	"bytes"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/liweiyi88/onedump/storage"
+	"golang.org/x/crypto/ssh"
 )
-
-type s3BucketInfo struct {
-	bucket, key, filename string
-}
 
 type CopyDump func(stdout io.Reader) error
 type PersistDumpFile func() error
-
-const s3Prefix = "s3://"
-const remoteDumpCacheDir = ".onedump"
-
-// For uploading dump file to remote storage, we need to firstly dump the db content to a dir locally.
-// We use home dir as the cache dir instead of tmp due to the size limit of the tmp dir.
-func cacheDir() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get user home dir. %w", err)
-	}
-
-	return fmt.Sprintf("%s/%s", homeDir, remoteDumpCacheDir), nil
-}
-
-func createDumpFile(filename string, remoteDump bool) (*os.File, error) {
-	if remoteDump {
-		cacheDir, err := cacheDir()
-		if err != nil {
-			return nil, err
-		}
-
-		err = os.MkdirAll(cacheDir, 0750)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create cache dir for remote upload. %w", err)
-		}
-
-		file, err := os.Create(fmt.Sprintf("%s/%s", cacheDir, filename))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create dump file in cache dir. %w", err)
-		}
-
-		return file, err
-	}
-
-	file, err := os.Create(filename)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create dump file")
-	}
-
-	return file, nil
-}
 
 // The core function that dump db content to a file (locally or remotely).
 // It checks the filename to determin if we need to upload the file to remote storage or we keep it locally.
 // For uploading file to S3 bucket, the filename shold follow the pattern: s3://<bucket_name>/<key>
 // For any remote uploadk, we tried to cache it in user home dir instead of tmp dir because there is size limit for tmp dir.
-func dump(dumpFile string, shouldGzip bool) (CopyDump, PersistDumpFile, error) {
+func dump(runner any, dumpFile string, shouldGzip bool, command string) error {
 	dumpFilename := ensureFileSuffix(dumpFile, shouldGzip)
-	s3BucketInfo, isS3Dump := extractS3BucketInfo(dumpFilename)
+	store := storage.CreateStorage(dumpFilename)
 
-	var file *os.File
-	var err error
-
-	if isS3Dump {
-		file, err = createDumpFile(s3BucketInfo.filename, true)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create dump file for s3 upload %w", err)
-		}
-	} else {
-		file, err = createDumpFile(dumpFilename, false)
-		if err != nil {
-			return nil, nil, err
-		}
+	file, err := store.CreateDumpFile()
+	if err != nil {
+		return fmt.Errorf("failed to create storage dump file: %w", err)
 	}
 
 	var gzipWriter *gzip.Writer
@@ -91,72 +37,51 @@ func dump(dumpFile string, shouldGzip bool) (CopyDump, PersistDumpFile, error) {
 		gzipWriter = gzip.NewWriter(file)
 	}
 
-	copyDump := func(stdout io.Reader) error {
-		if shouldGzip {
-			_, err := io.Copy(gzipWriter, stdout)
-			if err != nil {
-				return err
-			}
-		} else {
-			_, err := io.Copy(file, stdout)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	}
-
-	persistDumpFile := func() error {
+	defer func() {
 		if gzipWriter != nil {
 			gzipWriter.Close()
 		}
 
 		file.Close()
+	}()
 
-		if isS3Dump {
-			uploadFile, err := os.Open(file.Name())
-			if err != nil {
-				return fmt.Errorf("failed to open dumped file %w", err)
-			}
-
-			defer uploadFile.Close()
-
-			session := session.Must(session.NewSession())
-			uploader := s3manager.NewUploader(session)
-
-			log.Printf("uploading file %s to s3...", uploadFile.Name())
-			// TODO: implement re-try
-			_, uploadErr := uploader.Upload(&s3manager.UploadInput{
-				Bucket: aws.String(s3BucketInfo.bucket),
-				Key:    aws.String(s3BucketInfo.key),
-				Body:   uploadFile,
-			})
-
-			// Remove file on local machie after uploading to s3 bucket.
-			cacheDir, err := cacheDir()
-			if err != nil {
-				log.Println("failed to get cache dir after uploading to s3", err)
-			}
-
-			log.Printf("removing cache dir %s ... ", cacheDir)
-			err = os.RemoveAll(cacheDir)
-			if err != nil {
-				log.Println("failed to remove cache dir after uploading to s3", err)
-			}
-
-			if uploadErr != nil {
-				return fmt.Errorf("failed to upload file to s3 bucket %w", uploadErr)
-			}
-
-			log.Printf("file has been successfully uploaded to s3: %s", s3BucketInfo.bucket+"/"+s3BucketInfo.key)
+	switch runner := runner.(type) {
+	case *exec.Cmd:
+		runner.Stderr = os.Stderr
+		if gzipWriter != nil {
+			runner.Stdout = gzipWriter
 		} else {
-			log.Printf("file has been successfully dumped to %s", file.Name())
+			runner.Stdout = file
 		}
-		return nil
+
+		if err := runner.Run(); err != nil {
+			return fmt.Errorf("remote command error: %v", err)
+		}
+	case *ssh.Session:
+		var remoteErr bytes.Buffer
+		runner.Stderr = &remoteErr
+		if gzipWriter != nil {
+			runner.Stdout = gzipWriter
+		} else {
+			runner.Stdout = file
+		}
+
+		if err := runner.Run(command); err != nil {
+			return fmt.Errorf("remote command error: %s, %v", remoteErr.String(), err)
+		}
+	default:
+		return errors.New("unsupport runner type")
 	}
 
-	return copyDump, persistDumpFile, nil
+	cloudStore, ok := store.(storage.CloudStorage)
+	if ok {
+		err := cloudStore.Upload(file.Name())
+		if err != nil {
+			return fmt.Errorf("failed to upload file to cloud storage: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // Ensure a file has proper file extension
@@ -170,28 +95,6 @@ func ensureFileSuffix(filename string, shouldGzip bool) string {
 	}
 
 	return filename + ".gz"
-}
-
-// Extract S3 bucket information from filename.
-func extractS3BucketInfo(filename string) (*s3BucketInfo, bool) {
-	name := strings.TrimSpace(filename)
-
-	if !strings.HasPrefix(name, s3Prefix) {
-		return nil, false
-	}
-
-	path := strings.TrimPrefix(name, s3Prefix)
-
-	pathChunks := strings.Split(path, "/")
-	bucket := pathChunks[0]
-	s3Filename := pathChunks[len(pathChunks)-1]
-	key := strings.Join(pathChunks[1:], "/")
-
-	return &s3BucketInfo{
-		bucket:   bucket,
-		key:      key,
-		filename: s3Filename,
-	}, true
 }
 
 // Performanece debug function.
