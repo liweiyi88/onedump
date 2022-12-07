@@ -34,10 +34,7 @@ func createS3Storage(filename string) (*S3Storage, bool, error) {
 	s3Filename := pathChunks[len(pathChunks)-1]
 	key := strings.Join(pathChunks[1:], "/")
 
-	cacheDir, err := uploadCacheDir()
-	if err != nil {
-		return nil, false, err
-	}
+	cacheDir := uploadCacheDir()
 
 	return &S3Storage{
 		CacheDir:      cacheDir,
