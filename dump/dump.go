@@ -16,9 +16,9 @@ import (
 )
 
 // The core function that dump db content to a file (locally or remotely).
-// It checks the filename to determin if we need to upload the file to remote storage or we keep it locally.
-// For uploading file to S3 bucket, the filename shold follow the pattern: s3://<bucket_name>/<key>
-// For any remote uploadk, we tried to cache it in user home dir instead of tmp dir because there is size limit for tmp dir.
+// It checks the filename to determine if we need to upload the file to remote storage or keep it locally.
+// For uploading file to S3 bucket, the filename shold follow the pattern: s3://<bucket_name>/<key> .
+// For any remote upload, we try to cache it in a local dir.
 func dump(runner any, dumpFile string, shouldGzip bool, command string) error {
 	dumpFilename := ensureFileSuffix(dumpFile, shouldGzip)
 	store, err := storage.CreateStorage(dumpFilename)
@@ -88,7 +88,7 @@ func dump(runner any, dumpFile string, shouldGzip bool, command string) error {
 	return nil
 }
 
-// Ensure a file has proper file extension
+// Ensure a file has proper file extension.
 func ensureFileSuffix(filename string, shouldGzip bool) string {
 	if !shouldGzip {
 		return filename
