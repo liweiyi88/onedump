@@ -1,9 +1,7 @@
 package dump
 
 import (
-	"bytes"
 	"fmt"
-	"log"
 	"net"
 	"os"
 
@@ -47,44 +45,22 @@ func (sshDumper *SshDumper) Dump(dumpFile, command string, shouldGzip bool) erro
 
 	client, err := ssh.Dial("tcp", host, conf)
 	if err != nil {
-		return fmt.Errorf("failed to dial remote server via ssh %w", err)
+		return fmt.Errorf("failed to dial remote server via ssh: %w", err)
 	}
 
 	defer client.Close()
 
 	session, err := client.NewSession()
 	if err != nil {
-		log.Fatalln("failed to start session: ", err)
+		return fmt.Errorf("failed to start ssh session: %w", err)
 	}
 
 	defer session.Close()
 
-	file, gzipWriter, err := dumpWriters(dumpFile, shouldGzip)
+	err = dump(session, dumpFile, shouldGzip, command)
 	if err != nil {
-		return fmt.Errorf("failed to get dump writers %w", err)
+		return err
 	}
-
-	if shouldGzip {
-		session.Stdout = gzipWriter
-	} else {
-		session.Stdout = file
-	}
-
-	var remoteErr bytes.Buffer
-	session.Stderr = &remoteErr
-
-	if err := session.Run(command); err != nil {
-		return fmt.Errorf("remote command error: %s, %v", remoteErr.String(), err)
-	}
-
-	// If it is gzip, we should firstly close the gzipWriter then close the file.
-	if gzipWriter != nil {
-		gzipWriter.Close()
-	}
-
-	file.Close()
-
-	log.Printf("file has been successfully dumped to %s", file.Name())
 
 	return nil
 }
