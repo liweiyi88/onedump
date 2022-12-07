@@ -22,7 +22,7 @@ func TestCreateS3Storage(t *testing.T) {
 		t.Error("expected it should create a s3 storage", err)
 	}
 
-	if store.Bucket != "bucket" || store.Key != "path/to/file.jpg" || store.CacheFile != "file.jpg" {
+	if store.Bucket != "bucket" || store.Key != "path/to/file.jpg" || store.CacheFile != "file.jpg" || store.CacheDir != uploadCacheDir() {
 		t.Errorf("store has unexpected fields: %+v", store)
 	}
 }
