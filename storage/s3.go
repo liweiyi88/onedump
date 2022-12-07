@@ -13,6 +13,8 @@ import (
 
 const s3Prefix = "s3://"
 
+var ErrInvalidS3Path = fmt.Errorf("invalid s3 filename, it should follow the format %s<bucket>/<path|filename>", s3Prefix)
+
 func createS3Storage(filename string) (*S3Storage, bool, error) {
 	name := strings.TrimSpace(filename)
 
@@ -23,6 +25,11 @@ func createS3Storage(filename string) (*S3Storage, bool, error) {
 	path := strings.TrimPrefix(name, s3Prefix)
 
 	pathChunks := strings.Split(path, "/")
+
+	if len(pathChunks) < 2 {
+		return nil, false, ErrInvalidS3Path
+	}
+
 	bucket := pathChunks[0]
 	s3Filename := pathChunks[len(pathChunks)-1]
 	key := strings.Join(pathChunks[1:], "/")

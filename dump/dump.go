@@ -16,9 +16,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type CopyDump func(stdout io.Reader) error
-type PersistDumpFile func() error
-
 // The core function that dump db content to a file (locally or remotely).
 // It checks the filename to determin if we need to upload the file to remote storage or we keep it locally.
 // For uploading file to S3 bucket, the filename shold follow the pattern: s3://<bucket_name>/<key>

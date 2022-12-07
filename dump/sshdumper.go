@@ -2,7 +2,6 @@ package dump
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"os"
 
@@ -46,14 +45,14 @@ func (sshDumper *SshDumper) Dump(dumpFile, command string, shouldGzip bool) erro
 
 	client, err := ssh.Dial("tcp", host, conf)
 	if err != nil {
-		return fmt.Errorf("failed to dial remote server via ssh %w", err)
+		return fmt.Errorf("failed to dial remote server via ssh: %w", err)
 	}
 
 	defer client.Close()
 
 	session, err := client.NewSession()
 	if err != nil {
-		log.Fatalln("failed to start session: ", err)
+		return fmt.Errorf("failed to start ssh session: %w", err)
 	}
 
 	defer session.Close()
