@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
