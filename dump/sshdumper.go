@@ -65,7 +65,7 @@ func (sshDumper *SshDumper) Dump(dumpFile, command string, shouldGzip bool) erro
 	return nil
 }
 
-func GetDumpCommand(dbDriver, dsn, dumpFile string, dumpOptions []string) (string, error) {
+func GetSshDumpCommand(dbDriver, dsn, dumpFile string, dumpOptions []string) (string, error) {
 	switch dbDriver {
 	case "mysql":
 		mysqlDumper, err := NewMysqlDumper(dsn, dumpOptions, true)

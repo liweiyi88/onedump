@@ -88,7 +88,7 @@ func (job Job) Run() *JobResult {
 	result.JobName = job.Name
 
 	if job.viaSsh() {
-		command, err := dump.GetDumpCommand(job.DBDriver, job.DBDsn, job.DumpFile, job.Options)
+		command, err := dump.GetSshDumpCommand(job.DBDriver, job.DBDsn, job.DumpFile, job.Options)
 		if err != nil {
 			result.Error = fmt.Errorf("job %s, failed to get dump command: %v", job.Name, err)
 			return &result

@@ -26,7 +26,7 @@ var sshDumpCmd = &cobra.Command{
 
 		dbDriver := strings.TrimSpace(args[0])
 
-		command, err := dump.GetDumpCommand(dbDriver, databaseDsn, dumpFile, dumpOptions)
+		command, err := dump.GetSshDumpCommand(dbDriver, databaseDsn, dumpFile, dumpOptions)
 		if err != nil {
 			log.Fatal("failed to get database dump command", err)
 		}
