@@ -73,7 +73,16 @@ func (s3 *S3Storage) Upload() error {
 		return fmt.Errorf("failed to open dumped file %w", err)
 	}
 
-	defer uploadFile.Close()
+	defer func() {
+		uploadFile.Close()
+
+		// Remove local cache dir after uploading to s3 bucket.
+		log.Printf("removing cache dir %s ... ", s3.CacheDir)
+		err = os.RemoveAll(s3.CacheDir)
+		if err != nil {
+			log.Println("failed to remove cache dir after uploading to s3", err)
+		}
+	}()
 
 	session := session.Must(session.NewSession())
 	uploader := s3manager.NewUploader(session)
@@ -85,13 +94,6 @@ func (s3 *S3Storage) Upload() error {
 		Key:    aws.String(s3.Key),
 		Body:   uploadFile,
 	})
-
-	// Remove local cache dir after uploading to s3 bucket.
-	log.Printf("removing cache dir %s ... ", s3.CacheDir)
-	err = os.RemoveAll(s3.CacheDir)
-	if err != nil {
-		log.Println("failed to remove cache dir after uploading to s3", err)
-	}
 
 	if uploadErr != nil {
 		return fmt.Errorf("failed to upload file to s3 bucket %w", uploadErr)
