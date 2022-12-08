@@ -76,12 +76,12 @@ func (s3 *S3Storage) Upload() error {
 	defer func() {
 		uploadFile.Close()
 
-		// // Remove local cache dir after uploading to s3 bucket.
-		// log.Printf("removing cache dir %s ... ", s3.CacheDir)
-		// err = os.RemoveAll(s3.CacheDir)
-		// if err != nil {
-		// 	log.Println("failed to remove cache dir after uploading to s3", err)
-		// }
+		// Remove local cache dir after uploading to s3 bucket.
+		log.Printf("removing cache dir %s ... ", s3.CacheDir)
+		err = os.RemoveAll(s3.CacheDir)
+		if err != nil {
+			log.Println("failed to remove cache dir after uploading to s3", err)
+		}
 	}()
 
 	session := session.Must(session.NewSession())
