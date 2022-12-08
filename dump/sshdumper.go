@@ -65,6 +65,26 @@ func (sshDumper *SshDumper) Dump(dumpFile, command string, shouldGzip bool) erro
 	return nil
 }
 
+func GetDumpCommand(dbDriver, dsn, dumpFile string, dumpOptions []string) (string, error) {
+	switch dbDriver {
+	case "mysql":
+		mysqlDumper, err := NewMysqlDumper(dsn, dumpOptions, true)
+		if err != nil {
+			return "", err
+		}
+
+		command, err := mysqlDumper.GetSshDumpCommand()
+
+		if err != nil {
+			return "", err
+		}
+
+		return command, nil
+	default:
+		return "", fmt.Errorf("%s is not a supported database driver", dbDriver)
+	}
+}
+
 func ensureHavePort(addr string) string {
 	if _, _, err := net.SplitHostPort(addr); err != nil {
 		return net.JoinHostPort(addr, "22")

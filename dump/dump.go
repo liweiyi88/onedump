@@ -36,14 +36,6 @@ func dump(runner any, dumpFile string, shouldGzip bool, command string) error {
 		gzipWriter = gzip.NewWriter(file)
 	}
 
-	defer func() {
-		if gzipWriter != nil {
-			gzipWriter.Close()
-		}
-
-		file.Close()
-	}()
-
 	switch runner := runner.(type) {
 	case *exec.Cmd:
 		runner.Stderr = os.Stderr
@@ -72,6 +64,15 @@ func dump(runner any, dumpFile string, shouldGzip bool, command string) error {
 		return errors.New("unsupport runner type")
 	}
 
+	// Do not pu the below code into a defer function.
+	// We need to close them before our cloud storage upload the file.
+	// Otherwise we will get corrupted gz file in s3 and we won't be able to expand it.
+	if gzipWriter != nil {
+		gzipWriter.Close()
+	}
+
+	file.Close()
+
 	cloudStore, ok := store.(storage.CloudStorage)
 
 	if ok {
@@ -79,10 +80,6 @@ func dump(runner any, dumpFile string, shouldGzip bool, command string) error {
 		if err != nil {
 			return fmt.Errorf("failed to upload file to cloud storage: %w", err)
 		}
-
-		log.Printf("successfully upload dump file to %s", cloudStore.CloudFilePath())
-	} else {
-		log.Printf("successfully dump file to %s", file.Name())
 	}
 
 	return nil

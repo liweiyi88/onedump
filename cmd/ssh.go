@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"log"
 	"strings"
 
@@ -15,26 +14,6 @@ var (
 	gzip                                             bool
 )
 
-func getDumpCommand(dbDriver, dsn, dumpFile string, dumpOptions []string) (string, error) {
-	switch dbDriver {
-	case "mysql":
-		mysqlDumper, err := dump.NewMysqlDumper(dsn, dumpOptions, true)
-		if err != nil {
-			return "", err
-		}
-
-		command, err := mysqlDumper.GetSshDumpCommand()
-
-		if err != nil {
-			return "", err
-		}
-
-		return command, nil
-	default:
-		return "", fmt.Errorf("%s is not a supported database driver", dbDriver)
-	}
-}
-
 var sshDumpCmd = &cobra.Command{
 	Use:   "ssh mysql </path/to/dump-file.sql>",
 	Args:  cobra.ExactArgs(2),
@@ -47,7 +26,7 @@ var sshDumpCmd = &cobra.Command{
 
 		dbDriver := strings.TrimSpace(args[0])
 
-		command, err := getDumpCommand(dbDriver, databaseDsn, dumpFile, dumpOptions)
+		command, err := dump.GetDumpCommand(dbDriver, databaseDsn, dumpFile, dumpOptions)
 		if err != nil {
 			log.Fatal("failed to get database dump command", err)
 		}

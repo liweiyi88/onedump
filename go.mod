@@ -7,6 +7,7 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/spf13/cobra v1.5.0
 	golang.org/x/exp v0.0.0-20220921164117-439092de6870
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
