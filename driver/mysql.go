@@ -1,4 +1,4 @@
-package dump
+package driver
 
 import (
 	"fmt"
@@ -13,14 +13,14 @@ import (
 
 const CredentialFilePrefix = "mysqldumpcred-"
 
-type Mysql struct {
+type MysqlDriver struct {
 	MysqlDumpBinaryPath string
 	Options             []string
 	ViaSsh              bool
 	*DBConfig
 }
 
-func NewMysqlDumper(dsn string, options []string, viaSsh bool) (*Mysql, error) {
+func NewMysqlDriver(dsn string, options []string, viaSsh bool) (*MysqlDriver, error) {
 	config, err := mysql.ParseDSN(dsn)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func NewMysqlDumper(dsn string, options []string, viaSsh bool) (*Mysql, error) {
 		commandOptions = options
 	}
 
-	return &Mysql{
+	return &MysqlDriver{
 		MysqlDumpBinaryPath: "mysqldump",
 		Options:             commandOptions,
 		ViaSsh:              viaSsh,
@@ -51,7 +51,7 @@ func NewMysqlDumper(dsn string, options []string, viaSsh bool) (*Mysql, error) {
 }
 
 // Get dump command used by ssh dumper.
-func (mysql *Mysql) GetSshDumpCommand() (string, error) {
+func (mysql *MysqlDriver) GetSshDumpCommand() (string, error) {
 	args, err := mysql.getDumpCommandArgs()
 	if err != nil {
 		return "", err
@@ -60,10 +60,26 @@ func (mysql *Mysql) GetSshDumpCommand() (string, error) {
 	return fmt.Sprintf("mysqldump %s", strings.Join(args, " ")), nil
 }
 
+func (mysql *MysqlDriver) GetDumpCommand() (string, []string, error) {
+	args, err := mysql.getDumpCommandArgs()
+
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get dump command args %w", err)
+	}
+
+	// check and get the binary path.
+	mysqldumpBinaryPath, err := exec.LookPath(mysql.MysqlDumpBinaryPath)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to find mysqldump executable %s %w", mysql.MysqlDumpBinaryPath, err)
+	}
+
+	return mysqldumpBinaryPath, args, nil
+}
+
 // Store the username password in a temp file, and use it with the mysqldump command.
 // It avoids to expoes credentials when you run the mysqldump command as user can view the whole command via ps aux.
 // Inspired by https://github.com/spatie/db-dumper
-func (mysql *Mysql) getDumpCommandArgs() ([]string, error) {
+func (mysql *MysqlDriver) getDumpCommandArgs() ([]string, error) {
 
 	args := []string{}
 
@@ -83,7 +99,7 @@ func (mysql *Mysql) getDumpCommandArgs() ([]string, error) {
 	return args, nil
 }
 
-func (mysql *Mysql) createCredentialFile() (string, error) {
+func (mysql *MysqlDriver) createCredentialFile() (string, error) {
 	var fileName string
 
 	contents := `[client]
@@ -107,27 +123,4 @@ host = %s`
 	}
 
 	return file.Name(), nil
-}
-
-func (mysql *Mysql) Dump(dumpFile string, shouldGzip bool) error {
-	args, err := mysql.getDumpCommandArgs()
-
-	if err != nil {
-		return fmt.Errorf("failed to get dump command args %w", err)
-	}
-
-	// check and get the binary path.
-	mysqldumpBinaryPath, err := exec.LookPath(mysql.MysqlDumpBinaryPath)
-	if err != nil {
-		return fmt.Errorf("failed to find mysqldump executable %s %w", mysql.MysqlDumpBinaryPath, err)
-	}
-
-	cmd := exec.Command(mysqldumpBinaryPath, args...)
-
-	dump(cmd, dumpFile, shouldGzip, "")
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

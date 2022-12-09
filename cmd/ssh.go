@@ -26,17 +26,19 @@ var sshDumpCmd = &cobra.Command{
 
 		dbDriver := strings.TrimSpace(args[0])
 
-		command, err := dump.GetSshDumpCommand(dbDriver, databaseDsn, dumpFile, dumpOptions)
-		if err != nil {
-			log.Fatal("failed to get database dump command", err)
+		job := &dump.Job{
+			Name:           "ssh dump via cli",
+			DBDriver:       dbDriver,
+			DumpFile:       dumpFile,
+			DBDsn:          databaseDsn,
+			Options:        dumpOptions,
+			SshHost:        sshHost,
+			SshUser:        sshUser,
+			PrivateKeyFile: sshPrivateKeyFile,
+			Gzip:           gzip,
 		}
 
-		sshDumper := dump.NewSshDumper(sshHost, sshUser, sshPrivateKeyFile)
-		err = sshDumper.Dump(dumpFile, command, gzip)
-
-		if err != nil {
-			log.Fatal("failed to run dump command via ssh", err)
-		}
+		job.Run().Print()
 	},
 }
 

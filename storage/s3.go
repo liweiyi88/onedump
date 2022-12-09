@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
@@ -45,12 +46,19 @@ func createS3Storage(filename string) (*S3Storage, bool, error) {
 	}, true, nil
 }
 
+type AWSCredential struct {
+	Region          string `yaml:"region"`
+	AccessKeyId     string `yaml:"access-key-id"`
+	SecretAccessKey string `yaml:"secret-access-key"`
+}
+
 type S3Storage struct {
 	Bucket        string
 	Key           string
 	CacheFile     string
 	CacheDir      string
 	CacheFilePath string
+	Credentials   *AWSCredential
 }
 
 func (s3 *S3Storage) CreateDumpFile() (*os.File, error) {
@@ -84,7 +92,18 @@ func (s3 *S3Storage) Upload() error {
 		}
 	}()
 
-	session := session.Must(session.NewSession())
+	var awsConfig aws.Config
+	if s3.Credentials != nil {
+		if s3.Credentials.Region != "" {
+			awsConfig.Region = aws.String(s3.Credentials.Region)
+		}
+
+		if s3.Credentials.AccessKeyId != "" && s3.Credentials.SecretAccessKey != "" {
+			awsConfig.Credentials = credentials.NewStaticCredentials(s3.Credentials.AccessKeyId, s3.Credentials.SecretAccessKey, "")
+		}
+	}
+
+	session := session.Must(session.NewSession(&awsConfig))
 	uploader := s3manager.NewUploader(session)
 
 	log.Printf("uploading file %s to s3...", uploadFile.Name())

@@ -1,12 +1,11 @@
 package cmd
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"sync"
 
-	"github.com/liweiyi88/onedump/dumpjob"
+	"github.com/liweiyi88/onedump/dump"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -25,7 +24,7 @@ var applyCmd = &cobra.Command{
 			log.Fatalf("failed to read job file from %s, error: %v", file, err)
 		}
 
-		var oneDump dumpjob.OneDump
+		var oneDump dump.Dump
 		err = yaml.Unmarshal(content, &oneDump)
 		if err != nil {
 			log.Fatalf("failed to read job content from %s, error: %v", file, err)
@@ -42,23 +41,19 @@ var applyCmd = &cobra.Command{
 			return
 		}
 
-		resultCh := make(chan *dumpjob.JobResult)
+		resultCh := make(chan *dump.JobResult)
 
 		for _, job := range oneDump.Jobs {
-			go func(job dumpjob.Job, resultCh chan *dumpjob.JobResult) {
+			go func(job dump.Job, resultCh chan *dump.JobResult) {
 				resultCh <- job.Run()
 			}(job, resultCh)
 		}
 
 		var wg sync.WaitGroup
 		wg.Add(numberOfJobs)
-		go func(resultCh chan *dumpjob.JobResult) {
+		go func(resultCh chan *dump.JobResult) {
 			for result := range resultCh {
-				if result.Error != nil {
-					fmt.Printf("Job %s failed, it took %s with error: %v \n", result.JobName, result.Elapsed, result.Error)
-				} else {
-					fmt.Printf("Job %s succeeded and it took %v \n", result.JobName, result.Elapsed)
-				}
+				result.Print()
 				wg.Done()
 			}
 		}(resultCh)

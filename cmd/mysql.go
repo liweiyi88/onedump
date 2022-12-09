@@ -24,15 +24,16 @@ var mysqlDumpCmd = &cobra.Command{
 			log.Fatal("you must specify the dump file path. e.g. /download/dump.sql")
 		}
 
-		dumper, err := dump.NewMysqlDumper(dsn, options, false)
-		if err != nil {
-			log.Fatal("failed to crete mysql dumper", err)
+		job := &dump.Job{
+			Name:     "mysql dump via cli",
+			DBDriver: "mysql",
+			DumpFile: dumpFile,
+			DBDsn:    dsn,
+			Options:  options,
+			Gzip:     mysqlGzip,
 		}
 
-		err = dumper.Dump(dumpFile, mysqlGzip)
-		if err != nil {
-			log.Fatal("failed to dump mysql datbase", err)
-		}
+		job.Run().Print()
 	},
 }
 
