@@ -1,4 +1,9 @@
-package dump
+package driver
+
+type Driver interface {
+	GetDumpCommand() (string, []string, error)
+	GetSshDumpCommand() (string, error)
+}
 
 type DBConfig struct {
 	DBName   string
