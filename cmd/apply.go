@@ -17,7 +17,7 @@ var (
 var applyCmd = &cobra.Command{
 	Use:   "apply -f /path/to/jobs.yaml",
 	Args:  cobra.ExactArgs(0),
-	Short: "Dump db content from different sources to diferent destinations",
+	Short: "Dump database content from different sources to diferent destinations",
 	Run: func(cmd *cobra.Command, args []string) {
 		content, err := os.ReadFile(file)
 		if err != nil {
@@ -44,7 +44,7 @@ var applyCmd = &cobra.Command{
 		resultCh := make(chan *dump.JobResult)
 
 		for _, job := range oneDump.Jobs {
-			go func(job dump.Job, resultCh chan *dump.JobResult) {
+			go func(job *dump.Job, resultCh chan *dump.JobResult) {
 				resultCh <- job.Run()
 			}(job, resultCh)
 		}

@@ -17,7 +17,7 @@ import (
 )
 
 type Dump struct {
-	Jobs []Job `yaml:"jobs"`
+	Jobs []*Job `yaml:"jobs"`
 }
 
 func (dump *Dump) Validate() error {
@@ -43,11 +43,11 @@ type JobResult struct {
 	Elapsed time.Duration
 }
 
-func (result JobResult) Print() {
+func (result *JobResult) Print() {
 	if result.Error != nil {
-		fmt.Printf("Job %s failed, it took %s with error: %v \n", result.JobName, result.Elapsed, result.Error)
+		fmt.Printf("Job: %s failed, it took %s with error: %v \n", result.JobName, result.Elapsed, result.Error)
 	} else {
-		fmt.Printf("Job %s succeeded and it took %v \n", result.JobName, result.Elapsed)
+		fmt.Printf("Job: %s succeeded, it took %v \n", result.JobName, result.Elapsed)
 	}
 }
 
@@ -60,8 +60,55 @@ type Job struct {
 	SshHost        string                 `yaml:"sshhost"`
 	SshUser        string                 `yaml:"sshuser"`
 	PrivateKeyFile string                 `yaml:"privatekeyfile"`
-	Options        []string               `yaml:"options"`
+	DumpOptions    []string               `yaml:"options"`
 	S3             *storage.AWSCredential `yaml:"s3"`
+}
+
+type Option func(job *Job)
+
+func WithSshHost(sshHost string) Option {
+	return func(job *Job) {
+		job.SshHost = sshHost
+	}
+}
+
+func WithSshUser(sshUser string) Option {
+	return func(job *Job) {
+		job.SshUser = sshUser
+	}
+}
+
+func WithGzip(gzip bool) Option {
+	return func(job *Job) {
+		job.Gzip = gzip
+	}
+}
+
+func WithDumpOptions(dumpOptions []string) Option {
+	return func(job *Job) {
+		job.DumpOptions = dumpOptions
+	}
+}
+
+func WithPrivateKeyFile(privateKeyFile string) Option {
+	return func(job *Job) {
+		job.PrivateKeyFile = privateKeyFile
+	}
+}
+
+func NewJob(name, driver, dumpFile, dbDsn string, opts ...Option) *Job {
+	job := &Job{
+		Name:     name,
+		DBDriver: driver,
+		DumpFile: dumpFile,
+		DBDsn:    dbDsn,
+	}
+
+	for _, opt := range opts {
+		opt(job)
+	}
+
+	return job
 }
 
 func (job Job) validate() error {
@@ -95,7 +142,7 @@ func (job *Job) viaSsh() bool {
 func (job *Job) getDBDriver() (driver.Driver, error) {
 	switch job.DBDriver {
 	case "mysql":
-		driver, err := driver.NewMysqlDriver(job.DBDsn, job.Options, job.viaSsh())
+		driver, err := driver.NewMysqlDriver(job.DBDsn, job.DumpOptions, job.viaSsh())
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +153,7 @@ func (job *Job) getDBDriver() (driver.Driver, error) {
 	}
 }
 
-func ensureHavePort(addr string) string {
+func ensureHaveSSHPort(addr string) string {
 	if _, _, err := net.SplitHostPort(addr); err != nil {
 		return net.JoinHostPort(addr, "22")
 	}
@@ -119,7 +166,7 @@ func (job *Job) sshDump() error {
 		return fmt.Errorf("job %s, failed to create db driver %v", job.Name, err)
 	}
 
-	host := ensureHavePort(job.SshHost)
+	host := ensureHaveSSHPort(job.SshHost)
 
 	pKey, err := os.ReadFile(job.PrivateKeyFile)
 	if err != nil {
@@ -195,34 +242,20 @@ func (job *Job) Run() *JobResult {
 
 	if job.viaSsh() {
 		err := job.sshDump()
-
 		if err != nil {
 			result.Error = fmt.Errorf("job %s, failed to run ssh dump command: %v", job.Name, err)
-			return &result
 		}
-	} else {
-		err := job.execDump()
 
-		if err != nil {
-			result.Error = fmt.Errorf("job %s, failed to run dump command: %v", job.Name, err)
-			return &result
-		}
+		return &result
+	}
+
+	err := job.execDump()
+	if err != nil {
+		result.Error = fmt.Errorf("job %s, failed to run dump command: %v", job.Name, err)
+
 	}
 
 	return &result
-}
-
-// Ensure a file has proper file extension.
-func ensureFileSuffix(filename string, shouldGzip bool) string {
-	if !shouldGzip {
-		return filename
-	}
-
-	if strings.HasSuffix(filename, ".gz") {
-		return filename
-	}
-
-	return filename + ".gz"
 }
 
 func (job *Job) dumpToFile(runner any, driver driver.Driver, store storage.Storage) error {
@@ -278,6 +311,19 @@ func (job *Job) dumpToFile(runner any, driver driver.Driver, store storage.Stora
 	}
 
 	return nil
+}
+
+// Ensure a file has proper file extension.
+func ensureFileSuffix(filename string, shouldGzip bool) string {
+	if !shouldGzip {
+		return filename
+	}
+
+	if strings.HasSuffix(filename, ".gz") {
+		return filename
+	}
+
+	return filename + ".gz"
 }
 
 // The core function that dump db content to a file (locally or remotely).

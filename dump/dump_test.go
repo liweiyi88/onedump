@@ -37,7 +37,7 @@ func generateTestRSAPrivatePEMFile() (string, error) {
 func TestEnsureSSHHostHavePort(t *testing.T) {
 	sshHost := "127.0.0.1"
 
-	if ensureHavePort(sshHost) != sshHost+":22" {
+	if ensureHaveSSHPort(sshHost) != sshHost+":22" {
 		t.Error("ssh host port is not ensured")
 	}
 }
