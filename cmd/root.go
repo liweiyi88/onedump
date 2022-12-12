@@ -30,8 +30,13 @@ var rootCmd = &cobra.Command{
 			log.Fatal("you must specify the dump file path. e.g. /download/dump.sql")
 		}
 
+		name := "dump via cli"
+		if strings.TrimSpace(jobName) != "" {
+			name = jobName
+		}
+
 		job := dump.NewJob(
-			"dump via cli",
+			name,
 			driver,
 			dumpFile,
 			dbDsn,
