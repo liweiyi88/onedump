@@ -161,11 +161,6 @@ func ensureHaveSSHPort(addr string) string {
 }
 
 func (job *Job) sshDump() error {
-	driver, err := job.getDBDriver()
-	if err != nil {
-		return fmt.Errorf("job %s, failed to create db driver %v", job.Name, err)
-	}
-
 	host := ensureHaveSSHPort(job.SshHost)
 
 	pKey, err := os.ReadFile(job.PrivateKeyFile)
@@ -200,7 +195,7 @@ func (job *Job) sshDump() error {
 
 	defer session.Close()
 
-	err = job.dump(session, driver)
+	err = job.dump(session)
 	if err != nil {
 		return err
 	}
@@ -209,21 +204,9 @@ func (job *Job) sshDump() error {
 }
 
 func (job *Job) execDump() error {
-	driver, err := job.getDBDriver()
+	err := job.dump(nil)
 	if err != nil {
-		return fmt.Errorf("job %s, failed to crete db driver: %v", job.Name, err)
-	}
-
-	command, args, err := driver.GetDumpCommand()
-	if err != nil {
-		return fmt.Errorf("job %s failed to get dump command: %v", job.Name, err)
-	}
-
-	cmd := exec.Command(command, args...)
-
-	job.dump(cmd, driver)
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to exec command dump: %w", err)
 	}
 
 	return nil
@@ -258,7 +241,7 @@ func (job *Job) Run() *JobResult {
 	return &result
 }
 
-func (job *Job) dumpToFile(runner any, driver driver.Driver, store storage.Storage) error {
+func (job *Job) dumpToFile(sshSession *ssh.Session, store storage.Storage) error {
 	file, err := store.CreateDumpFile()
 	if err != nil {
 		return fmt.Errorf("failed to create storage dump file: %w", err)
@@ -277,25 +260,18 @@ func (job *Job) dumpToFile(runner any, driver driver.Driver, store storage.Stora
 		file.Close()
 	}()
 
-	switch runner := runner.(type) {
-	case *exec.Cmd:
-		runner.Stderr = os.Stderr
-		if gzipWriter != nil {
-			runner.Stdout = gzipWriter
-		} else {
-			runner.Stdout = file
-		}
+	driver, err := job.getDBDriver()
+	if err != nil {
+		return fmt.Errorf("failed to get db driver: %w", err)
+	}
 
-		if err := runner.Run(); err != nil {
-			return fmt.Errorf("remote command error: %v", err)
-		}
-	case *ssh.Session:
+	if sshSession != nil {
 		var remoteErr bytes.Buffer
-		runner.Stderr = &remoteErr
+		sshSession.Stderr = &remoteErr
 		if gzipWriter != nil {
-			runner.Stdout = gzipWriter
+			sshSession.Stdout = gzipWriter
 		} else {
-			runner.Stdout = file
+			sshSession.Stdout = file
 		}
 
 		sshCommand, err := driver.GetSshDumpCommand()
@@ -303,11 +279,29 @@ func (job *Job) dumpToFile(runner any, driver driver.Driver, store storage.Stora
 			return fmt.Errorf("failed to get ssh dump command %w", err)
 		}
 
-		if err := runner.Run(sshCommand); err != nil {
+		if err := sshSession.Run(sshCommand); err != nil {
 			return fmt.Errorf("remote command error: %s, %v", remoteErr.String(), err)
 		}
-	default:
-		return errors.New("unsupport runner type")
+
+		return nil
+	}
+
+	command, args, err := driver.GetDumpCommand()
+	if err != nil {
+		return fmt.Errorf("job %s failed to get dump command: %v", job.Name, err)
+	}
+
+	cmd := exec.Command(command, args...)
+
+	cmd.Stderr = os.Stderr
+	if gzipWriter != nil {
+		cmd.Stdout = gzipWriter
+	} else {
+		cmd.Stdout = file
+	}
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("remote command error: %v", err)
 	}
 
 	return nil
@@ -317,13 +311,13 @@ func (job *Job) dumpToFile(runner any, driver driver.Driver, store storage.Stora
 // It checks the filename to determine if we need to upload the file to remote storage or keep it locally.
 // For uploading file to S3 bucket, the filename shold follow the pattern: s3://<bucket_name>/<key> .
 // For any remote upload, we try to cache it in a local dir then upload it to the remote storage.
-func (job *Job) dump(runner any, driver driver.Driver) error {
+func (job *Job) dump(sshSession *ssh.Session) error {
 	store, err := job.createStorage()
 	if err != nil {
 		return fmt.Errorf("failed to create storage: %w", err)
 	}
 
-	err = job.dumpToFile(runner, driver, store)
+	err = job.dumpToFile(sshSession, store)
 	if err != nil {
 		return err
 	}
