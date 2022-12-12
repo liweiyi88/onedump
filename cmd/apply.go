@@ -10,14 +10,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var (
-	file string
-)
+var file string
 
 var applyCmd = &cobra.Command{
 	Use:   "apply -f /path/to/jobs.yaml",
 	Args:  cobra.ExactArgs(0),
-	Short: "Dump database content from different sources to diferent destinations",
+	Short: "Dump database content from different sources to diferent destinations with a yaml config file.",
 	Run: func(cmd *cobra.Command, args []string) {
 		content, err := os.ReadFile(file)
 		if err != nil {
@@ -65,6 +63,6 @@ var applyCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(applyCmd)
-	applyCmd.Flags().StringVarP(&file, "file", "f", "", "jobs yaml file path (required)")
+	applyCmd.Flags().StringVarP(&file, "file", "f", "", "jobs yaml file path.")
 	applyCmd.MarkFlagRequired("file")
 }

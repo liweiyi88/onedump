@@ -52,16 +52,16 @@ func (result *JobResult) Print() {
 }
 
 type Job struct {
-	DumpFile       string                 `yaml:"dumpfile"`
-	Name           string                 `yaml:"name"`
-	DBDriver       string                 `yaml:"dbdriver"`
-	DBDsn          string                 `yaml:"dbdsn"`
-	Gzip           bool                   `yaml:"gzip"`
-	SshHost        string                 `yaml:"sshhost"`
-	SshUser        string                 `yaml:"sshuser"`
-	PrivateKeyFile string                 `yaml:"privatekeyfile"`
-	DumpOptions    []string               `yaml:"options"`
-	S3             *storage.AWSCredential `yaml:"s3"`
+	DumpFile       string                  `yaml:"dumpfile"`
+	Name           string                  `yaml:"name"`
+	DBDriver       string                  `yaml:"dbdriver"`
+	DBDsn          string                  `yaml:"dbdsn"`
+	Gzip           bool                    `yaml:"gzip"`
+	SshHost        string                  `yaml:"sshhost"`
+	SshUser        string                  `yaml:"sshuser"`
+	PrivateKeyFile string                  `yaml:"privatekeyfile"`
+	DumpOptions    []string                `yaml:"options"`
+	S3             *storage.AWSCredentials `yaml:"s3"`
 }
 
 type Option func(job *Job)
@@ -112,19 +112,19 @@ func NewJob(name, driver, dumpFile, dbDsn string, opts ...Option) *Job {
 }
 
 func (job Job) validate() error {
-	if job.Name == "" {
+	if strings.TrimSpace(job.Name) == "" {
 		return errors.New("job name is required")
 	}
 
-	if job.DumpFile == "" {
+	if strings.TrimSpace(job.DumpFile) == "" {
 		return errors.New("dump file path is required")
 	}
 
-	if job.DBDsn == "" {
+	if strings.TrimSpace(job.DBDsn) == "" {
 		return errors.New("databse dsn is required")
 	}
 
-	if job.DBDriver == "" {
+	if strings.TrimSpace(job.DBDriver) == "" {
 		return errors.New("databse driver is required")
 	}
 
@@ -132,7 +132,7 @@ func (job Job) validate() error {
 }
 
 func (job *Job) viaSsh() bool {
-	if job.SshHost != "" && job.SshUser != "" && job.PrivateKeyFile != "" {
+	if strings.TrimSpace(job.SshHost) != "" && strings.TrimSpace(job.SshUser) != "" && strings.TrimSpace(job.PrivateKeyFile) != "" {
 		return true
 	}
 
@@ -313,26 +313,12 @@ func (job *Job) dumpToFile(runner any, driver driver.Driver, store storage.Stora
 	return nil
 }
 
-// Ensure a file has proper file extension.
-func ensureFileSuffix(filename string, shouldGzip bool) string {
-	if !shouldGzip {
-		return filename
-	}
-
-	if strings.HasSuffix(filename, ".gz") {
-		return filename
-	}
-
-	return filename + ".gz"
-}
-
 // The core function that dump db content to a file (locally or remotely).
 // It checks the filename to determine if we need to upload the file to remote storage or keep it locally.
 // For uploading file to S3 bucket, the filename shold follow the pattern: s3://<bucket_name>/<key> .
 // For any remote upload, we try to cache it in a local dir then upload it to the remote storage.
 func (job *Job) dump(runner any, driver driver.Driver) error {
-	dumpFilename := ensureFileSuffix(job.DumpFile, job.Gzip)
-	store, err := storage.CreateStorage(dumpFilename)
+	store, err := job.createStorage()
 	if err != nil {
 		return fmt.Errorf("failed to create storage: %w", err)
 	}
@@ -352,4 +338,35 @@ func (job *Job) dump(runner any, driver driver.Driver) error {
 	}
 
 	return nil
+}
+
+// Factory method to create the storage struct based on filename.
+func (job *Job) createStorage() (storage.Storage, error) {
+	filename := ensureFileSuffix(job.DumpFile, job.Gzip)
+	s3Storage, ok, err := storage.CreateS3Storage(filename, job.S3)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if ok {
+		return s3Storage, nil
+	}
+
+	return &storage.LocalStorage{
+		Filename: filename,
+	}, nil
+}
+
+// Ensure a file has proper file extension.
+func ensureFileSuffix(filename string, shouldGzip bool) string {
+	if !shouldGzip {
+		return filename
+	}
+
+	if strings.HasSuffix(filename, ".gz") {
+		return filename
+	}
+
+	return filename + ".gz"
 }

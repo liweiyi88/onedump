@@ -33,20 +33,3 @@ func uploadCacheDir() string {
 
 	return fmt.Sprintf("%s/%s", dir, uploadDumpCacheDir)
 }
-
-// Factory method to create the storage struct based on filename.
-func CreateStorage(filename string) (Storage, error) {
-	s3Storage, ok, err := createS3Storage(filename)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if ok {
-		return s3Storage, nil
-	}
-
-	return &LocalStorage{
-		Filename: filename,
-	}, nil
-}

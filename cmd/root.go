@@ -20,7 +20,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "<dbdriver> </path/to/dump-file.sql>",
-	Short: "Dump database content from a source to a destination.",
+	Short: "Dump database content from a source to a destination via cli command.",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		driver := strings.TrimSpace(args[0])
