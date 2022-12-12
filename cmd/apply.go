@@ -15,7 +15,7 @@ var file string
 var applyCmd = &cobra.Command{
 	Use:   "apply -f /path/to/jobs.yaml",
 	Args:  cobra.ExactArgs(0),
-	Short: "Dump database content from different sources to diferent destinations with a yaml config file.",
+	Short: "Dump database content from different sources to different destinations with a yaml config file.",
 	Run: func(cmd *cobra.Command, args []string) {
 		content, err := os.ReadFile(file)
 		if err != nil {
