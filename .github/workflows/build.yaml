@@ -1,4 +1,4 @@
-name: Build and test
+name: build
 on:
   push:
     branches: [ main ]
@@ -22,7 +22,7 @@ jobs:
           go test -v -cover ./... -coverprofile coverage.out -coverpkg ./...
       - name: Go Coverage Badge
         uses: tj-actions/coverage-badge-go@v1
-        if: ${{ runner.os == 'Linux' && matrix.go == '1.19' }}
+        if: ${{ runner.os == 'Linux' && matrix.go == '1.19.x' }}
         with:
           green: 80
           filename: coverage.out
