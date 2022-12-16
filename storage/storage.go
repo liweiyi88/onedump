@@ -2,25 +2,28 @@ package storage
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"math/rand"
 	"os"
+	"time"
 )
 
-type Storage interface {
-	CreateDumpFile() (*os.File, error)
-}
-
 type CloudStorage interface {
-	Upload() error
+	Upload(reader io.ReadCloser) error
 	CloudFilePath() string
 }
 
 const uploadDumpCacheDir = ".onedump"
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 // For uploading dump file to remote storage, we need to firstly dump the db content to a dir locally.
-// We firstly try to get current dir, if not successful, then try to get home dir, if still not successful we finally try temp dir
-// We need to be aware of the size limit of a temp dir in different OS.
-func uploadCacheDir() string {
+// We firstly try to get current work dir, if not successful, then try to get home dir and finally try temp dir.
+// Be aware of the size limit of a temp dir in different OS.
+func UploadCacheDir() string {
 	dir, err := os.Getwd()
 	if err != nil {
 		log.Printf("Cannot get the current directory: %v, using $HOME directory!", err)
@@ -32,4 +35,18 @@ func uploadCacheDir() string {
 	}
 
 	return fmt.Sprintf("%s/%s", dir, uploadDumpCacheDir)
+}
+
+func UploadCacheFilePath() string {
+	return fmt.Sprintf("%s/%s", UploadCacheDir(), generateCacheFileName(8)+".sql")
+}
+
+func generateCacheFileName(n int) string {
+	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
 }
