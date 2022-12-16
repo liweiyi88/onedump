@@ -10,7 +10,7 @@ import (
 )
 
 type CloudStorage interface {
-	Upload(reader io.ReadCloser) error
+	Upload(reader io.Reader) error
 	CloudFilePath() string
 }
 

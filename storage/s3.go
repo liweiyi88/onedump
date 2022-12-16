@@ -34,11 +34,7 @@ type S3Storage struct {
 	Credentials *AWSCredentials
 }
 
-func (s3 *S3Storage) Upload(reader io.ReadCloser) error {
-	defer func() {
-		reader.Close()
-	}()
-
+func (s3 *S3Storage) Upload(reader io.Reader) error {
 	var awsConfig aws.Config
 	if s3.Credentials != nil {
 		if s3.Credentials.Region != "" {

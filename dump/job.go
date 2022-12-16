@@ -243,19 +243,12 @@ func (job *Job) Run() *JobResult {
 	return &result
 }
 
-func (job *Job) dumpToFile(sshSession *ssh.Session, file io.WriteCloser) error {
+func (job *Job) writeToFile(sshSession *ssh.Session, file io.Writer) error {
 	var gzipWriter *gzip.Writer
 	if job.Gzip {
 		gzipWriter = gzip.NewWriter(file)
+		defer gzipWriter.Close()
 	}
-
-	defer func() {
-		if gzipWriter != nil {
-			gzipWriter.Close()
-		}
-
-		file.Close()
-	}()
 
 	driver, err := job.getDBDriver()
 	if err != nil {
@@ -304,12 +297,30 @@ func (job *Job) dumpToFile(sshSession *ssh.Session, file io.WriteCloser) error {
 	return nil
 }
 
+func (job *Job) dumpToFile(filename string, sshSession *ssh.Session) (string, error) {
+	dumpFileName := ensureFileSuffix(filename, job.Gzip)
+
+	file, err := os.Create(dumpFileName)
+	if err != nil {
+		return "", fmt.Errorf("failed to create dump file: %w", err)
+	}
+
+	defer file.Close()
+
+	err = job.writeToFile(sshSession, file)
+	if err != nil {
+		return "", fmt.Errorf("failed to write dump content to file: %w,", err)
+	}
+
+	return file.Name(), nil
+}
+
 // The core function that dump db content to a file (locally or remotely).
 // It checks the filename to determine if we need to upload the file to remote storage or keep it locally.
 // For uploading file to S3 bucket, the filename shold follow the pattern: s3://<bucket_name>/<key> .
 // For any remote upload, we try to cache it in a local dir then upload it to the remote storage.
 func (job *Job) dump(sshSession *ssh.Session) error {
-	filename := ensureFileSuffix(job.DumpFile, job.Gzip)
+	filename := job.DumpFile
 
 	store := job.createCloudStorage(filename)
 	if store != nil {
@@ -325,24 +336,22 @@ func (job *Job) dump(sshSession *ssh.Session) error {
 			}
 		}()
 
-		filename = ensureFileSuffix(storage.UploadCacheFilePath(), job.Gzip)
+		filename = storage.UploadCacheFilePath()
 	}
 
-	file, err := os.Create(filename)
-	if err != nil {
-		return fmt.Errorf("failed to create dump file: %w", err)
-	}
+	dumpFile, err := job.dumpToFile(filename, sshSession)
 
-	err = job.dumpToFile(sshSession, file)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to dump db content to file %w: ", err)
 	}
 
 	if store != nil {
-		uploadFile, err := os.Open(file.Name())
+		uploadFile, err := os.Open(dumpFile)
 		if err != nil {
 			return fmt.Errorf("failed to open the cached dump file %w", err)
 		}
+
+		defer uploadFile.Close()
 
 		err = store.Upload(uploadFile)
 		if err != nil {
