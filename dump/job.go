@@ -11,10 +11,13 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/liweiyi88/onedump/driver"
 	"github.com/liweiyi88/onedump/storage"
+	"github.com/liweiyi88/onedump/storage/local"
+	"github.com/liweiyi88/onedump/storage/s3"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -54,16 +57,18 @@ func (result *JobResult) Print() {
 }
 
 type Job struct {
-	DumpFile       string                  `yaml:"dumpfile"`
-	Name           string                  `yaml:"name"`
-	DBDriver       string                  `yaml:"dbdriver"`
-	DBDsn          string                  `yaml:"dbdsn"`
-	Gzip           bool                    `yaml:"gzip"`
-	SshHost        string                  `yaml:"sshhost"`
-	SshUser        string                  `yaml:"sshuser"`
-	PrivateKeyFile string                  `yaml:"privatekeyfile"`
-	DumpOptions    []string                `yaml:"options"`
-	S3             *storage.AWSCredentials `yaml:"s3"`
+	Name           string   `yaml:"name"`
+	DBDriver       string   `yaml:"dbdriver"`
+	DBDsn          string   `yaml:"dbdsn"`
+	Gzip           bool     `yaml:"gzip"`
+	SshHost        string   `yaml:"sshhost"`
+	SshUser        string   `yaml:"sshuser"`
+	PrivateKeyFile string   `yaml:"privatekeyfile"`
+	DumpOptions    []string `yaml:"options"`
+	Storage        struct {
+		Local []*local.Local `yaml:"local"`
+		S3    []*s3.S3       `yaml:"s3"`
+	} `yaml:"storage"`
 }
 
 type Option func(job *Job)
@@ -102,7 +107,6 @@ func NewJob(name, driver, dumpFile, dbDsn string, opts ...Option) *Job {
 	job := &Job{
 		Name:     name,
 		DBDriver: driver,
-		DumpFile: dumpFile,
 		DBDsn:    dbDsn,
 	}
 
@@ -116,10 +120,6 @@ func NewJob(name, driver, dumpFile, dbDsn string, opts ...Option) *Job {
 func (job Job) validate() error {
 	if strings.TrimSpace(job.Name) == "" {
 		return errors.New("job name is required")
-	}
-
-	if strings.TrimSpace(job.DumpFile) == "" {
-		return errors.New("dump file path is required")
 	}
 
 	if strings.TrimSpace(job.DBDsn) == "" {
@@ -297,8 +297,8 @@ func (job *Job) writeToFile(sshSession *ssh.Session, file io.Writer) error {
 	return nil
 }
 
-func (job *Job) dumpToFile(filename string, sshSession *ssh.Session) (string, error) {
-	dumpFileName := ensureFileSuffix(filename, job.Gzip)
+func (job *Job) dumpToCacheFile(sshSession *ssh.Session) (string, error) {
+	dumpFileName := storage.EnsureFileSuffix(storage.UploadCacheFilePath(), job.Gzip)
 
 	file, err := os.Create(dumpFileName)
 	if err != nil {
@@ -320,80 +320,89 @@ func (job *Job) dumpToFile(filename string, sshSession *ssh.Session) (string, er
 // For uploading file to S3 bucket, the filename shold follow the pattern: s3://<bucket_name>/<key> .
 // For any remote upload, we try to cache it in a local dir then upload it to the remote storage.
 func (job *Job) dump(sshSession *ssh.Session) error {
-	filename := job.DumpFile
+	err := os.MkdirAll(storage.UploadCacheDir(), 0750)
+	if err != nil {
+		return fmt.Errorf("failed to create upload cache dir for remote upload. %w", err)
+	}
 
-	store := job.createCloudStorage(filename)
-	if store != nil {
-		err := os.MkdirAll(storage.UploadCacheDir(), 0750)
+	defer func() {
+		err = os.RemoveAll(storage.UploadCacheDir())
 		if err != nil {
-			return fmt.Errorf("failed to create upload cache dir for remote upload. %w", err)
+			log.Println("failed to remove cache dir after dump", err)
 		}
+	}()
 
-		defer func() {
-			err = os.RemoveAll(storage.UploadCacheDir())
-			if err != nil {
-				log.Println("failed to remove cache dir after dump", err)
-			}
+	cacheFile, err := job.dumpToCacheFile(sshSession)
+
+	dumpFile, err := os.Open(cacheFile)
+	if err != nil {
+		return fmt.Errorf("failed to open the cached dump file %w", err)
+	}
+
+	defer dumpFile.Close()
+
+	job.dumpToDestinations(dumpFile)
+
+	return nil
+}
+
+func (job *Job) dumpToDestinations(cacheFile io.Reader) error {
+	storages := job.getStorages()
+	numberOfStorages := len(storages)
+
+	if numberOfStorages > 0 {
+		readers, writer, closer := storageReadWriteCloser(numberOfStorages)
+
+		go func() {
+			io.Copy(writer, cacheFile)
+			closer.Close()
 		}()
 
-		filename = storage.UploadCacheFilePath()
-	}
-
-	dumpFile, err := job.dumpToFile(filename, sshSession)
-
-	if err != nil {
-		return fmt.Errorf("failed to dump db content to file %w: ", err)
-	}
-
-	if store != nil {
-		uploadFile, err := os.Open(dumpFile)
-		if err != nil {
-			return fmt.Errorf("failed to open the cached dump file %w", err)
+		var wg sync.WaitGroup
+		wg.Add(numberOfStorages)
+		for i, s := range storages {
+			storage := s
+			go func(i int) {
+				defer wg.Done()
+				storage.Save(readers[i], job.Gzip)
+			}(i)
 		}
 
-		defer uploadFile.Close()
-
-		err = store.Upload(uploadFile)
-		if err != nil {
-			return fmt.Errorf("failed to upload file to cloud storage: %w", err)
-		}
-
-		log.Printf("successfully upload dump file to %s", store.CloudFilePath())
+		wg.Wait()
 	}
 
 	return nil
 }
 
-// Factory method to create the cloud storage struct based on filename.
-func (job *Job) createCloudStorage(filename string) storage.CloudStorage {
-	name := strings.TrimSpace(filename)
-
-	if strings.HasPrefix(name, storage.S3Prefix) {
-		path := strings.TrimPrefix(name, storage.S3Prefix)
-		pathChunks := strings.Split(path, "/")
-
-		if len(pathChunks) < 2 {
-			panic(storage.ErrInvalidS3Path)
+func (job *Job) getStorages() []storage.Storage {
+	var storages []storage.Storage
+	if len(job.Storage.Local) > 0 {
+		for _, v := range job.Storage.Local {
+			storages = append(storages, v)
 		}
-
-		bucket := pathChunks[0]
-		key := strings.Join(pathChunks[1:], "/")
-
-		return storage.NewS3Storage(bucket, key, job.S3)
 	}
 
-	return nil
+	if len(job.Storage.S3) > 0 {
+		for _, v := range job.Storage.S3 {
+			storages = append(storages, v)
+		}
+	}
+
+	return storages
 }
 
-// Ensure a file has proper file extension.
-func ensureFileSuffix(filename string, shouldGzip bool) string {
-	if !shouldGzip {
-		return filename
+// Pipe readers, writers and closer for fanout the same os.file
+func storageReadWriteCloser(count int) ([]io.Reader, io.Writer, io.Closer) {
+	var prs []io.Reader
+	var pws []io.Writer
+	var pcs []io.Closer
+	for i := 0; i < count; i++ {
+		pr, pw := io.Pipe()
+
+		prs = append(prs, pr)
+		pws = append(pws, pw)
+		pcs = append(pcs, pw)
 	}
 
-	if strings.HasSuffix(filename, ".gz") {
-		return filename
-	}
-
-	return filename + ".gz"
+	return prs, io.MultiWriter(pws...), NewMultiCloser(pcs)
 }

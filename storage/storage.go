@@ -6,12 +6,12 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 )
 
-type CloudStorage interface {
-	Upload(reader io.Reader) error
-	CloudFilePath() string
+type Storage interface {
+	Save(reader io.Reader, gzip bool) error
 }
 
 const uploadDumpCacheDir = ".onedump"
@@ -49,4 +49,17 @@ func generateCacheFileName(n int) string {
 		b[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
 	return string(b)
+}
+
+// Ensure a file has proper file extension.
+func EnsureFileSuffix(filename string, shouldGzip bool) string {
+	if !shouldGzip {
+		return filename
+	}
+
+	if strings.HasSuffix(filename, ".gz") {
+		return filename
+	}
+
+	return filename + ".gz"
 }
