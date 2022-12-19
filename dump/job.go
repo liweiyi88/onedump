@@ -298,7 +298,7 @@ func (job *Job) writeToFile(sshSession *ssh.Session, file io.Writer) error {
 }
 
 func (job *Job) dumpToCacheFile(sshSession *ssh.Session) (string, error) {
-	dumpFileName := storage.EnsureFileSuffix(storage.UploadCacheFilePath(), job.Gzip)
+	dumpFileName := storage.UploadCacheFilePath(job.Gzip)
 
 	file, err := os.Create(dumpFileName)
 	if err != nil {
@@ -341,12 +341,12 @@ func (job *Job) dump(sshSession *ssh.Session) error {
 
 	defer dumpFile.Close()
 
-	job.dumpToDestinations(dumpFile)
+	job.saveToDestinations(dumpFile)
 
 	return nil
 }
 
-func (job *Job) dumpToDestinations(cacheFile io.Reader) error {
+func (job *Job) saveToDestinations(cacheFile io.Reader) error {
 	storages := job.getStorages()
 	numberOfStorages := len(storages)
 

@@ -37,8 +37,9 @@ func UploadCacheDir() string {
 	return fmt.Sprintf("%s/%s", dir, uploadDumpCacheDir)
 }
 
-func UploadCacheFilePath() string {
-	return fmt.Sprintf("%s/%s", UploadCacheDir(), generateCacheFileName(8)+".sql")
+func UploadCacheFilePath(shouldGzip bool) string {
+	filename := fmt.Sprintf("%s/%s", UploadCacheDir(), generateCacheFileName(8)+".sql")
+	return EnsureFileSuffix(filename, shouldGzip)
 }
 
 func generateCacheFileName(n int) string {
