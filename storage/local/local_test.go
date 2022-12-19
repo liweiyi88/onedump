@@ -7,7 +7,7 @@ import (
 )
 
 func TestSave(t *testing.T) {
-	filename := os.TempDir() + "test.sql.gz"
+	filename := os.TempDir() + "/test.sql.gz"
 	local := &Local{Path: filename}
 
 	expected := "hello"
