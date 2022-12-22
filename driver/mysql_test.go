@@ -2,6 +2,8 @@ package driver
 
 import (
 	"os"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"golang.org/x/exp/slices"
@@ -113,37 +115,43 @@ host = 127.0.0.1`
 	t.Log("removed temp credential file", fileName)
 }
 
-// func TestDump(t *testing.T) {
-// 	dsn := "root@tcp(127.0.0.1:3306)/test_local"
-// 	mysql, err := NewMysqlDumper(dsn, nil, false)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+func TestGetSshDumpCommand(t *testing.T) {
+	mysql, err := NewMysqlDriver(testDBDsn, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	dumpfile, err := os.CreateTemp("", "dbdump")
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	defer dumpfile.Close()
+	command, err := mysql.GetSshDumpCommand()
+	if err != nil {
+		t.Errorf("failed to get dump command %v", command)
+	}
 
-// 	err = mysql.Dump(dumpfile.Name(), false)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	if !strings.Contains(command, "mysqldump --defaults-extra-file") || !strings.Contains(command, "--skip-comments --extended-insert dump_test") {
+		t.Errorf("unexpected command: %s", command)
+	}
+}
 
-// 	out, err := os.ReadFile(dumpfile.Name())
-// 	if err != nil {
-// 		t.Fatal("failed to read the test dump file")
-// 	}
+func TestGetDumpCommand(t *testing.T) {
+	mysql, err := NewMysqlDriver(testDBDsn, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	if len(out) == 0 {
-// 		t.Fatal("test dump file is empty")
-// 	}
+	mysqldumpPath, err := exec.LookPath(mysql.MysqlDumpBinaryPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	t.Log("test dump file content size", len(out))
+	path, args, err := mysql.GetDumpCommand()
+	if err != nil {
+		t.Error("failed to get dump command")
+	}
 
-// 	err = os.Remove(dumpfile.Name())
-// 	if err != nil {
-// 		t.Fatal("can not cleanup the test dump file", err)
-// 	}
-// }
+	if mysqldumpPath != path {
+		t.Errorf("expected mysqldump path: %s, actual got: %s", mysqldumpPath, path)
+	}
+
+	if len(args) != 4 {
+		t.Errorf("get unexpected args, expected %d args, but got: %d", 4, len(args))
+	}
+}

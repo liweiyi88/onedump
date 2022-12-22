@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/driver"
 	"github.com/liweiyi88/onedump/storage"
 	"github.com/liweiyi88/onedump/storage/local"
@@ -21,25 +22,27 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+var (
+	ErrMissingJobName  = errors.New("job name is required")
+	ErrMissingDBDsn    = errors.New("databse dsn is required")
+	ErrMissingDBDriver = errors.New("databse driver is required")
+)
+
 type Dump struct {
 	Jobs []*Job `yaml:"jobs"`
 }
 
 func (dump *Dump) Validate() error {
-	errorCollection := make([]string, 0)
+	var errs error
 
 	for _, job := range dump.Jobs {
 		err := job.validate()
 		if err != nil {
-			errorCollection = append(errorCollection, err.Error())
+			errs = multierror.Append(errs, err)
 		}
 	}
 
-	if len(errorCollection) == 0 {
-		return nil
-	}
-
-	return errors.New(strings.Join(errorCollection, ","))
+	return errs
 }
 
 type JobResult struct {
@@ -91,7 +94,7 @@ func WithGzip(gzip bool) Option {
 	}
 }
 
-func WithDumpOptions(dumpOptions []string) Option {
+func WithDumpOptions(dumpOptions ...string) Option {
 	return func(job *Job) {
 		job.DumpOptions = dumpOptions
 	}
@@ -119,15 +122,15 @@ func NewJob(name, driver, dumpFile, dbDsn string, opts ...Option) *Job {
 
 func (job Job) validate() error {
 	if strings.TrimSpace(job.Name) == "" {
-		return errors.New("job name is required")
+		return ErrMissingJobName
 	}
 
 	if strings.TrimSpace(job.DBDsn) == "" {
-		return errors.New("databse dsn is required")
+		return ErrMissingDBDsn
 	}
 
 	if strings.TrimSpace(job.DBDriver) == "" {
-		return errors.New("databse driver is required")
+		return ErrMissingDBDriver
 	}
 
 	return nil
@@ -188,14 +191,18 @@ func (job *Job) sshDump() error {
 		return fmt.Errorf("failed to dial remote server via ssh: %w", err)
 	}
 
-	defer client.Close()
+	defer func() {
+		// Do not need to call session.Close() here as it will only give EOF error.
+		err = client.Close()
+		if err != nil {
+			log.Printf("failed to close ssh client: %v", err)
+		}
+	}()
 
 	session, err := client.NewSession()
 	if err != nil {
 		return fmt.Errorf("failed to start ssh session: %w", err)
 	}
-
-	defer session.Close()
 
 	err = job.dump(session)
 	if err != nil {
@@ -247,7 +254,12 @@ func (job *Job) writeToFile(sshSession *ssh.Session, file io.Writer) error {
 	var gzipWriter *gzip.Writer
 	if job.Gzip {
 		gzipWriter = gzip.NewWriter(file)
-		defer gzipWriter.Close()
+		defer func() {
+			err := gzipWriter.Close()
+			if err != nil {
+				log.Printf("failed to close gzip writer: %v", err)
+			}
+		}()
 	}
 
 	driver, err := job.getDBDriver()
@@ -305,7 +317,12 @@ func (job *Job) dumpToCacheFile(sshSession *ssh.Session) (string, error) {
 		return "", fmt.Errorf("failed to create dump file: %w", err)
 	}
 
-	defer file.Close()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			log.Printf("failed to close dump cache file: %v", err)
+		}
+	}()
 
 	err = job.writeToFile(sshSession, file)
 	if err != nil {
@@ -339,7 +356,12 @@ func (job *Job) dump(sshSession *ssh.Session) error {
 		return fmt.Errorf("failed to open the cached dump file %w", err)
 	}
 
-	defer dumpFile.Close()
+	defer func() {
+		err := dumpFile.Close()
+		if err != nil {
+			log.Printf("failed to close dump cache file for saving to destination: %v", err)
+		}
+	}()
 
 	job.saveToDestinations(dumpFile)
 

@@ -4,50 +4,61 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
+	"sync"
 
 	"github.com/liweiyi88/onedump/dump"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
-var (
-	sshHost, sshUser, sshPrivateKeyFile string
-	dbDsn                               string
-	jobName                             string
-	dumpOptions                         []string
-	gzip                                bool
-)
+var file string
 
 var rootCmd = &cobra.Command{
-	Use:   "<dbdriver> </path/to/dump-file.sql>",
-	Short: "Dump database content from a source to a destination via cli command.",
-	Args:  cobra.ExactArgs(2),
+	Use:   "-f /path/to/jobs.yaml",
+	Short: "Dump database content from different sources to different destinations with a yaml config file.",
+	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		driver := strings.TrimSpace(args[0])
-
-		dumpFile := strings.TrimSpace(args[1])
-		if dumpFile == "" {
-			log.Fatal("you must specify the dump file path. e.g. /download/dump.sql")
+		content, err := os.ReadFile(file)
+		if err != nil {
+			log.Fatalf("failed to read job file from %s, error: %v", file, err)
 		}
 
-		name := "dump via cli"
-		if strings.TrimSpace(jobName) != "" {
-			name = jobName
+		var oneDump dump.Dump
+		err = yaml.Unmarshal(content, &oneDump)
+		if err != nil {
+			log.Fatalf("failed to read job content from %s, error: %v", file, err)
 		}
 
-		job := dump.NewJob(
-			name,
-			driver,
-			dumpFile,
-			dbDsn,
-			dump.WithGzip(gzip),
-			dump.WithSshHost(sshHost),
-			dump.WithSshUser(sshUser),
-			dump.WithPrivateKeyFile(sshPrivateKeyFile),
-			dump.WithDumpOptions(dumpOptions),
-		)
+		err = oneDump.Validate()
+		if err != nil {
+			log.Fatalf("invalid job configuration, error: %v", err)
+		}
 
-		job.Run().Print()
+		numberOfJobs := len(oneDump.Jobs)
+		if numberOfJobs == 0 {
+			log.Printf("no job is defined in the file %s", file)
+			return
+		}
+
+		resultCh := make(chan *dump.JobResult)
+
+		for _, job := range oneDump.Jobs {
+			go func(job *dump.Job, resultCh chan *dump.JobResult) {
+				resultCh <- job.Run()
+			}(job, resultCh)
+		}
+
+		var wg sync.WaitGroup
+		wg.Add(numberOfJobs)
+		go func(resultCh chan *dump.JobResult) {
+			for result := range resultCh {
+				result.Print()
+				wg.Done()
+			}
+		}(resultCh)
+
+		wg.Wait()
+		close(resultCh)
 	},
 }
 
@@ -59,12 +70,6 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&sshHost, "ssh-host", "", "", "SSH host e.g. yourdomain.com (you can omit port as it uses 22 by default) or 56.09.139.09:33. (required) ")
-	rootCmd.Flags().StringVarP(&sshUser, "ssh-user", "", "root", "SSH username")
-	rootCmd.Flags().StringVarP(&sshPrivateKeyFile, "privatekey", "f", "", "private key file path for SSH connection")
-	rootCmd.Flags().StringArrayVarP(&dumpOptions, "dump-options", "", nil, "use options to overwrite or add new dump command options. e.g. for mysql: --dump-options \"--no-create-info\" --dump-options \"--skip-comments\"")
-	rootCmd.Flags().StringVarP(&dbDsn, "db-dsn", "d", "", "the database dsn for connection. e.g. <dbUser>:<dbPass>@tcp(<dbHost>:<dbPort>)/<dbName>")
-	rootCmd.MarkFlagRequired("db-dsn")
-	rootCmd.Flags().BoolVarP(&gzip, "gzip", "g", true, "if need to gzip the file")
-	rootCmd.Flags().StringVarP(&jobName, "job-name", "", "", "The dump job name")
+	rootCmd.Flags().StringVarP(&file, "file", "f", "", "jobs yaml file path.")
+	rootCmd.MarkFlagRequired("file")
 }

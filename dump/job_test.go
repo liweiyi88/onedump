@@ -5,10 +5,14 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 )
+
+var testDBDsn = "root@tcp(127.0.0.1:3306)/dump_test"
 
 func generateTestRSAPrivatePEMFile() (string, error) {
 	tempDir := os.TempDir()
@@ -40,23 +44,113 @@ func TestEnsureSSHHostHavePort(t *testing.T) {
 	if ensureHaveSSHPort(sshHost) != sshHost+":22" {
 		t.Error("ssh host port is not ensured")
 	}
+
+	sshHost = "127.0.0.1:22"
+	actual := ensureHaveSSHPort(sshHost)
+	if actual != sshHost {
+		t.Errorf("expect ssh host: %s, actual: %s", sshHost, actual)
+	}
 }
 
-// func TestNewSshDumper(t *testing.T) {
-// 	sshDumper := NewSshDumper("127.0.0.1", "root", "~/.ssh/test.pem")
+func TestGetDBDriver(t *testing.T) {
+	job := NewJob("job1", "mysql", "test.sql", testDBDsn)
 
-// 	if sshDumper.Host != "127.0.0.1" {
-// 		t.Errorf("ssh host is unexpected, exepct: %s, actual: %s", "127.0.0.1", sshDumper.Host)
-// 	}
+	_, err := job.getDBDriver()
+	if err != nil {
+		t.Errorf("expect get mysql db driver, but get err: %v", err)
+	}
 
-// 	if sshDumper.User != "root" {
-// 		t.Errorf("ssh user is unexpected, exepct: %s, actual: %s", "root", sshDumper.User)
-// 	}
+	job = NewJob("job1", "x", "test.sql", testDBDsn)
+	_, err = job.getDBDriver()
+	if err == nil {
+		t.Error("expect unsupport database driver err, but actual get nil")
+	}
+}
 
-// 	if sshDumper.PrivateKeyFile != "~/.ssh/test.pem" {
-// 		t.Errorf("ssh private key file path is unexpected, exepct: %s, actual: %s", "~/.ssh/test.pem", sshDumper.PrivateKeyFile)
-// 	}
-// }
+func TestDumpValidate(t *testing.T) {
+	jobs := make([]*Job, 0)
+	job1 := NewJob(
+		"job1",
+		"mysql",
+		"test.sql",
+		testDBDsn,
+		WithGzip(true),
+		WithDumpOptions("--skip-comments"),
+		WithPrivateKeyFile("/privatekey.pen"),
+		WithSshUser("root"),
+		WithSshHost("localhost"),
+	)
+	jobs = append(jobs, job1)
+
+	dump := Dump{Jobs: jobs}
+
+	err := dump.Validate()
+	if err != nil {
+		t.Errorf("expected validate dump but got err :%v", err)
+	}
+
+	job2 := NewJob("", "mysql", "dump.sql", "")
+	jobs = append(jobs, job2)
+	dump.Jobs = jobs
+	err = dump.Validate()
+
+	if !errors.Is(err, ErrMissingJobName) {
+		t.Errorf("expected err: %v, actual got: %v", ErrMissingJobName, err)
+	}
+
+	job3 := NewJob("job3", "mysql", "dump.sql", "")
+	jobs = append(jobs, job3)
+	dump.Jobs = jobs
+	err = dump.Validate()
+
+	if !errors.Is(err, ErrMissingDBDsn) {
+		t.Errorf("expected err: %v, actual got: %v", ErrMissingJobName, err)
+	}
+
+	job4 := NewJob("job3", "", "dump.sql", testDBDsn)
+	jobs = append(jobs, job4)
+	dump.Jobs = jobs
+	err = dump.Validate()
+
+	if !errors.Is(err, ErrMissingDBDriver) {
+		t.Errorf("expected err: %v, actual got: %v", ErrMissingJobName, err)
+	}
+}
+
+func TestRun(t *testing.T) {
+	tempDir := os.TempDir()
+	privateKeyFile, err := generateTestRSAPrivatePEMFile()
+	if err != nil {
+		t.Errorf("failed to generate test rsa key pairs %v", err)
+	}
+
+	jobs := make([]*Job, 0, 2)
+	job1 := NewJob("exec-dump", "mysql", tempDir+"/test.sql", testDBDsn)
+	job2 := NewJob("ssh", "mysql", tempDir+"/test.sql", testDBDsn, WithSshHost("127.0.0.1:2022"), WithSshUser("root"), WithPrivateKeyFile(privateKeyFile))
+
+	jobs = append(jobs, job1)
+	jobs = append(jobs, job2)
+	dump := Dump{Jobs: jobs}
+
+	resultCh := make(chan *JobResult)
+	for _, job := range dump.Jobs {
+		go func(job *Job, resultCh chan *JobResult) {
+			resultCh <- job.Run()
+		}(job, resultCh)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func(resultCh chan *JobResult) {
+		for result := range resultCh {
+			result.Print()
+			wg.Done()
+		}
+	}(resultCh)
+
+	wg.Wait()
+	close(resultCh)
+}
 
 // func TestSSHDump(t *testing.T) {
 // 	privateKeyFile, err := generateTestRSAPrivatePEMFile()

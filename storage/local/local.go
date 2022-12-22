@@ -3,6 +3,7 @@ package local
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 
 	"github.com/liweiyi88/onedump/storage"
@@ -19,7 +20,12 @@ func (local *Local) Save(reader io.Reader, gzip bool) error {
 		return fmt.Errorf("failed to create local dump file: %w", err)
 	}
 
-	defer file.Close()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			log.Printf("failed to close local dump file %v", err)
+		}
+	}()
 
 	_, err = io.Copy(file, reader)
 
