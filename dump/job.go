@@ -5,15 +5,27 @@ import (
 	"compress/gzip"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net"
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/driver"
 	"github.com/liweiyi88/onedump/storage"
+	"github.com/liweiyi88/onedump/storage/local"
+	"github.com/liweiyi88/onedump/storage/s3"
 	"golang.org/x/crypto/ssh"
+)
+
+var (
+	ErrMissingJobName  = errors.New("job name is required")
+	ErrMissingDBDsn    = errors.New("databse dsn is required")
+	ErrMissingDBDriver = errors.New("databse driver is required")
 )
 
 type Dump struct {
@@ -21,20 +33,16 @@ type Dump struct {
 }
 
 func (dump *Dump) Validate() error {
-	errorCollection := make([]string, 0)
+	var errs error
 
 	for _, job := range dump.Jobs {
 		err := job.validate()
 		if err != nil {
-			errorCollection = append(errorCollection, err.Error())
+			errs = multierror.Append(errs, err)
 		}
 	}
 
-	if len(errorCollection) == 0 {
-		return nil
-	}
-
-	return errors.New(strings.Join(errorCollection, ","))
+	return errs
 }
 
 type JobResult struct {
@@ -52,16 +60,18 @@ func (result *JobResult) Print() {
 }
 
 type Job struct {
-	DumpFile       string                  `yaml:"dumpfile"`
-	Name           string                  `yaml:"name"`
-	DBDriver       string                  `yaml:"dbdriver"`
-	DBDsn          string                  `yaml:"dbdsn"`
-	Gzip           bool                    `yaml:"gzip"`
-	SshHost        string                  `yaml:"sshhost"`
-	SshUser        string                  `yaml:"sshuser"`
-	PrivateKeyFile string                  `yaml:"privatekeyfile"`
-	DumpOptions    []string                `yaml:"options"`
-	S3             *storage.AWSCredentials `yaml:"s3"`
+	Name           string   `yaml:"name"`
+	DBDriver       string   `yaml:"dbdriver"`
+	DBDsn          string   `yaml:"dbdsn"`
+	Gzip           bool     `yaml:"gzip"`
+	SshHost        string   `yaml:"sshhost"`
+	SshUser        string   `yaml:"sshuser"`
+	PrivateKeyFile string   `yaml:"privatekeyfile"`
+	DumpOptions    []string `yaml:"options"`
+	Storage        struct {
+		Local []*local.Local `yaml:"local"`
+		S3    []*s3.S3       `yaml:"s3"`
+	} `yaml:"storage"`
 }
 
 type Option func(job *Job)
@@ -84,7 +94,7 @@ func WithGzip(gzip bool) Option {
 	}
 }
 
-func WithDumpOptions(dumpOptions []string) Option {
+func WithDumpOptions(dumpOptions ...string) Option {
 	return func(job *Job) {
 		job.DumpOptions = dumpOptions
 	}
@@ -100,7 +110,6 @@ func NewJob(name, driver, dumpFile, dbDsn string, opts ...Option) *Job {
 	job := &Job{
 		Name:     name,
 		DBDriver: driver,
-		DumpFile: dumpFile,
 		DBDsn:    dbDsn,
 	}
 
@@ -113,19 +122,15 @@ func NewJob(name, driver, dumpFile, dbDsn string, opts ...Option) *Job {
 
 func (job Job) validate() error {
 	if strings.TrimSpace(job.Name) == "" {
-		return errors.New("job name is required")
-	}
-
-	if strings.TrimSpace(job.DumpFile) == "" {
-		return errors.New("dump file path is required")
+		return ErrMissingJobName
 	}
 
 	if strings.TrimSpace(job.DBDsn) == "" {
-		return errors.New("databse dsn is required")
+		return ErrMissingDBDsn
 	}
 
 	if strings.TrimSpace(job.DBDriver) == "" {
-		return errors.New("databse driver is required")
+		return ErrMissingDBDriver
 	}
 
 	return nil
@@ -186,14 +191,18 @@ func (job *Job) sshDump() error {
 		return fmt.Errorf("failed to dial remote server via ssh: %w", err)
 	}
 
-	defer client.Close()
+	defer func() {
+		// Do not need to call session.Close() here as it will only give EOF error.
+		err = client.Close()
+		if err != nil {
+			log.Printf("failed to close ssh client: %v", err)
+		}
+	}()
 
 	session, err := client.NewSession()
 	if err != nil {
 		return fmt.Errorf("failed to start ssh session: %w", err)
 	}
-
-	defer session.Close()
 
 	err = job.dump(session)
 	if err != nil {
@@ -241,24 +250,17 @@ func (job *Job) Run() *JobResult {
 	return &result
 }
 
-func (job *Job) dumpToFile(sshSession *ssh.Session, store storage.Storage) error {
-	file, err := store.CreateDumpFile()
-	if err != nil {
-		return fmt.Errorf("failed to create storage dump file: %w", err)
-	}
-
+func (job *Job) writeToFile(sshSession *ssh.Session, file io.Writer) error {
 	var gzipWriter *gzip.Writer
 	if job.Gzip {
 		gzipWriter = gzip.NewWriter(file)
+		defer func() {
+			err := gzipWriter.Close()
+			if err != nil {
+				log.Printf("failed to close gzip writer: %v", err)
+			}
+		}()
 	}
-
-	defer func() {
-		if gzipWriter != nil {
-			gzipWriter.Close()
-		}
-
-		file.Close()
-	}()
 
 	driver, err := job.getDBDriver()
 	if err != nil {
@@ -307,60 +309,122 @@ func (job *Job) dumpToFile(sshSession *ssh.Session, store storage.Storage) error
 	return nil
 }
 
+func (job *Job) dumpToCacheFile(sshSession *ssh.Session) (string, error) {
+	dumpFileName := storage.UploadCacheFilePath(job.Gzip)
+
+	file, err := os.Create(dumpFileName)
+	if err != nil {
+		return "", fmt.Errorf("failed to create dump file: %w", err)
+	}
+
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			log.Printf("failed to close dump cache file: %v", err)
+		}
+	}()
+
+	err = job.writeToFile(sshSession, file)
+	if err != nil {
+		return "", fmt.Errorf("failed to write dump content to file: %w,", err)
+	}
+
+	return file.Name(), nil
+}
+
 // The core function that dump db content to a file (locally or remotely).
 // It checks the filename to determine if we need to upload the file to remote storage or keep it locally.
 // For uploading file to S3 bucket, the filename shold follow the pattern: s3://<bucket_name>/<key> .
 // For any remote upload, we try to cache it in a local dir then upload it to the remote storage.
 func (job *Job) dump(sshSession *ssh.Session) error {
-	store, err := job.createStorage()
+	err := os.MkdirAll(storage.UploadCacheDir(), 0750)
 	if err != nil {
-		return fmt.Errorf("failed to create storage: %w", err)
+		return fmt.Errorf("failed to create upload cache dir for remote upload. %w", err)
 	}
 
-	err = job.dumpToFile(sshSession, store)
-	if err != nil {
-		return err
-	}
-
-	cloudStore, ok := store.(storage.CloudStorage)
-
-	if ok {
-		err := cloudStore.Upload()
+	defer func() {
+		err = os.RemoveAll(storage.UploadCacheDir())
 		if err != nil {
-			return fmt.Errorf("failed to upload file to cloud storage: %w", err)
+			log.Println("failed to remove cache dir after dump", err)
 		}
+	}()
+
+	cacheFile, err := job.dumpToCacheFile(sshSession)
+
+	dumpFile, err := os.Open(cacheFile)
+	if err != nil {
+		return fmt.Errorf("failed to open the cached dump file %w", err)
+	}
+
+	defer func() {
+		err := dumpFile.Close()
+		if err != nil {
+			log.Printf("failed to close dump cache file for saving to destination: %v", err)
+		}
+	}()
+
+	job.saveToDestinations(dumpFile)
+
+	return nil
+}
+
+func (job *Job) saveToDestinations(cacheFile io.Reader) error {
+	storages := job.getStorages()
+	numberOfStorages := len(storages)
+
+	if numberOfStorages > 0 {
+		readers, writer, closer := storageReadWriteCloser(numberOfStorages)
+
+		go func() {
+			io.Copy(writer, cacheFile)
+			closer.Close()
+		}()
+
+		var wg sync.WaitGroup
+		wg.Add(numberOfStorages)
+		for i, s := range storages {
+			storage := s
+			go func(i int) {
+				defer wg.Done()
+				storage.Save(readers[i], job.Gzip)
+			}(i)
+		}
+
+		wg.Wait()
 	}
 
 	return nil
 }
 
-// Factory method to create the storage struct based on filename.
-func (job *Job) createStorage() (storage.Storage, error) {
-	filename := ensureFileSuffix(job.DumpFile, job.Gzip)
-	s3Storage, ok, err := storage.CreateS3Storage(filename, job.S3)
-
-	if err != nil {
-		return nil, err
+func (job *Job) getStorages() []storage.Storage {
+	var storages []storage.Storage
+	if len(job.Storage.Local) > 0 {
+		for _, v := range job.Storage.Local {
+			storages = append(storages, v)
+		}
 	}
 
-	if ok {
-		return s3Storage, nil
+	if len(job.Storage.S3) > 0 {
+		for _, v := range job.Storage.S3 {
+			storages = append(storages, v)
+		}
 	}
 
-	return &storage.LocalStorage{
-		Filename: filename,
-	}, nil
+	return storages
 }
 
-// Ensure a file has proper file extension.
-func ensureFileSuffix(filename string, shouldGzip bool) string {
-	if !shouldGzip {
-		return filename
+// Pipe readers, writers and closer for fanout the same os.file
+func storageReadWriteCloser(count int) ([]io.Reader, io.Writer, io.Closer) {
+	var prs []io.Reader
+	var pws []io.Writer
+	var pcs []io.Closer
+	for i := 0; i < count; i++ {
+		pr, pw := io.Pipe()
+
+		prs = append(prs, pr)
+		pws = append(pws, pw)
+		pcs = append(pcs, pw)
 	}
 
-	if strings.HasSuffix(filename, ".gz") {
-		return filename
-	}
-
-	return filename + ".gz"
+	return prs, io.MultiWriter(pws...), NewMultiCloser(pcs)
 }

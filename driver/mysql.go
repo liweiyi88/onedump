@@ -2,6 +2,7 @@ package driver
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -115,7 +116,12 @@ host = %s`
 		return fileName, fmt.Errorf("failed to create temp folder: %w", err)
 	}
 
-	defer file.Close()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			log.Printf("failed to close temp file for storing mysql credentials: %v", err)
+		}
+	}()
 
 	_, err = file.WriteString(contents)
 	if err != nil {
