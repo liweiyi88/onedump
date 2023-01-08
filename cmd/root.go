@@ -7,18 +7,19 @@ import (
 	"sync"
 
 	"github.com/liweiyi88/onedump/dump"
+	"github.com/liweiyi88/onedump/storage/s3"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
-var file string
+var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey string
 
 var rootCmd = &cobra.Command{
 	Use:   "-f /path/to/jobs.yaml",
 	Short: "Dump database content from different sources to different destinations with a yaml config file.",
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		content, err := os.ReadFile(file)
+		content, err := getConfigContent()
 		if err != nil {
 			log.Fatalf("failed to read job file from %s, error: %v", file, err)
 		}
@@ -69,7 +70,21 @@ func Execute() {
 	}
 }
 
+func getConfigContent() ([]byte, error) {
+	if s3Bucket != "" {
+		s3Client := s3.NewS3(s3Bucket, file, s3Region, s3AccessKeyId, s3SecretAccessKey)
+		return s3Client.GetContent()
+	} else {
+		return os.ReadFile(file)
+	}
+}
+
 func init() {
 	rootCmd.Flags().StringVarP(&file, "file", "f", "", "jobs yaml file path.")
 	rootCmd.MarkFlagRequired("file")
+
+	rootCmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "read config file from a s3 bucket (optional)")
+	rootCmd.Flags().StringVarP(&s3Region, "s3-region", "r", "", "the s3 region to read the config file (optional)")
+	rootCmd.Flags().StringVarP(&s3AccessKeyId, "s3-key", "k", "", "s3 access key id to overwrite the default one. (optional)")
+	rootCmd.Flags().StringVarP(&s3SecretAccessKey, "s3-secret", "s", "", "s3 secret access key to overwrite the default one. (optional)")
 }
