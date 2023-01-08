@@ -14,9 +14,7 @@ import (
 
 var testDBDsn = "root@tcp(127.0.0.1:3306)/dump_test"
 
-func generateTestRSAPrivatePEMFile() (string, error) {
-	tempDir := os.TempDir()
-
+func generateRSAPrivateKey() (string, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return "", fmt.Errorf("could not genereate rsa key pair %w", err)
@@ -29,13 +27,7 @@ func generateTestRSAPrivatePEMFile() (string, error) {
 		},
 	)
 
-	privatePEMFile := fmt.Sprintf("%s/%s", tempDir, "sshdump_test.rsa")
-
-	if err := os.WriteFile(privatePEMFile, keyPEM, 0700); err != nil {
-		return "", fmt.Errorf("failed to write private key to file %w", err)
-	}
-
-	return privatePEMFile, nil
+	return string(keyPEM), nil
 }
 
 func TestEnsureSSHHostHavePort(t *testing.T) {
@@ -76,7 +68,7 @@ func TestDumpValidate(t *testing.T) {
 		testDBDsn,
 		WithGzip(true),
 		WithDumpOptions("--skip-comments"),
-		WithPrivateKeyFile("/privatekey.pen"),
+		WithSshKey("====privatekey===="),
 		WithSshUser("root"),
 		WithSshHost("localhost"),
 	)
@@ -119,14 +111,14 @@ func TestDumpValidate(t *testing.T) {
 
 func TestRun(t *testing.T) {
 	tempDir := os.TempDir()
-	privateKeyFile, err := generateTestRSAPrivatePEMFile()
+	privateKey, err := generateRSAPrivateKey()
 	if err != nil {
-		t.Errorf("failed to generate test rsa key pairs %v", err)
+		t.Errorf("failed to generate test private key %v", err)
 	}
 
 	jobs := make([]*Job, 0, 2)
 	job1 := NewJob("exec-dump", "mysql", tempDir+"/test.sql", testDBDsn)
-	job2 := NewJob("ssh", "mysql", tempDir+"/test.sql", testDBDsn, WithSshHost("127.0.0.1:2022"), WithSshUser("root"), WithPrivateKeyFile(privateKeyFile))
+	job2 := NewJob("ssh", "mysql", tempDir+"/test.sql", testDBDsn, WithSshHost("127.0.0.1:2022"), WithSshUser("root"), WithSshKey(privateKey))
 
 	jobs = append(jobs, job1)
 	jobs = append(jobs, job2)

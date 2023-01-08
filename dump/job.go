@@ -60,15 +60,15 @@ func (result *JobResult) Print() {
 }
 
 type Job struct {
-	Name           string   `yaml:"name"`
-	DBDriver       string   `yaml:"dbdriver"`
-	DBDsn          string   `yaml:"dbdsn"`
-	Gzip           bool     `yaml:"gzip"`
-	SshHost        string   `yaml:"sshhost"`
-	SshUser        string   `yaml:"sshuser"`
-	PrivateKeyFile string   `yaml:"privatekeyfile"`
-	DumpOptions    []string `yaml:"options"`
-	Storage        struct {
+	Name        string   `yaml:"name"`
+	DBDriver    string   `yaml:"dbdriver"`
+	DBDsn       string   `yaml:"dbdsn"`
+	Gzip        bool     `yaml:"gzip"`
+	SshHost     string   `yaml:"sshhost"`
+	SshUser     string   `yaml:"sshuser"`
+	SshKey      string   `yaml:"sshkey"`
+	DumpOptions []string `yaml:"options"`
+	Storage     struct {
 		Local []*local.Local `yaml:"local"`
 		S3    []*s3.S3       `yaml:"s3"`
 	} `yaml:"storage"`
@@ -100,9 +100,9 @@ func WithDumpOptions(dumpOptions ...string) Option {
 	}
 }
 
-func WithPrivateKeyFile(privateKeyFile string) Option {
+func WithSshKey(sshKey string) Option {
 	return func(job *Job) {
-		job.PrivateKeyFile = privateKeyFile
+		job.SshKey = sshKey
 	}
 }
 
@@ -137,7 +137,7 @@ func (job Job) validate() error {
 }
 
 func (job *Job) viaSsh() bool {
-	if strings.TrimSpace(job.SshHost) != "" && strings.TrimSpace(job.SshUser) != "" && strings.TrimSpace(job.PrivateKeyFile) != "" {
+	if strings.TrimSpace(job.SshHost) != "" && strings.TrimSpace(job.SshUser) != "" && strings.TrimSpace(job.SshKey) != "" {
 		return true
 	}
 
@@ -168,12 +168,7 @@ func ensureHaveSSHPort(addr string) string {
 func (job *Job) sshDump() error {
 	host := ensureHaveSSHPort(job.SshHost)
 
-	pKey, err := os.ReadFile(job.PrivateKeyFile)
-	if err != nil {
-		return fmt.Errorf("can not read the private key file :%w", err)
-	}
-
-	signer, err := ssh.ParsePrivateKey(pKey)
+	signer, err := ssh.ParsePrivateKey([]byte(job.SshKey))
 	if err != nil {
 		return fmt.Errorf("failed to create singer :%w", err)
 	}
