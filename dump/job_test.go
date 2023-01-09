@@ -119,7 +119,7 @@ func TestRun(t *testing.T) {
 	}
 
 	jobs := make([]*Job, 0, 1)
-	sshJob := NewJob("ssh", "mysql", testDBDsn, WithSshHost("127.0.0.1:2022"), WithSshUser("root"), WithSshKey(privateKey))
+	sshJob := NewJob("ssh", "mysql", testDBDsn, WithSshHost("127.0.0.1:20001"), WithSshUser("root"), WithSshKey(privateKey))
 	localStorages := make([]*local.Local, 0)
 
 	dir, _ := os.Getwd()
@@ -164,7 +164,7 @@ func TestRun(t *testing.T) {
 
 	// Once a ServerConfig has been configured, connections can be
 	// accepted.
-	listener, err := net.Listen("tcp", "0.0.0.0:2022")
+	listener, err := net.Listen("tcp", "0.0.0.0:20001")
 	if err != nil {
 		t.Fatal("failed to listen for connection: ", err)
 	}
