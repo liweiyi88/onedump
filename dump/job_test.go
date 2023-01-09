@@ -12,7 +12,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/liweiyi88/onedump/storage"
 	"github.com/liweiyi88/onedump/storage/local"
 	"golang.org/x/crypto/ssh"
 )
@@ -50,14 +49,14 @@ func TestEnsureSSHHostHavePort(t *testing.T) {
 }
 
 func TestGetDBDriver(t *testing.T) {
-	job := NewJob("job1", "mysql", "test.sql", testDBDsn)
+	job := NewJob("job1", "mysql", testDBDsn)
 
 	_, err := job.getDBDriver()
 	if err != nil {
 		t.Errorf("expect get mysql db driver, but get err: %v", err)
 	}
 
-	job = NewJob("job1", "x", "test.sql", testDBDsn)
+	job = NewJob("job1", "x", testDBDsn)
 	_, err = job.getDBDriver()
 	if err == nil {
 		t.Error("expect unsupport database driver err, but actual get nil")
@@ -69,7 +68,6 @@ func TestDumpValidate(t *testing.T) {
 	job1 := NewJob(
 		"job1",
 		"mysql",
-		"test.sql",
 		testDBDsn,
 		WithGzip(true),
 		WithDumpOptions("--skip-comments"),
@@ -86,7 +84,7 @@ func TestDumpValidate(t *testing.T) {
 		t.Errorf("expected validate dump but got err :%v", err)
 	}
 
-	job2 := NewJob("", "mysql", "dump.sql", "")
+	job2 := NewJob("", "mysql", "")
 	jobs = append(jobs, job2)
 	dump.Jobs = jobs
 	err = dump.Validate()
@@ -95,7 +93,7 @@ func TestDumpValidate(t *testing.T) {
 		t.Errorf("expected err: %v, actual got: %v", ErrMissingJobName, err)
 	}
 
-	job3 := NewJob("job3", "mysql", "dump.sql", "")
+	job3 := NewJob("job3", "mysql", "")
 	jobs = append(jobs, job3)
 	dump.Jobs = jobs
 	err = dump.Validate()
@@ -104,7 +102,7 @@ func TestDumpValidate(t *testing.T) {
 		t.Errorf("expected err: %v, actual got: %v", ErrMissingJobName, err)
 	}
 
-	job4 := NewJob("job3", "", "dump.sql", testDBDsn)
+	job4 := NewJob("job3", "", testDBDsn)
 	jobs = append(jobs, job4)
 	dump.Jobs = jobs
 	err = dump.Validate()
@@ -115,14 +113,13 @@ func TestDumpValidate(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
-	destinationDir := storage.UploadCacheDir()
 	privateKey, err := generateRSAPrivateKey()
 	if err != nil {
 		t.Errorf("failed to generate test private key %v", err)
 	}
 
 	jobs := make([]*Job, 0, 1)
-	sshJob := NewJob("ssh", "mysql", destinationDir+"/test.sql", testDBDsn, WithSshHost("127.0.0.1:2022"), WithSshUser("root"), WithSshKey(privateKey))
+	sshJob := NewJob("ssh", "mysql", testDBDsn, WithSshHost("127.0.0.1:2022"), WithSshUser("root"), WithSshKey(privateKey))
 	localStorages := make([]*local.Local, 0)
 	dumpFile := os.TempDir() + "hello.sql"
 	localStorages = append(localStorages, &local.Local{Path: dumpFile})

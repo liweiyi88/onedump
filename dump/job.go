@@ -107,7 +107,7 @@ func WithSshKey(sshKey string) Option {
 	}
 }
 
-func NewJob(name, driver, dumpFile, dbDsn string, opts ...Option) *Job {
+func NewJob(name, driver, dbDsn string, opts ...Option) *Job {
 	job := &Job{
 		Name:     name,
 		DBDriver: driver,
