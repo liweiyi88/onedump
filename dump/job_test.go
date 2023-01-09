@@ -12,6 +12,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/liweiyi88/onedump/storage"
 	"github.com/liweiyi88/onedump/storage/local"
 	"golang.org/x/crypto/ssh"
 )
@@ -121,7 +122,7 @@ func TestRun(t *testing.T) {
 	jobs := make([]*Job, 0, 1)
 	sshJob := NewJob("ssh", "mysql", testDBDsn, WithSshHost("127.0.0.1:2022"), WithSshUser("root"), WithSshKey(privateKey))
 	localStorages := make([]*local.Local, 0)
-	dumpFile := os.TempDir() + "hello.sql"
+	dumpFile := storage.UploadCacheDir() + "hello.sql"
 	localStorages = append(localStorages, &local.Local{Path: dumpFile})
 
 	sshJob.Storage.Local = localStorages
