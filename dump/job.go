@@ -64,6 +64,7 @@ type Job struct {
 	DBDriver    string   `yaml:"dbdriver"`
 	DBDsn       string   `yaml:"dbdsn"`
 	Gzip        bool     `yaml:"gzip"`
+	Unique      bool     `yaml:"unique"`
 	SshHost     string   `yaml:"sshhost"`
 	SshUser     string   `yaml:"sshuser"`
 	SshKey      string   `yaml:"sshkey"`
@@ -200,6 +201,7 @@ func (job *Job) sshDump() error {
 	}
 
 	err = job.dump(session)
+
 	if err != nil {
 		return err
 	}
@@ -368,6 +370,7 @@ func (job *Job) saveToDestinations(cacheFile io.Reader) error {
 	numberOfStorages := len(storages)
 
 	if numberOfStorages > 0 {
+		// Use pipe to pass content from the cache file to different writer.
 		readers, writer, closer := storageReadWriteCloser(numberOfStorages)
 
 		go func() {
@@ -381,7 +384,7 @@ func (job *Job) saveToDestinations(cacheFile io.Reader) error {
 			storage := s
 			go func(i int) {
 				defer wg.Done()
-				storage.Save(readers[i], job.Gzip)
+				storage.Save(readers[i], job.Gzip, job.Unique)
 			}(i)
 		}
 

@@ -46,10 +46,26 @@ func TestSave(t *testing.T) {
 	}
 
 	reader := strings.NewReader("hello s3")
-	err := s3.Save(reader, true)
+	err := s3.Save(reader, true, true)
 
 	actual := errors.Unwrap(err).Error()
 	if !strings.HasPrefix(actual, "InvalidAccessKeyId") {
 		t.Errorf("expeceted invalid access key id but actual got: %s", actual)
+	}
+}
+
+func TestGetContent(t *testing.T) {
+	s3 := &S3{
+		Bucket:          "onedump",
+		Key:             "/backup/dump.sql",
+		Region:          "ap-southeast-2",
+		AccessKeyId:     "none",
+		SecretAccessKey: "none",
+	}
+
+	_, err := s3.GetContent()
+
+	if !strings.HasPrefix(err.Error(), "InvalidAccessKeyId") {
+		t.Errorf("expeceted invalid access key id but actual got: %s", err.Error())
 	}
 }

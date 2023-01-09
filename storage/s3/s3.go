@@ -30,7 +30,7 @@ type S3 struct {
 	SecretAccessKey string `yaml:"secret-access-key"`
 }
 
-func (s3 *S3) Save(reader io.Reader, gzip bool) error {
+func (s3 *S3) Save(reader io.Reader, gzip bool, unique bool) error {
 	var awsConfig aws.Config
 
 	if s3.Region != "" {
@@ -44,7 +44,7 @@ func (s3 *S3) Save(reader io.Reader, gzip bool) error {
 	session := session.Must(session.NewSession(&awsConfig))
 	uploader := s3manager.NewUploader(session)
 
-	key := storage.EnsureFileSuffix(s3.Key, gzip)
+	key := storage.EnsureFileName(s3.Key, gzip, unique)
 
 	// TODO: implement re-try
 	_, uploadErr := uploader.Upload(&s3manager.UploadInput{

@@ -13,8 +13,8 @@ type Local struct {
 	Path string `yaml:"path"`
 }
 
-func (local *Local) Save(reader io.Reader, gzip bool) error {
-	path := storage.EnsureFileSuffix(local.Path, gzip)
+func (local *Local) Save(reader io.Reader, gzip bool, unique bool) error {
+	path := storage.EnsureFileName(local.Path, gzip, unique)
 	file, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("failed to create local dump file: %w", err)
