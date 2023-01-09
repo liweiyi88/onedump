@@ -12,6 +12,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/liweiyi88/onedump/storage"
 	"github.com/liweiyi88/onedump/storage/local"
 	"golang.org/x/crypto/ssh"
 )
@@ -114,14 +115,14 @@ func TestDumpValidate(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
-	tempDir := os.TempDir()
+	destinationDir := storage.UploadCacheDir()
 	privateKey, err := generateRSAPrivateKey()
 	if err != nil {
 		t.Errorf("failed to generate test private key %v", err)
 	}
 
 	jobs := make([]*Job, 0, 1)
-	sshJob := NewJob("ssh", "mysql", tempDir+"/test.sql", testDBDsn, WithSshHost("127.0.0.1:2022"), WithSshUser("root"), WithSshKey(privateKey))
+	sshJob := NewJob("ssh", "mysql", destinationDir+"/test.sql", testDBDsn, WithSshHost("127.0.0.1:2022"), WithSshUser("root"), WithSshKey(privateKey))
 	localStorages := make([]*local.Local, 0)
 	dumpFile := os.TempDir() + "hello.sql"
 	localStorages = append(localStorages, &local.Local{Path: dumpFile})
