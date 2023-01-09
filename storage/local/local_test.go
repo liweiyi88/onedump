@@ -13,7 +13,7 @@ func TestSave(t *testing.T) {
 	expected := "hello"
 	reader := strings.NewReader(expected)
 
-	err := local.Save(reader, true)
+	err := local.Save(reader, true, false)
 	if err != nil {
 		t.Errorf("failed to save file: %v", err)
 	}

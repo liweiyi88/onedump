@@ -11,7 +11,7 @@ import (
 )
 
 type Storage interface {
-	Save(reader io.Reader, gzip bool) error
+	Save(reader io.Reader, gzip bool, unique bool) error
 }
 
 const uploadDumpCacheDir = ".onedump"
@@ -39,7 +39,7 @@ func UploadCacheDir() string {
 
 func UploadCacheFilePath(shouldGzip bool) string {
 	filename := fmt.Sprintf("%s/%s", UploadCacheDir(), generateCacheFileName(8)+".sql")
-	return EnsureFileSuffix(filename, shouldGzip)
+	return ensureFileSuffix(filename, shouldGzip)
 }
 
 func generateCacheFileName(n int) string {
@@ -53,7 +53,7 @@ func generateCacheFileName(n int) string {
 }
 
 // Ensure a file has proper file extension.
-func EnsureFileSuffix(filename string, shouldGzip bool) string {
+func ensureFileSuffix(filename string, shouldGzip bool) string {
 	if !shouldGzip {
 		return filename
 	}
@@ -63,4 +63,27 @@ func EnsureFileSuffix(filename string, shouldGzip bool) string {
 	}
 
 	return filename + ".gz"
+}
+
+func ensureUniqueness(path string, unique bool) string {
+	if !unique {
+		return path
+	}
+
+	s := strings.Split(path, "/")
+
+	filename := s[len(s)-1]
+
+	now := time.Now().UTC().Format("20060102150405")
+
+	uniqueFile := now + "-" + filename
+
+	s[len(s)-1] = uniqueFile
+
+	return strings.Join(s, "/")
+}
+
+func EnsureFileName(path string, shouldGzip, unique bool) string {
+	p := ensureFileSuffix(path, shouldGzip)
+	return ensureUniqueness(p, unique)
 }
