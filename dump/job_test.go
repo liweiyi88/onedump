@@ -134,14 +134,6 @@ func TestRun(t *testing.T) {
 	jobs = append(jobs, sshJob)
 	dump := Dump{Jobs: jobs}
 
-	finishCh := make(chan struct{})
-	go func(dump Dump) {
-		for _, job := range dump.Jobs {
-			job.Run()
-			finishCh <- struct{}{}
-		}
-	}(dump)
-
 	// An SSH server is represented by a ServerConfig, which holds
 	// certificate details and handles authentication of ServerConns.
 	config := &ssh.ServerConfig{
@@ -168,6 +160,14 @@ func TestRun(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to listen for connection: ", err)
 	}
+
+	finishCh := make(chan struct{})
+	go func(dump Dump) {
+		for _, job := range dump.Jobs {
+			job.Run()
+			finishCh <- struct{}{}
+		}
+	}(dump)
 
 	nConn, err := listener.Accept()
 	if err != nil {
@@ -207,7 +207,6 @@ func TestRun(t *testing.T) {
 	channel.SendRequest("exit-status", false, []byte{0, 0, 0, 0})
 
 	channel.Close()
-	conn.Close()
 
 	<-finishCh
 	if _, err := os.Stat(dumpFile); errors.Is(err, os.ErrNotExist) {
