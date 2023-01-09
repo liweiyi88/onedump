@@ -12,7 +12,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/liweiyi88/onedump/storage"
 	"github.com/liweiyi88/onedump/storage/local"
 	"golang.org/x/crypto/ssh"
 )
@@ -122,7 +121,12 @@ func TestRun(t *testing.T) {
 	jobs := make([]*Job, 0, 1)
 	sshJob := NewJob("ssh", "mysql", testDBDsn, WithSshHost("127.0.0.1:2022"), WithSshUser("root"), WithSshKey(privateKey))
 	localStorages := make([]*local.Local, 0)
-	dumpFile := storage.UploadCacheDir() + "/hello.sql"
+
+	dir, _ := os.Getwd()
+	dumpFile := dir + "/hello.sql"
+
+	t.Logf("dump file: %s", dumpFile)
+
 	localStorages = append(localStorages, &local.Local{Path: dumpFile})
 
 	sshJob.Storage.Local = localStorages
@@ -130,9 +134,11 @@ func TestRun(t *testing.T) {
 	jobs = append(jobs, sshJob)
 	dump := Dump{Jobs: jobs}
 
+	finishCh := make(chan struct{})
 	go func(dump Dump) {
 		for _, job := range dump.Jobs {
 			job.Run()
+			finishCh <- struct{}{}
 		}
 	}(dump)
 
@@ -203,6 +209,7 @@ func TestRun(t *testing.T) {
 	channel.Close()
 	conn.Close()
 
+	<-finishCh
 	if _, err := os.Stat(dumpFile); errors.Is(err, os.ErrNotExist) {
 		t.Error("dump file does not existed")
 	} else {
@@ -212,109 +219,3 @@ func TestRun(t *testing.T) {
 		}
 	}
 }
-
-// func TestSSHDump(t *testing.T) {
-// 	privateKeyFile, err := generateTestRSAPrivatePEMFile()
-
-// 	dumpFile := os.TempDir() + "sshdump.sql.gz"
-
-// 	if err != nil {
-// 		t.Error("failed to generate test rsa key pairs", err)
-// 	}
-
-// 	defer func() {
-// 		err := os.Remove(privateKeyFile)
-// 		if err != nil {
-// 			t.Logf("failed to remove private key file %s", privateKeyFile)
-// 		}
-// 	}()
-
-// 	go func() {
-// 		sshDumper := NewSshDumper("127.0.0.1:2022", "root", privateKeyFile)
-// 		err := sshDumper.Dump(dumpFile, "echo hello", true)
-// 		if err != nil {
-// 			t.Error("failed to dump file", err)
-// 		}
-// 	}()
-
-// 	// An SSH server is represented by a ServerConfig, which holds
-// 	// certificate details and handles authentication of ServerConns.
-// 	config := &ssh.ServerConfig{
-// 		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
-// 			return &ssh.Permissions{
-// 				// Record the public key used for authentication.
-// 				Extensions: map[string]string{
-// 					"pubkey-fp": ssh.FingerprintSHA256(pubKey),
-// 				},
-// 			}, nil
-// 		},
-// 	}
-
-// 	privateBytes, err := os.ReadFile(privateKeyFile)
-// 	if err != nil {
-// 		t.Fatal("Failed to load private key: ", err)
-// 	}
-
-// 	private, err := ssh.ParsePrivateKey(privateBytes)
-// 	if err != nil {
-// 		t.Fatal("Failed to parse private key: ", err)
-// 	}
-
-// 	config.AddHostKey(private)
-
-// 	// Once a ServerConfig has been configured, connections can be
-// 	// accepted.
-// 	listener, err := net.Listen("tcp", "0.0.0.0:2022")
-// 	if err != nil {
-// 		t.Fatal("failed to listen for connection: ", err)
-// 	}
-
-// 	nConn, err := listener.Accept()
-// 	if err != nil {
-// 		t.Fatal("failed to accept incoming connection: ", err)
-// 	}
-
-// 	// Before use, a handshake must be performed on the incoming
-// 	// net.Conn.
-// 	conn, chans, reqs, err := ssh.NewServerConn(nConn, config)
-// 	if err != nil {
-// 		log.Fatal("failed to handshake: ", err)
-// 	}
-// 	t.Logf("logged in with key %s", conn.Permissions.Extensions["pubkey-fp"])
-
-// 	// The incoming Request channel must be serviced.
-// 	go ssh.DiscardRequests(reqs)
-
-// 	// Service the incoming Channel channel.
-// 	newChannel := <-chans
-// 	// Channels have a type, depending on the application level
-// 	// protocol intended. In the case of a shell, the type is
-// 	// "session" and ServerShell may be used to present a simple
-// 	// terminal interface.
-// 	if newChannel.ChannelType() != "session" {
-// 		newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
-// 		t.Fatal("unknown channel type")
-// 	}
-
-// 	channel, requests, err := newChannel.Accept()
-
-// 	if err != nil {
-// 		log.Fatalf("Could not accept channel: %v", err)
-// 	}
-
-// 	req := <-requests
-// 	req.Reply(true, []byte("ssh dump"))
-// 	channel.SendRequest("exit-status", false, []byte{0, 0, 0, 0})
-
-// 	channel.Close()
-// 	conn.Close()
-
-// 	if _, err := os.Stat(dumpFile); errors.Is(err, os.ErrNotExist) {
-// 		t.Error("dump file does not existed")
-// 	} else {
-// 		err := os.Remove(dumpFile)
-// 		if err != nil {
-// 			t.Fatal("failed to remove the test dump file", err)
-// 		}
-// 	}
-// }
