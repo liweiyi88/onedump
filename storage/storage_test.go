@@ -9,19 +9,19 @@ import (
 )
 
 func TestUploadCacheDir(t *testing.T) {
-	actual := UploadCacheDir()
+	actual := cachedFileDir()
 
 	workDir, _ := os.Getwd()
-	expected := fmt.Sprintf("%s/%s", workDir, uploadDumpCacheDir)
+	prefix := fmt.Sprintf("%s/%s", workDir, cacheDirPrefix)
 
-	if actual != expected {
-		t.Errorf("get unexpected cache dir: expected: %s, actual: %s", expected, actual)
+	if !strings.HasPrefix(actual, prefix) {
+		t.Errorf("get unexpected cache dir: expected: %s, actual: %s", prefix, actual)
 	}
 }
 
 func TestGenerateCacheFileName(t *testing.T) {
 	expectedLen := 5
-	name := generateCacheFileName(expectedLen)
+	name := generateRandomName(expectedLen)
 
 	actualLen := len([]rune(name))
 	if actualLen != expectedLen {
@@ -30,19 +30,22 @@ func TestGenerateCacheFileName(t *testing.T) {
 }
 
 func TestUploadCacheFilePath(t *testing.T) {
-	gziped := UploadCacheFilePath(true)
+
+	cacheDir := cachedFileDir()
+
+	gziped := cachedFilePath(cacheDir, true)
 
 	if !strings.HasSuffix(gziped, ".gz") {
 		t.Errorf("expected filename has .gz extention, actual file name: %s", gziped)
 	}
 
-	sql := UploadCacheFilePath(false)
+	sql := cachedFilePath(cacheDir, false)
 
 	if !strings.HasSuffix(sql, ".sql") {
 		t.Errorf("expected filename has .sql extention, actual file name: %s", sql)
 	}
 
-	sql2 := UploadCacheFilePath(false)
+	sql2 := cachedFilePath(cacheDir, false)
 
 	if sql == sql2 {
 		t.Errorf("expected unique file name but got same filename %s", sql)

@@ -51,12 +51,12 @@ type JobResult struct {
 	Elapsed time.Duration
 }
 
-func (result *JobResult) Print() {
+func (result *JobResult) String() string {
 	if result.Error != nil {
-		fmt.Printf("Job: %s failed, it took %s with error: %v \n", result.JobName, result.Elapsed, result.Error)
-	} else {
-		fmt.Printf("Job: %s succeeded, it took %v \n", result.JobName, result.Elapsed)
+		return fmt.Sprintf("Job: %s failed, it took %s with error: %v", result.JobName, result.Elapsed, result.Error)
 	}
+
+	return fmt.Sprintf("Job: %s succeeded, it took %v", result.JobName, result.Elapsed)
 }
 
 type Job struct {
@@ -247,7 +247,7 @@ func (job *Job) Run() *JobResult {
 	return &result
 }
 
-func (job *Job) writeToFile(sshSession *ssh.Session, file io.Writer) error {
+func (job *Job) dumpToFile(sshSession *ssh.Session, file io.Writer) error {
 	var gzipWriter *gzip.Writer
 	if job.Gzip {
 		gzipWriter = gzip.NewWriter(file)
@@ -306,27 +306,32 @@ func (job *Job) writeToFile(sshSession *ssh.Session, file io.Writer) error {
 	return nil
 }
 
-func (job *Job) dumpToCacheFile(sshSession *ssh.Session) (string, error) {
-	dumpFileName := storage.UploadCacheFilePath(job.Gzip)
-
-	file, err := os.Create(dumpFileName)
+func (job *Job) dumpToCacheFile(sshSession *ssh.Session) (string, func(), error) {
+	file, cacheDir, err := storage.CreateCacheFile(job.Gzip)
 	if err != nil {
-		return "", fmt.Errorf("failed to create dump file: %w", err)
+		return "", nil, err
 	}
 
 	defer func() {
 		err := file.Close()
 		if err != nil {
-			log.Printf("failed to close dump cache file: %v", err)
+			log.Printf("failed to close cache file: %v", err)
 		}
 	}()
 
-	err = job.writeToFile(sshSession, file)
+	err = job.dumpToFile(sshSession, file)
 	if err != nil {
-		return "", fmt.Errorf("failed to write dump content to file: %w,", err)
+		return "", nil, fmt.Errorf("failed to dump content to file: %w,", err)
 	}
 
-	return file.Name(), nil
+	// We have to close the file in defer funciton and returns filename instead of returing the fd (os.File)
+	// Otherwise if we pass the fd and the storage func reuse the same fd, the file will be corrupted.
+	return file.Name(), func() {
+		err = os.RemoveAll(cacheDir)
+		if err != nil {
+			log.Println("failed to remove cache dir after dump", err)
+		}
+	}, nil
 }
 
 // The core function that dump db content to a file (locally or remotely).
@@ -334,47 +339,49 @@ func (job *Job) dumpToCacheFile(sshSession *ssh.Session) (string, error) {
 // For uploading file to S3 bucket, the filename shold follow the pattern: s3://<bucket_name>/<key> .
 // For any remote upload, we try to cache it in a local dir then upload it to the remote storage.
 func (job *Job) dump(sshSession *ssh.Session) error {
-	err := os.MkdirAll(storage.UploadCacheDir(), 0750)
+	cacheFileName, cleanup, err := job.dumpToCacheFile(sshSession)
+	defer cleanup()
+
 	if err != nil {
-		return fmt.Errorf("failed to create upload cache dir for remote upload. %w", err)
+		return fmt.Errorf("failed to dump content to cache file: %v", err)
+	}
+
+	cacheFile, err := os.Open(cacheFileName)
+	if err != nil {
+		return fmt.Errorf("failed to open cache file: %v", err)
 	}
 
 	defer func() {
-		err = os.RemoveAll(storage.UploadCacheDir())
+		err := cacheFile.Close()
 		if err != nil {
-			log.Println("failed to remove cache dir after dump", err)
+			log.Printf("failed to close cache file: %v", err)
 		}
 	}()
 
-	cacheFile, err := job.dumpToCacheFile(sshSession)
-
-	dumpFile, err := os.Open(cacheFile)
+	err = job.store(cacheFile)
 	if err != nil {
-		return fmt.Errorf("failed to open the cached dump file %w", err)
+		return fmt.Errorf("failed to store dump file %v", err)
 	}
-
-	defer func() {
-		err := dumpFile.Close()
-		if err != nil {
-			log.Printf("failed to close dump cache file for saving to destination: %v", err)
-		}
-	}()
-
-	job.saveToDestinations(dumpFile)
 
 	return nil
 }
 
-func (job *Job) saveToDestinations(cacheFile io.Reader) error {
+// Save dump file to desired storages.
+func (job *Job) store(cacheFile io.Reader) error {
 	storages := job.getStorages()
 	numberOfStorages := len(storages)
+
+	var err error
 
 	if numberOfStorages > 0 {
 		// Use pipe to pass content from the cache file to different writer.
 		readers, writer, closer := storageReadWriteCloser(numberOfStorages)
 
 		go func() {
-			io.Copy(writer, cacheFile)
+			_, e := io.Copy(writer, cacheFile)
+			if e != nil {
+				multierror.Append(err, e)
+			}
 			closer.Close()
 		}()
 
@@ -384,14 +391,17 @@ func (job *Job) saveToDestinations(cacheFile io.Reader) error {
 			storage := s
 			go func(i int) {
 				defer wg.Done()
-				storage.Save(readers[i], job.Gzip, job.Unique)
+				e := storage.Save(readers[i], job.Gzip, job.Unique)
+				if e != nil {
+					err = multierror.Append(err, e)
+				}
 			}(i)
 		}
 
 		wg.Wait()
 	}
 
-	return nil
+	return err
 }
 
 func (job *Job) getStorages() []storage.Storage {

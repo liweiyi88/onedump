@@ -53,7 +53,7 @@ var rootCmd = &cobra.Command{
 		wg.Add(numberOfJobs)
 		go func(resultCh chan *dump.JobResult) {
 			for result := range resultCh {
-				result.Print()
+				fmt.Println(result.String())
 				wg.Done()
 			}
 		}(resultCh)
