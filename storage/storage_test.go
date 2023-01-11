@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"testing"
@@ -94,8 +95,16 @@ func TestEnsureUniqueness(t *testing.T) {
 }
 
 func TestCreateCacheFile(t *testing.T) {
-	file, _, _ := CreateCacheFile(true)
-	defer file.Close()
+	file, cacheDir, _ := CreateCacheFile(true)
+
+	defer func() {
+		file.Close()
+
+		err := os.RemoveAll(cacheDir)
+		if err != nil {
+			log.Println("failed to remove cache dir after dump", err)
+		}
+	}()
 
 	fileInfo, err := os.Stat(file.Name())
 	if err != nil {
