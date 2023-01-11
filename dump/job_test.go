@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/liweiyi88/onedump/storage/local"
 	"golang.org/x/crypto/ssh"
@@ -216,5 +217,28 @@ func TestRun(t *testing.T) {
 		if err != nil {
 			t.Fatal("failed to remove the test dump file", err)
 		}
+	}
+}
+
+func TestResultString(t *testing.T) {
+	r1 := &JobResult{
+		JobName: "job1",
+		Elapsed: time.Second,
+	}
+
+	s := r1.String()
+	if s != "Job: job1 succeeded, it took 1s" {
+		t.Errorf("unexpected string result: %s", s)
+	}
+
+	r2 := &JobResult{
+		Error:   errors.New("test err"),
+		JobName: "job1",
+		Elapsed: time.Second,
+	}
+
+	s = r2.String()
+	if s != "Job: job1 failed, it took 1s with error: test err" {
+		t.Errorf("unexpected string result: %s", s)
 	}
 }
