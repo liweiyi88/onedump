@@ -9,7 +9,7 @@ import (
 )
 
 func TestUploadCacheDir(t *testing.T) {
-	actual := cachedFileDir()
+	actual := cacheFileDir()
 
 	workDir, _ := os.Getwd()
 	prefix := fmt.Sprintf("%s/%s", workDir, cacheDirPrefix)
@@ -31,21 +31,21 @@ func TestGenerateCacheFileName(t *testing.T) {
 
 func TestUploadCacheFilePath(t *testing.T) {
 
-	cacheDir := cachedFileDir()
+	cacheDir := cacheFileDir()
 
-	gziped := cachedFilePath(cacheDir, true)
+	gziped := cacheFilePath(cacheDir, true)
 
 	if !strings.HasSuffix(gziped, ".gz") {
 		t.Errorf("expected filename has .gz extention, actual file name: %s", gziped)
 	}
 
-	sql := cachedFilePath(cacheDir, false)
+	sql := cacheFilePath(cacheDir, false)
 
 	if !strings.HasSuffix(sql, ".sql") {
 		t.Errorf("expected filename has .sql extention, actual file name: %s", sql)
 	}
 
-	sql2 := cachedFilePath(cacheDir, false)
+	sql2 := cacheFilePath(cacheDir, false)
 
 	if sql == sql2 {
 		t.Errorf("expected unique file name but got same filename %s", sql)
@@ -90,6 +90,20 @@ func TestEnsureUniqueness(t *testing.T) {
 
 	if !strings.HasSuffix(filename, "-hello.sql") {
 		t.Errorf("got incorrect filename suffix: %s", filename)
+	}
+}
+
+func TestCreateCacheFile(t *testing.T) {
+	file, _, _ := CreateCacheFile(true)
+	defer file.Close()
+
+	fileInfo, err := os.Stat(file.Name())
+	if err != nil {
+		t.Errorf("failed to get cache file info %v", err)
+	}
+
+	if fileInfo.Size() != 0 {
+		t.Errorf("expected empty file but get size: %d", fileInfo.Size())
 	}
 }
 

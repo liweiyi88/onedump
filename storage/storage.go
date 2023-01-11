@@ -63,7 +63,7 @@ func ensureUniqueness(path string, unique bool) string {
 // For uploading dump file to remote storage, we need to firstly dump the db content to a dir locally.
 // We firstly try to get current work dir, if not successful, then try to get home dir and finally try temp dir.
 // Be aware of the size limit of a temp dir in different OS.
-func cachedFileDir() string {
+func cacheFileDir() string {
 	dir, err := os.Getwd()
 	if err != nil {
 		log.Printf("Cannot get the current directory: %v, using $HOME directory!", err)
@@ -78,20 +78,20 @@ func cachedFileDir() string {
 	return fmt.Sprintf("%s/%s%s", dir, cacheDirPrefix, generateRandomName(4))
 }
 
-func cachedFilePath(cacheDir string, shouldGzip bool) string {
+func cacheFilePath(cacheDir string, shouldGzip bool) string {
 	filename := fmt.Sprintf("%s/%s", cacheDir, generateRandomName(8)+".sql")
 	return ensureFileSuffix(filename, shouldGzip)
 }
 
 func CreateCacheFile(gzip bool) (*os.File, string, error) {
-	cacheDir := cachedFileDir()
+	cacheDir := cacheFileDir()
 	err := os.MkdirAll(cacheDir, 0750)
 
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create cache dir for remote upload. %w", err)
 	}
 
-	dumpFileName := cachedFilePath(cacheDir, gzip)
+	dumpFileName := cacheFilePath(cacheDir, gzip)
 
 	file, err := os.Create(dumpFileName)
 	if err != nil {
