@@ -27,7 +27,8 @@ func TestRootCmd(t *testing.T) {
 		t.Errorf("expected: %v, but actual get: %s", expect, actual)
 	}
 
-	filename := os.TempDir() + "test.sql"
+	workDir, _ := os.Getwd()
+	filename := workDir + "/test.sql"
 	file, err := os.Create(filename)
 	if err != nil {
 		t.Fatal(err)
