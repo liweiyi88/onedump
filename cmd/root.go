@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"sync"
 
@@ -18,27 +17,26 @@ var rootCmd = &cobra.Command{
 	Use:   "-f /path/to/jobs.yaml",
 	Short: "Dump database content from different sources to different destinations with a yaml config file.",
 	Args:  cobra.ExactArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		content, err := getConfigContent()
 		if err != nil {
-			log.Fatalf("failed to read job file from %s, error: %v", file, err)
+			return fmt.Errorf("failed to read job file from %s, error: %v", file, err)
 		}
 
 		var oneDump dump.Dump
 		err = yaml.Unmarshal(content, &oneDump)
 		if err != nil {
-			log.Fatalf("failed to read job content from %s, error: %v", file, err)
+			return fmt.Errorf("failed to read job content from %s, error: %v", file, err)
 		}
 
 		err = oneDump.Validate()
 		if err != nil {
-			log.Fatalf("invalid job configuration, error: %v", err)
+			return fmt.Errorf("invalid job configuration, error: %v", err)
 		}
 
 		numberOfJobs := len(oneDump.Jobs)
 		if numberOfJobs == 0 {
-			log.Printf("no job is defined in the file %s", file)
-			return
+			return fmt.Errorf("no job is defined in the file %s", file)
 		}
 
 		resultCh := make(chan *dump.JobResult)
@@ -60,12 +58,13 @@ var rootCmd = &cobra.Command{
 
 		wg.Wait()
 		close(resultCh)
+
+		return nil
 	},
 }
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
@@ -84,7 +83,7 @@ func init() {
 	rootCmd.MarkFlagRequired("file")
 
 	rootCmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "read config file from a s3 bucket (optional)")
-	rootCmd.Flags().StringVarP(&s3Region, "s3-region", "r", "", "the s3 region to read the config file (optional)")
-	rootCmd.Flags().StringVarP(&s3AccessKeyId, "s3-key", "k", "", "s3 access key id to overwrite the default one. (optional)")
-	rootCmd.Flags().StringVarP(&s3SecretAccessKey, "s3-secret", "s", "", "s3 secret access key to overwrite the default one. (optional)")
+	rootCmd.Flags().StringVarP(&s3Region, "aws-region", "r", "", "the aws region to read the config file (optional)")
+	rootCmd.Flags().StringVarP(&s3AccessKeyId, "aws-key", "k", "", "aws access key id to overwrite the default one. (optional)")
+	rootCmd.Flags().StringVarP(&s3SecretAccessKey, "aws-secret", "s", "", "aws secret access key to overwrite the default one. (optional)")
 }

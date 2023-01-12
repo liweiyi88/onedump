@@ -2,7 +2,6 @@ package dump
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -11,8 +10,6 @@ import (
 type mockCloser struct{}
 
 func (m mockCloser) Close() error {
-	fmt.Print("close")
-
 	return nil
 }
 

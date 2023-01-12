@@ -300,7 +300,7 @@ func (job *Job) dumpToFile(sshSession *ssh.Session, file io.Writer) error {
 	}
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("remote command error: %v", err)
+		return fmt.Errorf("command error: %v", err)
 	}
 
 	return nil
@@ -308,8 +308,16 @@ func (job *Job) dumpToFile(sshSession *ssh.Session, file io.Writer) error {
 
 func (job *Job) dumpToCacheFile(sshSession *ssh.Session) (string, func(), error) {
 	file, cacheDir, err := storage.CreateCacheFile(job.Gzip)
+
+	cleanup := func() {
+		err := os.RemoveAll(cacheDir)
+		if err != nil {
+			log.Println("failed to remove cache dir after dump", err)
+		}
+	}
+
 	if err != nil {
-		return "", nil, err
+		return "", cleanup, err
 	}
 
 	defer func() {
@@ -321,17 +329,12 @@ func (job *Job) dumpToCacheFile(sshSession *ssh.Session) (string, func(), error)
 
 	err = job.dumpToFile(sshSession, file)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to dump content to file: %w,", err)
+		return "", cleanup, fmt.Errorf("failed to dump content to file: %w,", err)
 	}
 
 	// We have to close the file in defer funciton and returns filename instead of returing the fd (os.File)
 	// Otherwise if we pass the fd and the storage func reuse the same fd, the file will be corrupted.
-	return file.Name(), func() {
-		err = os.RemoveAll(cacheDir)
-		if err != nil {
-			log.Println("failed to remove cache dir after dump", err)
-		}
-	}, nil
+	return file.Name(), cleanup, nil
 }
 
 // The core function that dump db content to a file (locally or remotely).
