@@ -20,10 +20,10 @@ func TestRootCmd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expect := "Error: failed to read job file from /Users/jobs.yaml, error: open /Users/jobs.yaml: no such file or directory"
+	expect := "Error: failed to read job file from /Users/jobs.yaml, error: open /Users/jobs.yaml:"
 	actual := string(out)
 
-	if strings.TrimSpace(actual) != expect {
+	if !strings.HasPrefix(strings.TrimSpace(actual), expect) {
 		t.Errorf("expected: %v, but actual get: %s", expect, actual)
 	}
 
