@@ -332,7 +332,7 @@ func (job *Job) dumpToCacheFile(sshSession *ssh.Session) (string, func(), error)
 		return "", cleanup, fmt.Errorf("failed to dump content to file: %w,", err)
 	}
 
-	// We have to close the file in defer funciton and returns filename instead of returing the fd (os.File)
+	// We have to close the file in defer function and returns filename instead of returing the fd (os.File)
 	// Otherwise if we pass the fd and the storage func reuse the same fd, the file will be corrupted.
 	return file.Name(), cleanup, nil
 }

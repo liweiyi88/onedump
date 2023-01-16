@@ -37,13 +37,13 @@ func TestUploadCacheFilePath(t *testing.T) {
 	gziped := cacheFilePath(cacheDir, true)
 
 	if !strings.HasSuffix(gziped, ".gz") {
-		t.Errorf("expected filename has .gz extention, actual file name: %s", gziped)
+		t.Errorf("expected filename has .gz extension, actual file name: %s", gziped)
 	}
 
 	sql := cacheFilePath(cacheDir, false)
 
 	if !strings.HasSuffix(sql, ".sql") {
-		t.Errorf("expected filename has .sql extention, actual file name: %s", sql)
+		t.Errorf("expected filename has .sql extension, actual file name: %s", sql)
 	}
 
 	sql2 := cacheFilePath(cacheDir, false)
@@ -56,7 +56,7 @@ func TestUploadCacheFilePath(t *testing.T) {
 func TestEnsureFileSuffix(t *testing.T) {
 	gzip := ensureFileSuffix("test.sql", true)
 	if gzip != "test.sql.gz" {
-		t.Errorf("expected filename has .gz extention, actual file name: %s", gzip)
+		t.Errorf("expected filename has .gz extension, actual file name: %s", gzip)
 	}
 
 	sql := ensureFileSuffix("test.sql.gz", true)
