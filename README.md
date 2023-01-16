@@ -10,6 +10,14 @@
 
 Onedump is a database dump and backup tool. It can dump different databases to different storages with a simple configuration file or cli commands.
 
+## Installation
+
+`onedump` binaries are available in https://github.com/liweiyi88/onedump/releases. Use the latest version of the binary that is suitable to your OS.
+After downloading the binary and move it to the folder that is in your $PATH env var (e.g. `/usr/local/bin/onedump`), give it executable permissions (e.g. `sudo chmod +x /usr/local/bin/onedump`). Then you should be able to run it:
+```
+$ onedump
+```
+
 ## Usage
 
 `onedump` has just one simple command to load a config file and dump DB contents based on the configuration. It has two ways of loading the config file.

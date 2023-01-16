@@ -8,6 +8,9 @@ jobs:
   dbdsn: user:password@tcp(127.0.0.1:3306)/dbname # dbdsn is required. you should replace, <user>, <password>, <127.0.0.1:3306> and <dbname> with your real db credentials
   gzip: true #optional, false by default
   unique: true #optional, false by default
+  options: #optional, database dump options, depends on different drivers.
+  - --skip-comments
+  - --no-create-info
   sshhost: mywebsite.com #required when connect via ssh
   sshuser: root #required when connect via ssh
   sshkey: |-
