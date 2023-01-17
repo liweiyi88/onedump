@@ -1,0 +1,4 @@
+dockers:
+  - image_templates:
+    - julianli/onedump
+    - "julianli/onedump:{{ .Tag }}"
