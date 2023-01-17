@@ -1,11 +1,9 @@
-FROM golang:alpine AS cert
-
-RUN apk update
-RUN apk add -U --no-cache ca-certificates && update-ca-certificates
+FROM alpine:latest as certs
+RUN apk --update add ca-certificates
 
 FROM scratch
 
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY onedump /usr/local/bin/
-COPY --from=cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 ENTRYPOINT ["/usr/local/bin/onedump"]
