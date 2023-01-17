@@ -1,12 +1,11 @@
 FROM golang:latest AS cert
 
-# trust your own certification
-COPY server-cert.pem /usr/local/share/ca-certificates/server-cert.crt
-RUN update-ca-certificates
+RUN apk update
+RUN apk add -U --no-cache ca-certificates && update-ca-certificates
 
 FROM scratch
 
 COPY onedump /usr/local/bin/
-COPY --from=cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 ENTRYPOINT ["/usr/local/bin/onedump"]
