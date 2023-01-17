@@ -1,4 +1,4 @@
-FROM golang:latest AS cert
+FROM golang:alpine AS cert
 
 RUN apk update
 RUN apk add -U --no-cache ca-certificates && update-ca-certificates
