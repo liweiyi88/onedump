@@ -1,3 +1,5 @@
 FROM scratch
-COPY onedump /
-ENTRYPOINT ["/onedump"]
+
+COPY onedump /usr/local/bin/onedump
+
+ENTRYPOINT ["onedump"]
