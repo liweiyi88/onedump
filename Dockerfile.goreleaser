@@ -1,5 +1,5 @@
 FROM scratch
 
-COPY onedump /usr/local/bin/onedump
+COPY onedump /usr/local/bin/
 
-ENTRYPOINT ["onedump"]
+ENTRYPOINT ["/usr/local/bin/onedump"]

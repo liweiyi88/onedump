@@ -1,17 +1,28 @@
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
 dockers:
-  - goos: linux
+  - use: buildx
     goarch: arm64
     dockerfile: Dockerfile.goreleaser
     build_flag_templates:
-      - --platform=linux/arm64/v8
+      - "--pull"
+      - "--platform=linux/arm64"
     image_templates:
-      - julianli/onedump
-      - "julianli/onedump:{{ .Tag }}-arm64v8"
-  - goos: linux
+      - "julianli/onedump:{{ .Tag }}-arm64"
+  - use: buildx
     goarch: amd64
     dockerfile: Dockerfile.goreleaser
     build_flag_templates:
-      - --platform=linux/amd64
+      - "--pull"
+      - "--platform=linux/amd64"
     image_templates:
       - julianli/onedump
       - "julianli/onedump:{{ .Tag }}-amd64"
