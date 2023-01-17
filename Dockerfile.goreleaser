@@ -1,3 +1,7 @@
-FROM scratch
+FROM alpine
+
+WORKDIR /
+
 COPY onedump /
+
 ENTRYPOINT ["/onedump"]
