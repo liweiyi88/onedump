@@ -1,9 +1,17 @@
 dockers:
   - goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile.goreleaser
+    build_flag_templates:
+      - --platform=linux/arm64/v8
+    image_templates:
+      - julianli/onedump
+      - "julianli/onedump:{{ .Tag }}-arm64v8"
+  - goos: linux
     goarch: amd64
     dockerfile: Dockerfile.goreleaser
     build_flag_templates:
-      - "--platform=linux/amd64"
+      - --platform=linux/amd64
     image_templates:
       - julianli/onedump
-      - "julianli/onedump:{{ .Tag }}"
+      - "julianli/onedump:{{ .Tag }}-amd64"
