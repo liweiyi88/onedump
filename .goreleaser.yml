@@ -1,4 +1,7 @@
 dockers:
-  - image_templates:
+  - goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile.goreleaser
+    image_templates:
     - julianli/onedump
     - "julianli/onedump:{{ .Tag }}"
