@@ -38,6 +38,71 @@ $ onedump -f backup-config/config.yaml --s3-bucket mybucket
 ```
 In this case, you pass the `--s3-bucket` option to indicate onedump that it should load the configuration content from an s3 bucket called `mybucket`. Then  onedump will treat the file path option `backup-config/config.yaml` as the s3 key. By default, onedump will use any AWS environment variables to interact with S3, if environment variables are not found, then it will use the credentials of the default profile in your `~/.aws/credentials` file. To overwirte these default credentials, you can pass `--aws-key`, `--aws-region` and `--aws-secret` options.
 
+### Configuration
+Example 1: Dump a local DB to 2 local directories
+```
+jobs:
+- name: local-dump
+  dbdriver: mysql
+  dbdsn: root@tcp(127.0.0.1)/test_local
+  gzip: true
+  storage:
+    local:
+      - path: /Users/jack/Desktop/mydb.sql
+      - path: /Users/jack/Desktop/mydb2.sql
+```
+
+Example 2: Dump a remote DB via SHH and save to a local directory and a S3 bucket
+```
+jobs:
+- name: ssh-dump
+  dbdriver: mysql
+  dbdsn: user:password@tcp(127.0.0.1:3306)/mydb
+  sshhost: mywebsite.com
+  sshuser: root
+  sshkey: |-
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAACFwAAAAdzc2gtcn...
+    -----END OPENSSH PRIVATE KEY-----
+  storage:
+    local:
+      - path: /Users/jack/Desktop/db.sql
+    s3:
+      - bucket: mys3bucket
+        key: backup/mydb.sql
+        region: ap-southeast-2
+        access-key-id: awsaccesskey
+        secret-access-key: awssecret
+```
+Example 3: Multiple dumps to different storage
+```
+jobs:
+- name: local-dump
+  dbdriver: mysql
+  dbdsn: root@tcp(127.0.0.1)/test_local
+  storage:
+    local:
+      - path: /Users/jack/Desktop/mydb.sql
+- name: ssh-dump
+  dbdriver: mysql
+  dbdsn: user:password@tcp(127.0.0.1:3306)/mydb
+  sshhost: mywebsite.com
+  sshuser: root
+  sshkey: |-
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAACFwAAAAdzc2gtcn...
+    -----END OPENSSH PRIVATE KEY-----
+  storage:
+    s3:
+      - bucket: mys3bucket
+        key: backup/mydb.sql
+        region: ap-southeast-2
+        access-key-id: awsaccesskey
+        secret-access-key: awssecret
+```
+
+For all configurable items. see [configuration](./docs/CONFIG_REF.md)
+
 ### Recommendation
 
 Loading the configuration from a local directory is handy when you have control of a machine and want to run `onedump` as a normal cli command. However, you are responsible to make sure the config file is stored securely in that machine or maybe you are responsible for encryption at rest yourself.
