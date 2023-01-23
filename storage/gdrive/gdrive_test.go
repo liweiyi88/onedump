@@ -9,7 +9,7 @@ func TestSave(t *testing.T) {
 	gdrive := &GDrive{
 		Email:      "myaccount@onedump.iam.gserviceaccount.com",
 		FileName:   "onedump.sql",
-		FolderId:   "",
+		FolderId:   "13GbhhbpBeJmUIzm9lET63nXgWgdh3Tly",
 		PrivateKey: "key",
 	}
 
