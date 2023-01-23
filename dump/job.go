@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/driver"
 	"github.com/liweiyi88/onedump/storage"
+	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
 	"github.com/liweiyi88/onedump/storage/s3"
 	"golang.org/x/crypto/ssh"
@@ -70,8 +71,9 @@ type Job struct {
 	SshKey      string   `yaml:"sshkey"`
 	DumpOptions []string `yaml:"options"`
 	Storage     struct {
-		Local []*local.Local `yaml:"local"`
-		S3    []*s3.S3       `yaml:"s3"`
+		Local  []*local.Local   `yaml:"local"`
+		S3     []*s3.S3         `yaml:"s3"`
+		GDrive []*gdrive.GDrive `yaml:"gdrive"`
 	} `yaml:"storage"`
 }
 
@@ -417,6 +419,12 @@ func (job *Job) getStorages() []storage.Storage {
 
 	if len(job.Storage.S3) > 0 {
 		for _, v := range job.Storage.S3 {
+			storages = append(storages, v)
+		}
+	}
+
+	if len(job.Storage.GDrive) > 0 {
+		for _, v := range job.Storage.GDrive {
 			storages = append(storages, v)
 		}
 	}
