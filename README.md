@@ -196,5 +196,5 @@ jobs:
 | --- | --- |
 | Local | ✅ Suported |
 | S3 | ✅ Suported |
-| Googl Drive | 🚧 WIP |
+| Googl Drive | ✅ Supported |
 | Dropbox | 🚧 WIP |
