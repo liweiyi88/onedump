@@ -13,7 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
+	"github.com/liweiyi88/onedump/storage/s3"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -240,5 +242,24 @@ func TestResultString(t *testing.T) {
 	s = r2.String()
 	if s != "Job: job1 failed, it took 1s with error: test err" {
 		t.Errorf("unexpected string result: %s", s)
+	}
+}
+
+func TestGetStorages(t *testing.T) {
+
+	localStore := local.Local{Path: "db_backup/onedump.sql"}
+	s3 := s3.NewS3("mybucket", "key", "", "", "")
+	gdrive := &gdrive.GDrive{
+		FileName: "mydump",
+		FolderId: "",
+	}
+
+	job := &Job{}
+	job.Storage.Local = append(job.Storage.Local, &localStore)
+	job.Storage.S3 = append(job.Storage.S3, s3)
+	job.Storage.GDrive = append(job.Storage.GDrive, gdrive)
+
+	if len(job.getStorages()) != 3 {
+		t.Errorf("expecte 3 storage but actual got: %d", len(job.getStorages()))
 	}
 }
