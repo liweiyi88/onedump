@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/liweiyi88/onedump/dump"
+	"github.com/liweiyi88/onedump/dumper"
 	"github.com/liweiyi88/onedump/storage/s3"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -43,7 +44,8 @@ var rootCmd = &cobra.Command{
 
 		for _, job := range oneDump.Jobs {
 			go func(job *dump.Job, resultCh chan *dump.JobResult) {
-				resultCh <- job.Run()
+				dumper := dumper.NewDumper(job)
+				resultCh <- dumper.Dump()
 			}(job, resultCh)
 		}
 

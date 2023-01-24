@@ -4,15 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
-	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/driver"
-	"github.com/liweiyi88/onedump/dumper"
 	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
 	"github.com/liweiyi88/onedump/storage/s3"
@@ -142,7 +138,7 @@ func (job Job) validate() error {
 	return nil
 }
 
-func (job *Job) viaSsh() bool {
+func (job *Job) ViaSsh() bool {
 	if strings.TrimSpace(job.SshHost) != "" && strings.TrimSpace(job.SshUser) != "" && strings.TrimSpace(job.SshKey) != "" {
 		return true
 	}
@@ -150,10 +146,10 @@ func (job *Job) viaSsh() bool {
 	return false
 }
 
-func (job *Job) getDBDriver() (driver.Driver, error) {
+func (job *Job) GetDBDriver() (driver.Driver, error) {
 	switch job.DBDriver {
 	case "mysql":
-		driver, err := driver.NewMysqlDriver(job.DBDsn, job.DumpOptions, job.viaSsh())
+		driver, err := driver.NewMysqlDriver(job.DBDsn, job.DumpOptions, job.ViaSsh())
 		if err != nil {
 			return nil, err
 		}
@@ -164,103 +160,7 @@ func (job *Job) getDBDriver() (driver.Driver, error) {
 	}
 }
 
-func (job *Job) Run() *JobResult {
-	start := time.Now()
-	var result JobResult
-
-	defer func() {
-		elapsed := time.Since(start)
-		result.Elapsed = elapsed
-	}()
-
-	result.JobName = job.Name
-
-	err := job.dump()
-	if err != nil {
-		result.Error = fmt.Errorf("job %s, dump failed: %v", job.Name, err)
-	}
-
-	return &result
-}
-
-// The core function that dump db content to a file (locally or remotely).
-// It checks the filename to determine if we need to upload the file to remote storage or keep it locally.
-// For uploading file to S3 bucket, the filename shold follow the pattern: s3://<bucket_name>/<key> .
-// For any remote upload, we try to cache it in a local dir then upload it to the remote storage.
-func (job *Job) dump() error {
-	driver, err := job.getDBDriver()
-	if err != nil {
-		return fmt.Errorf("failed to get db driver %v", err)
-	}
-
-	dumper := dumper.NewDumper(job.viaSsh(), driver, job.SshHost, job.SshKey, job.SshUser, job.Gzip)
-
-	cacheFileName, cleanup, err := dumper.DumpToCacheFile()
-	defer cleanup()
-
-	if err != nil {
-		return fmt.Errorf("failed to dump content to cache file: %v", err)
-	}
-
-	cacheFile, err := os.Open(cacheFileName)
-	if err != nil {
-		return fmt.Errorf("failed to open cache file: %v", err)
-	}
-
-	defer func() {
-		err := cacheFile.Close()
-		if err != nil {
-			log.Printf("failed to close cache file: %v", err)
-		}
-	}()
-
-	err = job.store(cacheFile)
-	if err != nil {
-		return fmt.Errorf("failed to store dump file %v", err)
-	}
-
-	return nil
-}
-
-// Save dump file to desired storages.
-func (job *Job) store(cacheFile io.Reader) error {
-	storages := job.getStorages()
-	numberOfStorages := len(storages)
-
-	var err error
-
-	if numberOfStorages > 0 {
-		// Use pipe to pass content from the cache file to different writer.
-		readers, writer, closer := storageReadWriteCloser(numberOfStorages)
-
-		go func() {
-			_, e := io.Copy(writer, cacheFile)
-			if e != nil {
-				multierror.Append(err, e)
-			}
-			closer.Close()
-		}()
-
-		var wg sync.WaitGroup
-		wg.Add(numberOfStorages)
-		for i, s := range storages {
-			storage := s
-			go func(i int) {
-				defer wg.Done()
-				e := storage.Save(readers[i], job.Gzip, job.Unique)
-				if e != nil {
-					err = multierror.Append(err, e)
-				}
-			}(i)
-		}
-
-		wg.Wait()
-	}
-
-	return err
-}
-
-func (job *Job) getStorages() []Storage {
+func (job *Job) GetStorages() []Storage {
 	var storages []Storage
 	if len(job.Storage.Local) > 0 {
 		for _, v := range job.Storage.Local {
@@ -281,20 +181,4 @@ func (job *Job) getStorages() []Storage {
 	}
 
 	return storages
-}
-
-// Pipe readers, writers and closer for fanout the same os.file
-func storageReadWriteCloser(count int) ([]io.Reader, io.Writer, io.Closer) {
-	var prs []io.Reader
-	var pws []io.Writer
-	var pcs []io.Closer
-	for i := 0; i < count; i++ {
-		pr, pw := io.Pipe()
-
-		prs = append(prs, pr)
-		pws = append(pws, pw)
-		pcs = append(pcs, pw)
-	}
-
-	return prs, io.MultiWriter(pws...), NewMultiCloser(pcs)
 }

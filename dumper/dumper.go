@@ -6,10 +6,12 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"strings"
+	"sync"
 	"time"
 
-	"github.com/liweiyi88/onedump/driver"
+	"github.com/hashicorp/go-multierror"
+	"github.com/liweiyi88/onedump/dump"
+	"github.com/liweiyi88/onedump/filenaming"
 )
 
 const cacheDirPrefix = ".onedump"
@@ -19,22 +21,12 @@ func init() {
 }
 
 type Dumper struct {
-	SshDump    bool
-	DBDriver   driver.Driver
-	SshHost    string
-	SshKey     string
-	SshUser    string
-	ShouldGzip bool
+	Job *dump.Job
 }
 
-func NewDumper(sshDumper bool, driver driver.Driver, sshHost, sshKey, sshUser string, shouldGzip bool) *Dumper {
+func NewDumper(job *dump.Job) *Dumper {
 	return &Dumper{
-		SshDump:    sshDumper,
-		DBDriver:   driver,
-		SshHost:    sshHost,
-		SshKey:     sshKey,
-		SshUser:    sshUser,
-		ShouldGzip: shouldGzip,
+		Job: job,
 	}
 }
 
@@ -66,25 +58,12 @@ func cacheFileDir() string {
 	return fmt.Sprintf("%s/%s%s", dir, cacheDirPrefix, generateRandomName(4))
 }
 
-// Ensure a file has proper file extension.
-func ensureFileSuffix(filename string, shouldGzip bool) string {
-	if !shouldGzip {
-		return filename
-	}
-
-	if strings.HasSuffix(filename, ".gz") {
-		return filename
-	}
-
-	return filename + ".gz"
-}
-
 func cacheFilePath(cacheDir string, shouldGzip bool) string {
 	filename := fmt.Sprintf("%s/%s", cacheDir, generateRandomName(8)+".sql")
-	return ensureFileSuffix(filename, shouldGzip)
+	return filenaming.EnsureFileSuffix(filename, shouldGzip)
 }
 
-func CreateCacheFile(gzip bool) (*os.File, string, error) {
+func createCacheFile(gzip bool) (*os.File, string, error) {
 	cacheDir := cacheFileDir()
 	err := os.MkdirAll(cacheDir, 0750)
 
@@ -102,30 +81,8 @@ func CreateCacheFile(gzip bool) (*os.File, string, error) {
 	return file, cacheDir, nil
 }
 
-// Ensure a file has unique name when necessary.
-func ensureUniqueness(path string, unique bool) string {
-	if !unique {
-		return path
-	}
-
-	s := strings.Split(path, "/")
-
-	filename := s[len(s)-1]
-	now := time.Now().UTC().Format("20060102150405")
-	uniqueFile := now + "-" + filename
-
-	s[len(s)-1] = uniqueFile
-
-	return strings.Join(s, "/")
-}
-
-func EnsureFileName(path string, shouldGzip, unique bool) string {
-	p := ensureFileSuffix(path, shouldGzip)
-	return ensureUniqueness(p, unique)
-}
-
-func (dumper *Dumper) DumpToCacheFile() (string, func(), error) {
-	file, cacheDir, err := CreateCacheFile(dumper.ShouldGzip)
+func (dumper *Dumper) dumpToCacheFile() (string, func(), error) {
+	file, cacheDir, err := createCacheFile(dumper.Job.Gzip)
 
 	cleanup := func() {
 		err := os.RemoveAll(cacheDir)
@@ -156,11 +113,111 @@ func (dumper *Dumper) DumpToCacheFile() (string, func(), error) {
 }
 
 func (dumper *Dumper) dumpToFile(file io.Writer) error {
-	if dumper.SshDump {
-		dumper := NewSshDumper(dumper.SshHost, dumper.SshKey, dumper.SshUser, dumper.ShouldGzip, dumper.DBDriver)
+	job := dumper.Job
+	driver, err := job.GetDBDriver()
+	if err != nil {
+		return fmt.Errorf("failed to get db driver %v", err)
+	}
+
+	if job.ViaSsh() {
+		dumper := NewSshDumper(job.SshHost, job.SshKey, job.SshUser, job.Gzip, driver)
 		return dumper.DumpToFile(file)
 	} else {
-		dumper := NewExecDumper(dumper.ShouldGzip, dumper.DBDriver)
+		dumper := NewExecDumper(job.Gzip, driver)
 		return dumper.DumpToFile(file)
 	}
+}
+
+func (dumper *Dumper) save(cacheFile io.Reader) error {
+	job := dumper.Job
+	storages := job.GetStorages()
+	numberOfStorages := len(storages)
+
+	var err error
+
+	if numberOfStorages > 0 {
+		// Use pipe to pass content from the cache file to different writer.
+		readers, writer, closer := storageReadWriteCloser(numberOfStorages)
+
+		go func() {
+			_, e := io.Copy(writer, cacheFile)
+			if e != nil {
+				multierror.Append(err, e)
+			}
+			closer.Close()
+		}()
+
+		var wg sync.WaitGroup
+		wg.Add(numberOfStorages)
+		for i, s := range storages {
+			storage := s
+			go func(i int) {
+				defer wg.Done()
+				e := storage.Save(readers[i], job.Gzip, job.Unique)
+				if e != nil {
+					err = multierror.Append(err, e)
+				}
+			}(i)
+		}
+
+		wg.Wait()
+	}
+
+	return err
+}
+
+// Pipe readers, writers and closer for fanout the same os.file
+func storageReadWriteCloser(count int) ([]io.Reader, io.Writer, io.Closer) {
+	var prs []io.Reader
+	var pws []io.Writer
+	var pcs []io.Closer
+	for i := 0; i < count; i++ {
+		pr, pw := io.Pipe()
+
+		prs = append(prs, pr)
+		pws = append(pws, pw)
+		pcs = append(pcs, pw)
+	}
+
+	return prs, io.MultiWriter(pws...), dump.NewMultiCloser(pcs)
+}
+
+func (dumper *Dumper) Dump() *dump.JobResult {
+	start := time.Now()
+	result := &dump.JobResult{}
+
+	defer func() {
+		elapsed := time.Since(start)
+		result.Elapsed = elapsed
+	}()
+
+	result.JobName = dumper.Job.Name
+
+	cacheFileName, cleanup, err := dumper.dumpToCacheFile()
+	defer cleanup()
+
+	if err != nil {
+		result.Error = fmt.Errorf("failed to dump content to cache file: %v", err)
+		return result
+	}
+
+	cacheFile, err := os.Open(cacheFileName)
+	if err != nil {
+		result.Error = fmt.Errorf("failed to open cache file: %v", err)
+		return result
+	}
+
+	defer func() {
+		err := cacheFile.Close()
+		if err != nil {
+			log.Printf("failed to close cache file: %v", err)
+		}
+	}()
+
+	err = dumper.save(cacheFile)
+	if err != nil {
+		result.Error = fmt.Errorf("failed to store dump file %v", err)
+	}
+
+	return result
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/liweiyi88/onedump/dumper"
+	"github.com/liweiyi88/onedump/filenaming"
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
 	drive "google.golang.org/api/drive/v3"
@@ -37,7 +37,7 @@ func (gdrive *GDrive) Save(reader io.Reader, gzip bool, unique bool) error {
 		return fmt.Errorf("could not create drive client error: %v", err)
 	}
 
-	path := dumper.EnsureFileName(gdrive.FileName, gzip, unique)
+	path := filenaming.EnsureFileName(gdrive.FileName, gzip, unique)
 
 	driveFile := &drive.File{Name: path}
 
