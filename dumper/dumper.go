@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/liweiyi88/onedump/dump"
+	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/filenaming"
 )
 
@@ -21,10 +21,10 @@ func init() {
 }
 
 type Dumper struct {
-	Job *dump.Job
+	Job *config.Job
 }
 
-func NewDumper(job *dump.Job) *Dumper {
+func NewDumper(job *config.Job) *Dumper {
 	return &Dumper{
 		Job: job,
 	}
@@ -120,10 +120,10 @@ func (dumper *Dumper) dumpToFile(file io.Writer) error {
 	}
 
 	if job.ViaSsh() {
-		dumper := NewSshDumper(job.SshHost, job.SshKey, job.SshUser, job.Gzip, driver)
+		dumper := NewSshRunner(job.SshHost, job.SshKey, job.SshUser, job.Gzip, driver)
 		return dumper.DumpToFile(file)
 	} else {
-		dumper := NewExecDumper(job.Gzip, driver)
+		dumper := NewExecRunner(job.Gzip, driver)
 		return dumper.DumpToFile(file)
 	}
 }
@@ -179,12 +179,12 @@ func storageReadWriteCloser(count int) ([]io.Reader, io.Writer, io.Closer) {
 		pcs = append(pcs, pw)
 	}
 
-	return prs, io.MultiWriter(pws...), dump.NewMultiCloser(pcs)
+	return prs, io.MultiWriter(pws...), config.NewMultiCloser(pcs)
 }
 
-func (dumper *Dumper) Dump() *dump.JobResult {
+func (dumper *Dumper) Dump() *config.JobResult {
 	start := time.Now()
-	result := &dump.JobResult{}
+	result := &config.JobResult{}
 
 	defer func() {
 		elapsed := time.Since(start)

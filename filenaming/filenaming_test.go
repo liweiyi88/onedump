@@ -14,6 +14,26 @@ func TestEnsureFileName(t *testing.T) {
 	}
 }
 
+func TestEnsureFileSuffix(t *testing.T) {
+	f := EnsureFileSuffix("test.sql", true)
+
+	if f != "test.sql.gz" {
+		t.Errorf("expected .gz extension but got: %s", f)
+	}
+
+	f = EnsureFileSuffix("test.sql.gz", true)
+
+	if f != "test.sql.gz" {
+		t.Errorf("expected .gz extension but got: %s", f)
+	}
+
+	f = EnsureFileSuffix("test.sql", false)
+
+	if f != "test.sql" {
+		t.Errorf("expected .sql extension but got: %s", f)
+	}
+}
+
 func TestEnsureUniqueness(t *testing.T) {
 	path := "/Users/jack/Desktop/hello.sql"
 

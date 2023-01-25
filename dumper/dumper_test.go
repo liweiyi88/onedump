@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/liweiyi88/onedump/dump"
+	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/filenaming"
 	"github.com/liweiyi88/onedump/storage/local"
 	"golang.org/x/crypto/ssh"
@@ -87,8 +87,8 @@ func TestRun(t *testing.T) {
 		t.Errorf("failed to generate test private key %v", err)
 	}
 
-	jobs := make([]*dump.Job, 0, 1)
-	sshJob := dump.NewJob("ssh", "mysql", testDBDsn, dump.WithSshHost("127.0.0.1:20001"), dump.WithSshUser("root"), dump.WithSshKey(privateKey))
+	jobs := make([]*config.Job, 0, 1)
+	sshJob := config.NewJob("ssh", "mysql", testDBDsn, config.WithSshHost("127.0.0.1:20001"), config.WithSshUser("root"), config.WithSshKey(privateKey))
 	localStorages := make([]*local.Local, 0)
 
 	dir, _ := os.Getwd()
@@ -101,11 +101,11 @@ func TestRun(t *testing.T) {
 	sshJob.Storage.Local = localStorages
 
 	jobs = append(jobs, sshJob)
-	onedump := dump.Dump{Jobs: jobs}
+	onedump := config.Dump{Jobs: jobs}
 
 	// An SSH server is represented by a ServerConfig, which holds
 	// certificate details and handles authentication of ServerConns.
-	config := &ssh.ServerConfig{
+	sshConfig := &ssh.ServerConfig{
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 			return &ssh.Permissions{
 				// Record the public key used for authentication.
@@ -121,7 +121,7 @@ func TestRun(t *testing.T) {
 		t.Fatal("Failed to parse private key: ", err)
 	}
 
-	config.AddHostKey(private)
+	sshConfig.AddHostKey(private)
 
 	// Once a ServerConfig has been configured, connections can be
 	// accepted.
@@ -131,7 +131,7 @@ func TestRun(t *testing.T) {
 	}
 
 	finishCh := make(chan struct{})
-	go func(onedump dump.Dump) {
+	go func(onedump config.Dump) {
 		for _, job := range onedump.Jobs {
 			dumper := NewDumper(job)
 			dumper.Dump()
@@ -146,7 +146,7 @@ func TestRun(t *testing.T) {
 
 	// Before use, a handshake must be performed on the incoming
 	// net.Conn.
-	conn, chans, reqs, err := ssh.NewServerConn(nConn, config)
+	conn, chans, reqs, err := ssh.NewServerConn(nConn, sshConfig)
 	if err != nil {
 		log.Fatal("failed to handshake: ", err)
 	}

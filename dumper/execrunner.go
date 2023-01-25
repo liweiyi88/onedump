@@ -11,19 +11,19 @@ import (
 	"github.com/liweiyi88/onedump/driver"
 )
 
-type ExecDumper struct {
+type ExecRunner struct {
 	ShouldGzip bool
 	DBDriver   driver.Driver
 }
 
-func NewExecDumper(shouldGzip bool, driver driver.Driver) *ExecDumper {
-	return &ExecDumper{
+func NewExecRunner(shouldGzip bool, driver driver.Driver) *ExecRunner {
+	return &ExecRunner{
 		ShouldGzip: shouldGzip,
 		DBDriver:   driver,
 	}
 }
 
-func (execDump *ExecDumper) DumpToFile(file io.Writer) error {
+func (execDump *ExecRunner) DumpToFile(file io.Writer) error {
 	var gzipWriter *gzip.Writer
 	if execDump.ShouldGzip {
 		gzipWriter = gzip.NewWriter(file)
