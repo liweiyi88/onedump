@@ -1,4 +1,4 @@
-package dump
+package config
 
 import (
 	"io"

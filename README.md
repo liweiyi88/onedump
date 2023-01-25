@@ -11,18 +11,25 @@
 Onedump is a database dump and backup tool. It can dump different databases to different storages with a simple configuration file or cli commands.
 
 ## Installation
+We build and publish both binaries and docker images via the release process.
 
+### Binary
 `onedump` binaries are available in https://github.com/liweiyi88/onedump/releases. Use the latest version of the binary that is suitable to your OS.
 After downloading the binary and move it to the folder that is in your $PATH env var (e.g. `/usr/local/bin/onedump`), give it executable permissions (e.g. `sudo chmod +x /usr/local/bin/onedump`). Then you should be able to run it:
 ```
 $ onedump
 ```
 
-## Usage
+### Docker image
+If you want to run onedump in Kubernetes, ECS or any other container environment. We also offer the docker images for you. Images are available in [docker hub](https://hub.docker.com/r/julianli/onedump/tags).
+
+*Note: Although we maintain both arm64 and amd64 docker image, usually what you need is the `amd64` image in your prod linux machine. For example: `julianli/onedump:v0.2.0-amd64`*
+
+## Run onedump
 
 `onedump` has just one simple command to load a config file and dump DB contents based on the configuration. It has two ways of loading the config file.
 
-### Load configuration file from local directory
+### Option 1. Load configuration file from local directory
 After installing onedump, you should be able to run it as a simple cli command. For example:
 
 ```
@@ -31,15 +38,18 @@ $ onedump -f /path/to/config.yaml
 
 The config.yaml contains all DB backup jobs in yaml format. For all configurable items. see [configuration](./docs/CONFIG_REF.md)
 
-### Load configuration from an S3 bucket
+### Option 2. Load configuration from an S3 bucket
 Moreover, instead of loading your config file from a local directory, you can also store it in an AWS S3 bucket. Run the cli command to load the config file from an S3 bucket
 ```
 $ onedump -f backup-config/config.yaml --s3-bucket mybucket
 ```
 In this case, you pass the `--s3-bucket` option to indicate onedump that it should load the configuration content from an s3 bucket called `mybucket`. Then  onedump will treat the file path option `backup-config/config.yaml` as the s3 key. By default, onedump will use any AWS environment variables to interact with S3, if environment variables are not found, then it will use the credentials of the default profile in your `~/.aws/credentials` file. To overwirte these default credentials, you can pass `--aws-key`, `--aws-region` and `--aws-secret` options.
 
-### Configuration
-Example 1: Dump a local DB to 2 local directories
+### Configuration examples
+
+For all configurable items and instructions. see [configuration](./docs/CONFIG_REF.md)
+
+#### Dump a local DB to 2 local directories
 ```
 jobs:
 - name: local-dump
@@ -52,7 +62,7 @@ jobs:
       - path: /Users/jack/Desktop/mydb2.sql
 ```
 
-Example 2: Dump a remote DB via SHH and save to a local directory and a S3 bucket
+#### Dump a remote DB via SSH and save to a local directory and a S3 bucket
 ```
 jobs:
 - name: ssh-dump
@@ -74,7 +84,8 @@ jobs:
         access-key-id: awsaccesskey
         secret-access-key: awssecret
 ```
-Example 3: Multiple dumps to different storage
+
+#### Multiple dumps to different storage
 ```
 jobs:
 - name: local-dump
@@ -101,8 +112,6 @@ jobs:
         secret-access-key: awssecret
 ```
 
-For all configurable items. see [configuration](./docs/CONFIG_REF.md)
-
 ### Recommendation
 
 Loading the configuration from a local directory is handy when you have control of a machine and want to run `onedump` as a normal cli command. However, you are responsible to make sure the config file is stored securely in that machine or maybe you are responsible for encryption at rest yourself.
@@ -110,7 +119,7 @@ Loading the configuration from a local directory is handy when you have control 
 On the other hand, loading the configuration from an S3 bucket is better when security is your concern (encryption, versioning and fine-grain permission control etc) and when it is not convenient to have a persistent volume to store your config file (e.g. run it via a docker container). Instead of downloading the config file from S3 to a local directory. `onedump` will load the config directly to memory from S3 via AWS API.
 
 ## How it works
-The primary use case of `onedump` is to run one command from one configuration file that dumps database contents from different database drivers to different destinations.
+The primary use case of `onedump` is to run one command with a configuration file. It dumps database from different drivers to different destinations.
 
 ### Connect to the database
 `onedump` connects to your database in two ways: direct network access or SSH.
@@ -146,7 +155,7 @@ jobs:
 
 For this case, you need to pass three extra config options: `sshhost`, `sshuser` and `sshkey` to tell `onedump` to talk to the remote database via ssh.
 
-### Save DB contents to storage
+### Save DB to storage
 It is required to config at least one storage for the dump job. For example, we want it to dump a local DB and save the contents in a local directory as well as an S3 bucket.
 
 ```

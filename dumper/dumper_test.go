@@ -1,4 +1,4 @@
-package dump
+package dumper
 
 import (
 	"crypto/rand"
@@ -10,12 +10,12 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"testing"
-	"time"
 
-	"github.com/liweiyi88/onedump/storage/gdrive"
+	"github.com/liweiyi88/onedump/config"
+	"github.com/liweiyi88/onedump/filenaming"
 	"github.com/liweiyi88/onedump/storage/local"
-	"github.com/liweiyi88/onedump/storage/s3"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -37,81 +37,47 @@ func generateRSAPrivateKey() (string, error) {
 	return string(keyPEM), nil
 }
 
-func TestEnsureSSHHostHavePort(t *testing.T) {
-	sshHost := "127.0.0.1"
+func TestUploadCacheDir(t *testing.T) {
+	actual := cacheFileDir()
 
-	if ensureHaveSSHPort(sshHost) != sshHost+":22" {
-		t.Error("ssh host port is not ensured")
-	}
+	workDir, _ := os.Getwd()
+	prefix := fmt.Sprintf("%s/%s", workDir, cacheDirPrefix)
 
-	sshHost = "127.0.0.1:22"
-	actual := ensureHaveSSHPort(sshHost)
-	if actual != sshHost {
-		t.Errorf("expect ssh host: %s, actual: %s", sshHost, actual)
+	if !strings.HasPrefix(actual, prefix) {
+		t.Errorf("get unexpected cache dir: expected: %s, actual: %s", prefix, actual)
 	}
 }
 
-func TestGetDBDriver(t *testing.T) {
-	job := NewJob("job1", "mysql", testDBDsn)
+func TestGenerateCacheFileName(t *testing.T) {
+	expectedLen := 5
+	name := generateRandomName(expectedLen)
 
-	_, err := job.getDBDriver()
-	if err != nil {
-		t.Errorf("expect get mysql db driver, but get err: %v", err)
-	}
-
-	job = NewJob("job1", "x", testDBDsn)
-	_, err = job.getDBDriver()
-	if err == nil {
-		t.Error("expect unsupport database driver err, but actual get nil")
+	actualLen := len([]rune(name))
+	if actualLen != expectedLen {
+		t.Errorf("unexpected cache filename, expected length: %d, actual length: %d", 5, actualLen)
 	}
 }
 
-func TestDumpValidate(t *testing.T) {
-	jobs := make([]*Job, 0)
-	job1 := NewJob(
-		"job1",
-		"mysql",
-		testDBDsn,
-		WithGzip(true),
-		WithDumpOptions("--skip-comments"),
-		WithSshKey("====privatekey===="),
-		WithSshUser("root"),
-		WithSshHost("localhost"),
-	)
-	jobs = append(jobs, job1)
+func TestUploadCacheFilePath(t *testing.T) {
 
-	dump := Dump{Jobs: jobs}
+	cacheDir := cacheFileDir()
 
-	err := dump.Validate()
-	if err != nil {
-		t.Errorf("expected validate dump but got err :%v", err)
+	gziped := cacheFilePath(cacheDir, true)
+
+	if !strings.HasSuffix(gziped, ".gz") {
+		t.Errorf("expected filename has .gz extension, actual file name: %s", gziped)
 	}
 
-	job2 := NewJob("", "mysql", "")
-	jobs = append(jobs, job2)
-	dump.Jobs = jobs
-	err = dump.Validate()
+	sql := cacheFilePath(cacheDir, false)
 
-	if !errors.Is(err, ErrMissingJobName) {
-		t.Errorf("expected err: %v, actual got: %v", ErrMissingJobName, err)
+	if !strings.HasSuffix(sql, ".sql") {
+		t.Errorf("expected filename has .sql extension, actual file name: %s", sql)
 	}
 
-	job3 := NewJob("job3", "mysql", "")
-	jobs = append(jobs, job3)
-	dump.Jobs = jobs
-	err = dump.Validate()
+	sql2 := cacheFilePath(cacheDir, false)
 
-	if !errors.Is(err, ErrMissingDBDsn) {
-		t.Errorf("expected err: %v, actual got: %v", ErrMissingJobName, err)
-	}
-
-	job4 := NewJob("job3", "", testDBDsn)
-	jobs = append(jobs, job4)
-	dump.Jobs = jobs
-	err = dump.Validate()
-
-	if !errors.Is(err, ErrMissingDBDriver) {
-		t.Errorf("expected err: %v, actual got: %v", ErrMissingJobName, err)
+	if sql == sql2 {
+		t.Errorf("expected unique file name but got same filename %s", sql)
 	}
 }
 
@@ -121,8 +87,8 @@ func TestRun(t *testing.T) {
 		t.Errorf("failed to generate test private key %v", err)
 	}
 
-	jobs := make([]*Job, 0, 1)
-	sshJob := NewJob("ssh", "mysql", testDBDsn, WithSshHost("127.0.0.1:20001"), WithSshUser("root"), WithSshKey(privateKey))
+	jobs := make([]*config.Job, 0, 1)
+	sshJob := config.NewJob("ssh", "mysql", testDBDsn, config.WithSshHost("127.0.0.1:20001"), config.WithSshUser("root"), config.WithSshKey(privateKey))
 	localStorages := make([]*local.Local, 0)
 
 	dir, _ := os.Getwd()
@@ -135,11 +101,11 @@ func TestRun(t *testing.T) {
 	sshJob.Storage.Local = localStorages
 
 	jobs = append(jobs, sshJob)
-	dump := Dump{Jobs: jobs}
+	onedump := config.Dump{Jobs: jobs}
 
 	// An SSH server is represented by a ServerConfig, which holds
 	// certificate details and handles authentication of ServerConns.
-	config := &ssh.ServerConfig{
+	sshConfig := &ssh.ServerConfig{
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 			return &ssh.Permissions{
 				// Record the public key used for authentication.
@@ -155,7 +121,7 @@ func TestRun(t *testing.T) {
 		t.Fatal("Failed to parse private key: ", err)
 	}
 
-	config.AddHostKey(private)
+	sshConfig.AddHostKey(private)
 
 	// Once a ServerConfig has been configured, connections can be
 	// accepted.
@@ -165,12 +131,13 @@ func TestRun(t *testing.T) {
 	}
 
 	finishCh := make(chan struct{})
-	go func(dump Dump) {
-		for _, job := range dump.Jobs {
-			job.Run()
+	go func(onedump config.Dump) {
+		for _, job := range onedump.Jobs {
+			dumper := NewDumper(job)
+			dumper.Dump()
 			finishCh <- struct{}{}
 		}
-	}(dump)
+	}(onedump)
 
 	nConn, err := listener.Accept()
 	if err != nil {
@@ -179,7 +146,7 @@ func TestRun(t *testing.T) {
 
 	// Before use, a handshake must be performed on the incoming
 	// net.Conn.
-	conn, chans, reqs, err := ssh.NewServerConn(nConn, config)
+	conn, chans, reqs, err := ssh.NewServerConn(nConn, sshConfig)
 	if err != nil {
 		log.Fatal("failed to handshake: ", err)
 	}
@@ -222,44 +189,37 @@ func TestRun(t *testing.T) {
 	}
 }
 
-func TestResultString(t *testing.T) {
-	r1 := &JobResult{
-		JobName: "job1",
-		Elapsed: time.Second,
+func TestEnsureFileSuffix(t *testing.T) {
+	gzip := filenaming.EnsureFileSuffix("test.sql", true)
+	if gzip != "test.sql.gz" {
+		t.Errorf("expected filename has .gz extension, actual file name: %s", gzip)
 	}
 
-	s := r1.String()
-	if s != "Job: job1 succeeded, it took 1s" {
-		t.Errorf("unexpected string result: %s", s)
-	}
+	sql := filenaming.EnsureFileSuffix("test.sql.gz", true)
 
-	r2 := &JobResult{
-		Error:   errors.New("test err"),
-		JobName: "job1",
-		Elapsed: time.Second,
-	}
-
-	s = r2.String()
-	if s != "Job: job1 failed, it took 1s with error: test err" {
-		t.Errorf("unexpected string result: %s", s)
+	if sql != "test.sql.gz" {
+		t.Errorf("expected: %s is not equals to actual: %s", sql, "test.sql.gz")
 	}
 }
 
-func TestGetStorages(t *testing.T) {
+func TestCreateCacheFile(t *testing.T) {
+	file, cacheDir, _ := createCacheFile(true)
 
-	localStore := local.Local{Path: "db_backup/onedump.sql"}
-	s3 := s3.NewS3("mybucket", "key", "", "", "")
-	gdrive := &gdrive.GDrive{
-		FileName: "mydump",
-		FolderId: "",
+	defer func() {
+		file.Close()
+
+		err := os.RemoveAll(cacheDir)
+		if err != nil {
+			log.Println("failed to remove cache dir after dump", err)
+		}
+	}()
+
+	fileInfo, err := os.Stat(file.Name())
+	if err != nil {
+		t.Errorf("failed to get cache file info %v", err)
 	}
 
-	job := &Job{}
-	job.Storage.Local = append(job.Storage.Local, &localStore)
-	job.Storage.S3 = append(job.Storage.S3, s3)
-	job.Storage.GDrive = append(job.Storage.GDrive, gdrive)
-
-	if len(job.getStorages()) != 3 {
-		t.Errorf("expecte 3 storage but actual got: %d", len(job.getStorages()))
+	if fileInfo.Size() != 0 {
+		t.Errorf("expected empty file but get size: %d", fileInfo.Size())
 	}
 }

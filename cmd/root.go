@@ -5,7 +5,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/liweiyi88/onedump/dump"
+	"github.com/liweiyi88/onedump/config"
+	"github.com/liweiyi88/onedump/dumper"
 	"github.com/liweiyi88/onedump/storage/s3"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -23,7 +24,7 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("failed to read job file from %s, error: %v", file, err)
 		}
 
-		var oneDump dump.Dump
+		var oneDump config.Dump
 		err = yaml.Unmarshal(content, &oneDump)
 		if err != nil {
 			return fmt.Errorf("failed to read job content from %s, error: %v", file, err)
@@ -39,17 +40,18 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("no job is defined in the file %s", file)
 		}
 
-		resultCh := make(chan *dump.JobResult)
+		resultCh := make(chan *config.JobResult)
 
 		for _, job := range oneDump.Jobs {
-			go func(job *dump.Job, resultCh chan *dump.JobResult) {
-				resultCh <- job.Run()
+			go func(job *config.Job, resultCh chan *config.JobResult) {
+				dumper := dumper.NewDumper(job)
+				resultCh <- dumper.Dump()
 			}(job, resultCh)
 		}
 
 		var wg sync.WaitGroup
 		wg.Add(numberOfJobs)
-		go func(resultCh chan *dump.JobResult) {
+		go func(resultCh chan *config.JobResult) {
 			for result := range resultCh {
 				fmt.Println(result.String())
 				wg.Done()
