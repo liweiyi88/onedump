@@ -20,10 +20,6 @@ var (
 	ErrMissingDBDriver = errors.New("databse driver is required")
 )
 
-type Dumper interface {
-	Dump() error
-}
-
 type Storage interface {
 	Save(reader io.Reader, gzip bool, unique bool) error
 }
