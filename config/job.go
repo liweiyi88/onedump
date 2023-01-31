@@ -67,10 +67,10 @@ type Job struct {
 	SshKey      string   `yaml:"sshkey"`
 	DumpOptions []string `yaml:"options"`
 	Storage     struct {
-		Local   []*local.Local   `yaml:"local"`
-		S3      []*s3.S3         `yaml:"s3"`
-		GDrive  []*gdrive.GDrive `yaml:"gdrive"`
-		Dropbox []*dropbox.Dropbox
+		Local   []*local.Local     `yaml:"local"`
+		S3      []*s3.S3           `yaml:"s3"`
+		GDrive  []*gdrive.GDrive   `yaml:"gdrive"`
+		Dropbox []*dropbox.Dropbox `yaml:"dropbox"`
 	} `yaml:"storage"`
 }
 
