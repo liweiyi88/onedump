@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/liweiyi88/onedump/storage/dropbox"
 	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
 	"github.com/liweiyi88/onedump/storage/s3"
@@ -108,12 +109,17 @@ func TestGetStorages(t *testing.T) {
 		FolderId: "",
 	}
 
+	dropbox := &dropbox.Dropbox{
+		AccessToken: "token",
+	}
+
 	job := &Job{}
 	job.Storage.Local = append(job.Storage.Local, &localStore)
 	job.Storage.S3 = append(job.Storage.S3, s3)
 	job.Storage.GDrive = append(job.Storage.GDrive, gdrive)
+	job.Storage.Dropbox = append(job.Storage.Dropbox, dropbox)
 
-	if len(job.GetStorages()) != 3 {
-		t.Errorf("expecte 3 storage but actual got: %d", len(job.GetStorages()))
+	if len(job.GetStorages()) != 4 {
+		t.Errorf("expecte 4 storage but actual got: %d", len(job.GetStorages()))
 	}
 }
