@@ -123,3 +123,19 @@ func TestGetStorages(t *testing.T) {
 		t.Errorf("expecte 4 storage but actual got: %d", len(job.GetStorages()))
 	}
 }
+
+func TestViaSsh(t *testing.T) {
+	job := &Job{}
+
+	if job.ViaSsh() != false {
+		t.Error("expected false but got true")
+	}
+
+	job.SshHost = "mydump.com"
+	job.SshUser = "admin"
+	job.SshKey = "my-ssh-key"
+
+	if job.ViaSsh() != true {
+		t.Error("expected via ssh but got false")
+	}
+}

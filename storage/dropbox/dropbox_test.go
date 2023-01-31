@@ -61,13 +61,13 @@ func TestUploadSessionFailure(t *testing.T) {
 		fmt.Fprintln(w, nil)
 	})
 
-	server1 := httptest.NewServer(mux)
+	server := httptest.NewServer(mux)
 	defer func() {
-		server1.Close()
+		server.Close()
 	}()
 
 	originUploadSessionEndpoint := uploadSessionEndpoint
-	uploadSessionEndpoint = server1.URL + "/start"
+	uploadSessionEndpoint = server.URL + "/start"
 
 	defer func() {
 		uploadSessionEndpoint = originUploadSessionEndpoint

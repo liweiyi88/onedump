@@ -61,7 +61,10 @@ type uploadSessionResponse struct {
 }
 
 type Dropbox struct {
-	Path        string `yaml:"path"`
+	Path string `yaml:"path"`
+	// TODO: currently dropbox disable long lived token and there is no way to complete the oauth flow without browser.
+	// Have asked dropbox https://www.dropboxforum.com/t5/Discuss-Dropbox-Developer-API/How-to-get-refresh-token-without-User-interaction/m-p/655155/highlight/true#M3148
+	// And see how it goes in the future.
 	AccessToken string `yaml:"accesstoken"`
 }
 
