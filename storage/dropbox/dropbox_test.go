@@ -32,7 +32,44 @@ func TestHasTokenExpired(t *testing.T) {
 	}
 }
 
-func TestSuccessfulSave(t *testing.T) {
+func TestGetAccessToken(t *testing.T) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/oauth2/token", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "{\"access_token\":\"sl.BYBntuwSqTes9FsYOrJ68Hi_UvEDH5cZzqt3QSJ3fvVAz\",\"token_type\":\"bearer\",\"expires_in\":14400}")
+	})
+
+	mux.HandleFunc("/oauth2/token-wrongjson", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "not json")
+	})
+
+	svr := httptest.NewServer(mux)
+	defer svr.Close()
+
+	originOauthTokenEndpoint := oauthTokenEndpoint
+	oauthTokenEndpoint = svr.URL + "/oauth2/token"
+
+	defer func() {
+		oauthTokenEndpoint = originOauthTokenEndpoint
+	}()
+
+	dropbox := &Dropbox{}
+	if err := dropbox.getAccessToken(); err != nil {
+		t.Errorf("expect success but got err: %v", err)
+	}
+
+	if dropbox.accessToken != "sl.BYBntuwSqTes9FsYOrJ68Hi_UvEDH5cZzqt3QSJ3fvVAz" {
+		t.Errorf("got unexpcted token: %v", dropbox.accessToken)
+	}
+
+	oauthTokenEndpoint = svr.URL + "/oauth2/token-wrongjson"
+
+	if err := dropbox.getAccessToken(); err == nil {
+		t.Error("expect unmarshal error but got no err")
+	}
+}
+
+func TestSaveSuccess(t *testing.T) {
 	response := "{\"session_id\":\"123jlsdfdsfjksjdkf\"}"
 
 	mux := http.NewServeMux()
