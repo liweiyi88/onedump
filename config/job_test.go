@@ -110,7 +110,7 @@ func TestGetStorages(t *testing.T) {
 	}
 
 	dropbox := &dropbox.Dropbox{
-		AccessToken: "token",
+		RefreshToken: "token",
 	}
 
 	job := &Job{}

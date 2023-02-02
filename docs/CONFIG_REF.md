@@ -1,6 +1,5 @@
 # Configuration reference
 ## All configurable items
-
 ```
 jobs:
 - name: ssh-dump #dump job name is required.
@@ -32,7 +31,9 @@ jobs:
         email: myproject@onedump.iam.gserviceaccount.com
         privatekey: "-----BEGIN PRIVATE KEY-----\nMIIE....OqH4=\n-----END PRIVATE KEY-----\n"
     dropbox:
-      - accesstoken: sl.BX7SOnErNkYJ...
+      - refreshtoken: sl.BX7SOnErNkYJ...
+        clientid: fsdfdsf123
+        clientsecret: abdfdli86123
         path: /home/mydump.sql
 ```
 
@@ -49,10 +50,24 @@ The google drive integration is done via service account. Therefore you need to 
 
 ## Dropbox
 
-In order to get `accesstoken` from Dropbox. We need to complete the following step.
+`refreshtoken`: It is the only non-expired token that we needed to get access token. In order to get `refreshtoken` from Dropbox. We need to complete the following step.
 
 1. Go to https://www.dropbox.com/lp/developers click App console button on the top right.
 1. Create app and choose `Full Dropbox`. The app should at least has `files.content.write` permission
-1. Once the app has been created, click "Generate" button under "Generated access token" section.
+1. Once the app has been created, visit `https://www.dropbox.com/oauth2/authorize?client_id=<client_id>&token_access_type=offline&response_type=code`, use the `App key` value from the app page to replace `<client_id>` in the url. Click continue and allow to get a auth code and copy the auth code somewhere for next step.
+1. Run the following `curl` command (Note, replace `<auth_code>` form last step, use the value of `App Key` and `App secret` to replace `<client_id>` and `<client_secret>` )
+```
+curl curl https://api.dropbox.com/oauth2/token \
+    -d code=<auth_code> \
+    -d grant_type=authorization_code \
+    -d client_id=<client_id> \
+    -d client_secret=<client_secret>
+```
+Then you will get the non-expired `refresh_token` from the response payload.
 
-Note, The access token generated from the settings page is no longer a long lived token and there is no way to complete the oauth flow without browser. Have asked dropbox https://www.dropboxforum.com/t5/Discuss-Dropbox-Developer-API/How-to-get-refresh-token-without-User-interaction/m-p/655155/highlight/true#M3148 and see how it goes in the future.
+
+Note, The access token generated from the settings page is no longer a long lived token. We have to go though the manual step to get the refresh token. Besides, the `refresh_token` is a non-expired token. Check the [Q&A](https://www.dropboxforum.com/t5/Dropbox-API-Support-Feedback/Re-How-to-get-refresh-token-without-User-interaction/m-p/655435/highlight/true#M29847) for more details.
+
+`clientid`: You can get this from your app page.
+
+`clientsecret`: You can get this from your app page.

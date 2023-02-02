@@ -6,12 +6,41 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestHasTokenExpired(t *testing.T) {
+	d := &Dropbox{
+		RefreshToken: "refresh_token",
+		ClientId:     "clientid",
+		ClientSecret: "clientsecret",
+	}
+
+	expired := d.hasTokenExpired()
+	if expired != true {
+		t.Errorf("default expiredIn should indicate expired, but actual got not expired.")
+	}
+
+	d.expiredAt = time.Now().Add((expiredGap + 1) * time.Second)
+	if d.hasTokenExpired() {
+		t.Errorf("expected not exipre token but got expired.")
+	}
+
+	d.expiredAt = time.Now().Add(expiredGap * time.Second)
+	if !d.hasTokenExpired() {
+		t.Errorf("expected expired token but got not expired.")
+	}
+}
 
 func TestSuccessfulSave(t *testing.T) {
 	response := "{\"session_id\":\"123jlsdfdsfjksjdkf\"}"
 
 	mux := http.NewServeMux()
+
+	mux.HandleFunc("/oauth2/token", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "{\"access_token\":\"sl.BYBntuwSqTes9FsYOrJ68Hi_UvEDH5cZzqt3QSJ3fvVAz\",\"token_type\":\"bearer\",\"expires_in\":14400}")
+	})
+
 	mux.HandleFunc("/start", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, response)
 	})
@@ -26,6 +55,9 @@ func TestSuccessfulSave(t *testing.T) {
 
 	svr := httptest.NewServer(mux)
 	defer svr.Close()
+
+	originOauthTokenEndpoint := oauthTokenEndpoint
+	oauthTokenEndpoint = svr.URL + "/oauth2/token"
 
 	originMaxUpload := maxUpload
 	maxUpload = 4
@@ -44,6 +76,7 @@ func TestSuccessfulSave(t *testing.T) {
 		uploadSessionAppendEndpoint = originUploadSessionAppendEndpoint
 		uploadSessionFinishEndpoint = originUploadSessionFinish
 		maxUpload = originMaxUpload
+		oauthTokenEndpoint = originOauthTokenEndpoint
 	}()
 
 	dropbox := &Dropbox{}
