@@ -3,12 +3,12 @@ module github.com/liweiyi88/onedump
 go 1.19
 
 require (
-	github.com/aws/aws-sdk-go v1.44.188
+	github.com/aws/aws-sdk-go v1.44.192
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/spf13/cobra v1.6.1
 	golang.org/x/exp v0.0.0-20230126173853-a67bb567ff2e
-	google.golang.org/api v0.108.0
+	google.golang.org/api v0.109.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -27,7 +27,7 @@ require (
 	golang.org/x/sys v0.4.0 // indirect
 	golang.org/x/text v0.6.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230125152338-dcaf20b6aeaa // indirect
+	google.golang.org/genproto v0.0.0-20230131230820-1c016267d619 // indirect
 	google.golang.org/grpc v1.52.3 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 )

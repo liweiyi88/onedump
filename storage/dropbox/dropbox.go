@@ -7,11 +7,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"time"
 
 	"github.com/liweiyi88/onedump/filenaming"
 )
 
 var (
+	oauthTokenEndpoint          = "https://api.dropboxapi.com/oauth2/token"
 	uploadSessionEndpoint       = "https://content.dropboxapi.com/2/files/upload_session/start"
 	uploadSessionAppendEndpoint = "https://content.dropboxapi.com/2/files/upload_session/append_v2"
 	uploadSessionFinishEndpoint = "https://content.dropboxapi.com/2/files/upload_session/finish"
@@ -25,10 +28,22 @@ const (
 	TB
 )
 
+// Expire the access token before it reaches the real expiry to avoid edge cases.
+const expiredGap = 10
+
+// Dropb limits of file upload per api call.
 var maxUpload = 150 * MB
 
 type uploadSessionParam struct {
 	Close bool `json:"close"`
+}
+
+type oauthTokenResponse struct {
+	AccessToken string `json:"access_token"` // The access token to be used to call the Dropbox API.
+	TokenType   string `json:"token_type"`
+	ExpiresIn   uint   `json:"expires_in"` // The length of time in seconds that the access token will be valid for.
+	Uid         string `json:"uid"`
+	AccountId   string `json:"account_id"`
 }
 
 type Cursor struct {
@@ -61,11 +76,12 @@ type uploadSessionResponse struct {
 }
 
 type Dropbox struct {
-	Path string `yaml:"path"`
-	// TODO: currently dropbox disable long lived token and there is no way to complete the oauth flow without browser.
-	// Have asked dropbox https://www.dropboxforum.com/t5/Discuss-Dropbox-Developer-API/How-to-get-refresh-token-without-User-interaction/m-p/655155/highlight/true#M3148
-	// And see how it goes in the future.
-	AccessToken string `yaml:"accesstoken"`
+	accessToken  string
+	expiredAt    time.Time
+	Path         string `yaml:"path"`
+	RefreshToken string `yaml:"refreshtoken"`
+	ClientId     string `yaml:"clientid"`
+	ClientSecret string `yaml:"clientsecret"`
 }
 
 func (dropbox *Dropbox) Save(reader io.Reader, gzip bool, unique bool) error {
@@ -122,6 +138,55 @@ func (dropbox *Dropbox) Save(reader io.Reader, gzip bool, unique bool) error {
 	return nil
 }
 
+func (dropbox *Dropbox) getAccessToken() error {
+	data := url.Values{
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {dropbox.RefreshToken},
+		"client_id":     {dropbox.ClientId},
+		"client_secret": {dropbox.ClientSecret},
+	}
+
+	res, err := http.PostForm(oauthTokenEndpoint, data)
+	if err != nil {
+		return fmt.Errorf("failed to request dropbox oauth token: %v", err)
+	}
+
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Printf("could not close response body: %v", err)
+		}
+	}()
+
+	var tokenResponse oauthTokenResponse
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("request %s is not successful, get status code: %d, body: %s", oauthTokenEndpoint, res.StatusCode, string(body))
+	}
+
+	if err = json.Unmarshal(body, &tokenResponse); err != nil {
+		return fmt.Errorf("could not unmarshal dropbox oauth token response :%v", err)
+	}
+
+	dropbox.accessToken = tokenResponse.AccessToken
+	dropbox.expiredAt = time.Now().Add(time.Duration(tokenResponse.ExpiresIn) * time.Second)
+	return nil
+}
+
+func (dropbox *Dropbox) hasTokenExpired() bool {
+	if dropbox.expiredAt.IsZero() {
+		return true
+	}
+
+	expireTime := dropbox.expiredAt.Add(-time.Second * expiredGap)
+
+	return time.Now().After(expireTime) || time.Now().Equal(expireTime)
+}
+
 func (dropbox *Dropbox) startUploadSession(client *http.Client) (string, error) {
 	param := uploadSessionParam{
 		Close: false,
@@ -133,8 +198,8 @@ func (dropbox *Dropbox) startUploadSession(client *http.Client) (string, error) 
 	}
 
 	sessionResponse := &uploadSessionResponse{}
-	err = json.Unmarshal(body, sessionResponse)
-	if err != nil {
+
+	if err = json.Unmarshal(body, sessionResponse); err != nil {
 		return "", fmt.Errorf("could not unmarshal upload session response :%v", err)
 	}
 
@@ -174,6 +239,12 @@ func (dropbox *Dropbox) uploadSessionAppend(client *http.Client, data []byte, of
 }
 
 func (dropbox *Dropbox) sendRequest(client *http.Client, method string, url string, data io.Reader, param any) ([]byte, error) {
+	if dropbox.accessToken == "" || dropbox.hasTokenExpired() {
+		if err := dropbox.getAccessToken(); err != nil {
+			return nil, err
+		}
+	}
+
 	req, err := http.NewRequest(method, url, data)
 	if err != nil {
 		return nil, err
@@ -185,10 +256,14 @@ func (dropbox *Dropbox) sendRequest(client *http.Client, method string, url stri
 	}
 
 	req.Header.Set("Content-Type", "application/octet-stream")
-	req.Header.Set("Authorization", "Bearer "+dropbox.AccessToken)
+	req.Header.Set("Authorization", "Bearer "+dropbox.accessToken)
 	req.Header.Set("Dropbox-API-Arg", string(paramJson))
 
 	response, err := client.Do(req)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to send dropbox request %v", err)
+	}
 
 	defer func() {
 		err := response.Body.Close()
@@ -197,16 +272,12 @@ func (dropbox *Dropbox) sendRequest(client *http.Client, method string, url stri
 		}
 	}()
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to send dropbox request %v", err)
-	}
-
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 
-	if response.StatusCode >= 300 || response.StatusCode < 200 {
+	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("request %s is not successful, get status code: %d, body: %s", url, response.StatusCode, string(body))
 	}
 
