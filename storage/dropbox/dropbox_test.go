@@ -21,12 +21,13 @@ func TestHasTokenExpired(t *testing.T) {
 		t.Errorf("default expiredIn should indicate expired, but actual got not expired.")
 	}
 
-	d.expiredAt = time.Now().Add((expiredGap + 2) * time.Second)
+	d.expiredAt = time.Now().Add((expiredGap + 1) * time.Second)
 	if d.hasTokenExpired() {
 		t.Errorf("expected not exipre token but got expired.")
 	}
 
 	d.expiredAt = time.Now().Add(expiredGap * time.Second)
+	t.Log("expiredAt", d.expiredAt)
 	if !d.hasTokenExpired() {
 		t.Errorf("expected expired token but got not expired.")
 	}
