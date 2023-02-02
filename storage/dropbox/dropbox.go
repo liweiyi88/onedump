@@ -28,10 +28,10 @@ const (
 	TB
 )
 
-// Give a gap when check the actual access token expiry.
+// Expire the access token before it reaches the real expiry to avoid edge cases.
 const expiredGap = 10
 
-// Dropb limits for file uploading per api.
+// Dropb limits of file upload per api call.
 var maxUpload = 150 * MB
 
 type uploadSessionParam struct {
@@ -151,6 +151,12 @@ func (dropbox *Dropbox) getAccessToken() error {
 		return fmt.Errorf("failed to request dropbox oauth token: %v", err)
 	}
 
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Printf("could not close response body: %v", err)
+		}
+	}()
+
 	var tokenResponse oauthTokenResponse
 
 	body, err := io.ReadAll(res.Body)
@@ -162,16 +168,9 @@ func (dropbox *Dropbox) getAccessToken() error {
 		return fmt.Errorf("request %s is not successful, get status code: %d, body: %s", oauthTokenEndpoint, res.StatusCode, string(body))
 	}
 
-	err = json.Unmarshal(body, &tokenResponse)
-	if err != nil {
-		return fmt.Errorf("could not unmarshal upload session response :%v", err)
+	if err = json.Unmarshal(body, &tokenResponse); err != nil {
+		return fmt.Errorf("could not unmarshal dropbox oauth token response :%v", err)
 	}
-
-	defer func() {
-		if err := res.Body.Close(); err != nil {
-			log.Printf("could not close response body: %v", err)
-		}
-	}()
 
 	dropbox.accessToken = tokenResponse.AccessToken
 	dropbox.expiredAt = time.Now().Add(time.Duration(tokenResponse.ExpiresIn) * time.Second)
@@ -198,8 +197,8 @@ func (dropbox *Dropbox) startUploadSession(client *http.Client) (string, error) 
 	}
 
 	sessionResponse := &uploadSessionResponse{}
-	err = json.Unmarshal(body, sessionResponse)
-	if err != nil {
+
+	if err = json.Unmarshal(body, sessionResponse); err != nil {
 		return "", fmt.Errorf("could not unmarshal upload session response :%v", err)
 	}
 
@@ -261,16 +260,16 @@ func (dropbox *Dropbox) sendRequest(client *http.Client, method string, url stri
 
 	response, err := client.Do(req)
 
+	if err != nil {
+		return nil, fmt.Errorf("failed to send dropbox request %v", err)
+	}
+
 	defer func() {
 		err := response.Body.Close()
 		if err != nil {
 			log.Printf("failed to close upload session response body: %v", err)
 		}
 	}()
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to send dropbox request %v", err)
-	}
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
