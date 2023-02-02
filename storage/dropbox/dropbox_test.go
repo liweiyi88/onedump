@@ -27,7 +27,6 @@ func TestHasTokenExpired(t *testing.T) {
 	}
 
 	d.expiredAt = time.Now().Add(expiredGap * time.Second)
-	t.Log("expiredAt", d.expiredAt)
 	if !d.hasTokenExpired() {
 		t.Errorf("expected expired token but got not expired.")
 	}

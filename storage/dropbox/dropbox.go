@@ -184,8 +184,7 @@ func (dropbox *Dropbox) hasTokenExpired() bool {
 
 	expireTime := dropbox.expiredAt.Add(-time.Second * expiredGap)
 
-	fmt.Println("expire time:", expireTime, "now:", time.Now())
-	return time.Now().After(expireTime)
+	return time.Now().After(expireTime) || time.Now().Equal(expireTime)
 }
 
 func (dropbox *Dropbox) startUploadSession(client *http.Client) (string, error) {
