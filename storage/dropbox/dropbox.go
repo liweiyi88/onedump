@@ -184,7 +184,7 @@ func (dropbox *Dropbox) hasTokenExpired() bool {
 
 	expireTime := dropbox.expiredAt.Add(-time.Second * expiredGap)
 
-	fmt.Println("expire time:", expireTime)
+	fmt.Println("expire time:", expireTime, "now:", time.Now())
 	return time.Now().After(expireTime)
 }
 
