@@ -194,7 +194,9 @@ func (dumper *Dumper) Dump() *config.JobResult {
 	result.JobName = dumper.Job.Name
 
 	cacheFileName, cleanup, err := dumper.dumpToCacheFile()
-	defer cleanup()
+	defer func() {
+		cleanup()
+	}()
 
 	if err != nil {
 		result.Error = fmt.Errorf("failed to dump content to cache file: %v", err)

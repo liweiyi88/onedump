@@ -51,6 +51,21 @@ func NewMysqlDriver(dsn string, options []string, viaSsh bool) (*MysqlDriver, er
 	}, nil
 }
 
+func (mysql *MysqlDriver) GetDumpCommand() (string, []string, error) {
+	args, err := mysql.getDumpCommandArgs()
+
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get dump command args %w", err)
+	}
+
+	mysqldumpBinaryPath, err := exec.LookPath(mysql.MysqlDumpBinaryPath)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to find mysqldump executable %s %w", mysql.MysqlDumpBinaryPath, err)
+	}
+
+	return mysqldumpBinaryPath, args, nil
+}
+
 // Get dump command used by ssh dumper.
 func (mysql *MysqlDriver) GetSshDumpCommand() (string, error) {
 	args, err := mysql.getDumpCommandArgs()
@@ -61,27 +76,10 @@ func (mysql *MysqlDriver) GetSshDumpCommand() (string, error) {
 	return fmt.Sprintf("mysqldump %s", strings.Join(args, " ")), nil
 }
 
-func (mysql *MysqlDriver) GetDumpCommand() (string, []string, error) {
-	args, err := mysql.getDumpCommandArgs()
-
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to get dump command args %w", err)
-	}
-
-	// check and get the binary path.
-	mysqldumpBinaryPath, err := exec.LookPath(mysql.MysqlDumpBinaryPath)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to find mysqldump executable %s %w", mysql.MysqlDumpBinaryPath, err)
-	}
-
-	return mysqldumpBinaryPath, args, nil
-}
-
 // Store the username password in a temp file, and use it with the mysqldump command.
 // It avoids to expoes credentials when you run the mysqldump command as user can view the whole command via ps aux.
 // Inspired by https://github.com/spatie/db-dumper
 func (mysql *MysqlDriver) getDumpCommandArgs() ([]string, error) {
-
 	args := []string{}
 
 	if !mysql.ViaSsh {
@@ -129,4 +127,8 @@ host = %s`
 	}
 
 	return file.Name(), nil
+}
+
+func (mysql *MysqlDriver) ExecDumpEnviron() []string {
+	return nil
 }

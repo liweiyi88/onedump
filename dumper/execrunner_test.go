@@ -15,6 +15,10 @@ func (md *MockDriver) GetSshDumpCommand() (string, error) {
 	return "", nil
 }
 
+func (md *MockDriver) ExecDumpEnviron() []string {
+	return nil
+}
+
 func TestNewExecRunner(t *testing.T) {
 	driver := &MockDriver{}
 	execRunner := NewExecRunner(true, driver)

@@ -153,6 +153,13 @@ func (job *Job) GetDBDriver() (driver.Driver, error) {
 		}
 
 		return driver, nil
+	case "postgresql":
+		driver, err := driver.NewPostgreSqlDriver(job.DBDsn, job.DumpOptions, job.ViaSsh())
+		if err != nil {
+			return nil, err
+		}
+
+		return driver, nil
 	default:
 		return nil, fmt.Errorf("%s is not a supported database driver", job.DBDriver)
 	}

@@ -41,6 +41,11 @@ func (execDump *ExecRunner) DumpToFile(file io.Writer) error {
 	}
 
 	cmd := exec.Command(command, args...)
+	envs := execDump.DBDriver.ExecDumpEnviron()
+
+	if len(envs) > 0 {
+		cmd.Env = append(os.Environ(), envs...)
+	}
 
 	cmd.Stderr = os.Stderr
 	if gzipWriter != nil {
