@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/liweiyi88/onedump/config"
-	"github.com/liweiyi88/onedump/filenaming"
+	"github.com/liweiyi88/onedump/fileutil"
 	"github.com/liweiyi88/onedump/storage/local"
 	"golang.org/x/crypto/ssh"
 )
@@ -50,7 +50,7 @@ func TestUploadCacheDir(t *testing.T) {
 
 func TestGenerateCacheFileName(t *testing.T) {
 	expectedLen := 5
-	name := generateRandomName(expectedLen)
+	name := fileutil.GenerateRandomName(expectedLen)
 
 	actualLen := len([]rune(name))
 	if actualLen != expectedLen {
@@ -190,12 +190,12 @@ func TestRun(t *testing.T) {
 }
 
 func TestEnsureFileSuffix(t *testing.T) {
-	gzip := filenaming.EnsureFileSuffix("test.sql", true)
+	gzip := fileutil.EnsureFileSuffix("test.sql", true)
 	if gzip != "test.sql.gz" {
 		t.Errorf("expected filename has .gz extension, actual file name: %s", gzip)
 	}
 
-	sql := filenaming.EnsureFileSuffix("test.sql.gz", true)
+	sql := fileutil.EnsureFileSuffix("test.sql.gz", true)
 
 	if sql != "test.sql.gz" {
 		t.Errorf("expected: %s is not equals to actual: %s", sql, "test.sql.gz")

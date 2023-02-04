@@ -10,11 +10,12 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/hashicorp/go-multierror"
+	"github.com/liweiyi88/onedump/fileutil"
 )
 
-const CredentialFilePrefix = "mysqldumpcred-"
-
 type MysqlDriver struct {
+	credentialFiles     []string
 	MysqlDumpBinaryPath string
 	Options             []string
 	ViaSsh              bool
@@ -51,7 +52,7 @@ func NewMysqlDriver(dsn string, options []string, viaSsh bool) (*MysqlDriver, er
 	}, nil
 }
 
-func (mysql *MysqlDriver) GetDumpCommand() (string, []string, error) {
+func (mysql *MysqlDriver) GetExecDumpCommand() (string, []string, error) {
 	args, err := mysql.getDumpCommandArgs()
 
 	if err != nil {
@@ -99,8 +100,6 @@ func (mysql *MysqlDriver) getDumpCommandArgs() ([]string, error) {
 }
 
 func (mysql *MysqlDriver) createCredentialFile() (string, error) {
-	var fileName string
-
 	contents := `[client]
 user = %s
 password = %s
@@ -109,9 +108,9 @@ host = %s`
 
 	contents = fmt.Sprintf(contents, mysql.Username, mysql.Password, mysql.Port, mysql.Host)
 
-	file, err := os.CreateTemp("", CredentialFilePrefix)
+	file, err := os.Create(fileutil.WorkDir() + "/.mysqlpass" + fileutil.GenerateRandomName(4))
 	if err != nil {
-		return fileName, fmt.Errorf("failed to create temp folder: %w", err)
+		return file.Name(), fmt.Errorf("failed to create temp folder: %w", err)
 	}
 
 	defer func() {
@@ -123,12 +122,27 @@ host = %s`
 
 	_, err = file.WriteString(contents)
 	if err != nil {
-		return fileName, fmt.Errorf("failed to write credentials to temp file: %w", err)
+		return file.Name(), fmt.Errorf("failed to write credentials to temp file: %w", err)
 	}
+
+	mysql.credentialFiles = append(mysql.credentialFiles, file.Name())
 
 	return file.Name(), nil
 }
 
-func (mysql *MysqlDriver) ExecDumpEnviron() []string {
-	return nil
+func (mysql *MysqlDriver) ExecDumpEnviron() ([]string, error) {
+	return nil, nil
+}
+
+func (mysql *MysqlDriver) Close() error {
+	var err error
+	if len(mysql.credentialFiles) > 0 {
+		for _, filename := range mysql.credentialFiles {
+			if e := os.Remove(filename); e != nil {
+				err = multierror.Append(err, e)
+			}
+		}
+	}
+
+	return err
 }

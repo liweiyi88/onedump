@@ -11,7 +11,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/config"
-	"github.com/liweiyi88/onedump/filenaming"
+	"github.com/liweiyi88/onedump/fileutil"
 )
 
 const cacheDirPrefix = ".onedump"
@@ -30,37 +30,17 @@ func NewDumper(job *config.Job) *Dumper {
 	}
 }
 
-func generateRandomName(n int) string {
-	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
-	}
-	return string(b)
-}
-
 // For uploading dump file to remote storage, we need to firstly dump the db content to a dir locally.
 // We firstly try to get current work dir, if not successful, then try to get home dir and finally try temp dir.
 // Be aware of the size limit of a temp dir in different OS.
 func cacheFileDir() string {
-	dir, err := os.Getwd()
-	if err != nil {
-		log.Printf("Cannot get the current directory: %v, using $HOME directory!", err)
-		dir, err = os.UserHomeDir()
-		if err != nil {
-			log.Printf("Cannot get the user home directory: %v, using /tmp directory!", err)
-			dir = os.TempDir()
-		}
-	}
-
 	// randomise the upload cache dir, otherwise we will have race condition when have more than one dump jobs.
-	return fmt.Sprintf("%s/%s%s", dir, cacheDirPrefix, generateRandomName(4))
+	return fmt.Sprintf("%s/%s%s", fileutil.WorkDir(), cacheDirPrefix, fileutil.GenerateRandomName(4))
 }
 
 func cacheFilePath(cacheDir string, shouldGzip bool) string {
-	filename := fmt.Sprintf("%s/%s", cacheDir, generateRandomName(8)+".sql")
-	return filenaming.EnsureFileSuffix(filename, shouldGzip)
+	filename := fmt.Sprintf("%s/%s", cacheDir, fileutil.GenerateRandomName(8)+".sql")
+	return fileutil.EnsureFileSuffix(filename, shouldGzip)
 }
 
 func createCacheFile(gzip bool) (*os.File, string, error) {

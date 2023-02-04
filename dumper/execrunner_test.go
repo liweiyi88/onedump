@@ -7,7 +7,7 @@ import (
 
 type MockDriver struct{}
 
-func (md *MockDriver) GetDumpCommand() (string, []string, error) {
+func (md *MockDriver) GetExecDumpCommand() (string, []string, error) {
 	return "date", nil, nil
 }
 
@@ -15,7 +15,11 @@ func (md *MockDriver) GetSshDumpCommand() (string, error) {
 	return "", nil
 }
 
-func (md *MockDriver) ExecDumpEnviron() []string {
+func (md *MockDriver) ExecDumpEnviron() ([]string, error) {
+	return nil, nil
+}
+
+func (md *MockDriver) Close() error {
 	return nil
 }
 

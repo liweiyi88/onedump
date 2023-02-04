@@ -24,6 +24,12 @@ func NewExecRunner(shouldGzip bool, driver driver.Driver) *ExecRunner {
 }
 
 func (execDump *ExecRunner) DumpToFile(file io.Writer) error {
+	defer func() {
+		if err := execDump.DBDriver.Close(); err != nil {
+			log.Printf("could not cleanup db driver: %v", err)
+		}
+	}()
+
 	var gzipWriter *gzip.Writer
 	if execDump.ShouldGzip {
 		gzipWriter = gzip.NewWriter(file)
@@ -35,13 +41,16 @@ func (execDump *ExecRunner) DumpToFile(file io.Writer) error {
 		}()
 	}
 
-	command, args, err := execDump.DBDriver.GetDumpCommand()
+	command, args, err := execDump.DBDriver.GetExecDumpCommand()
 	if err != nil {
 		return fmt.Errorf("could not to get dump command: %v", err)
 	}
 
 	cmd := exec.Command(command, args...)
-	envs := execDump.DBDriver.ExecDumpEnviron()
+	envs, err := execDump.DBDriver.ExecDumpEnviron()
+	if err != nil {
+		return fmt.Errorf("could not get exec dump environment variables: %v", err)
+	}
 
 	if len(envs) > 0 {
 		cmd.Env = append(os.Environ(), envs...)

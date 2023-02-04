@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/liweiyi88/onedump/filenaming"
+	"github.com/liweiyi88/onedump/fileutil"
 )
 
 var (
@@ -208,7 +208,7 @@ func (dropbox *Dropbox) startUploadSession(client *http.Client) (string, error) 
 
 func (dropbox *Dropbox) uploadSessionFinish(client *http.Client, data []byte, offset int, sessionId string, gzip bool, unique bool) error {
 	bytesReader := bytes.NewReader(data)
-	filename := filenaming.EnsureFileName(dropbox.Path, gzip, unique)
+	filename := fileutil.EnsureFileName(dropbox.Path, gzip, unique)
 	param := uploadSessionFinishParam{
 		Commit: Commit{
 			Path: filename,

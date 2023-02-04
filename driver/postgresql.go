@@ -2,13 +2,18 @@ package driver
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"os/exec"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/jackc/pgx/v5"
+	"github.com/liweiyi88/onedump/fileutil"
 )
 
 type PostgreSqlDriver struct {
+	credentialFiles  []string
 	PgDumpBinaryPath string
 	Options          []string
 	ViaSsh           bool
@@ -41,7 +46,7 @@ func (psql *PostgreSqlDriver) getDumpCommandArgs() []string {
 	return args
 }
 
-func (psql *PostgreSqlDriver) GetDumpCommand() (string, []string, error) {
+func (psql *PostgreSqlDriver) GetExecDumpCommand() (string, []string, error) {
 	pgDumpPath, err := exec.LookPath(psql.PgDumpBinaryPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to find pg_dump executable %s %w", psql.PgDumpBinaryPath, err)
@@ -50,11 +55,56 @@ func (psql *PostgreSqlDriver) GetDumpCommand() (string, []string, error) {
 	return pgDumpPath, psql.getDumpCommandArgs(), nil
 }
 
-func (psql *PostgreSqlDriver) ExecDumpEnviron() []string {
-	env := []string{fmt.Sprintf("PGPASSWORD=%s", psql.Password)}
-	return env
+func (psql *PostgreSqlDriver) ExecDumpEnviron() ([]string, error) {
+	pgpassFileName, err := psql.createCredentialFile()
+	if err != nil {
+		return nil, err
+	}
+
+	env := []string{fmt.Sprintf("PGPASSFILE=%s", pgpassFileName)}
+	return env, nil
 }
 
 func (psql *PostgreSqlDriver) GetSshDumpCommand() (string, error) {
 	return fmt.Sprintf("PGPASSWORD=%s pg_dump %s", psql.Password, strings.Join(psql.getDumpCommandArgs(), " ")), nil
+}
+
+func (psql *PostgreSqlDriver) Close() error {
+	var err error
+	if len(psql.credentialFiles) > 0 {
+		for _, filename := range psql.credentialFiles {
+			if e := os.Remove(filename); e != nil {
+				err = multierror.Append(err, e)
+			}
+		}
+	}
+
+	return err
+}
+
+func (psql *PostgreSqlDriver) createCredentialFile() (string, error) {
+	file, err := os.Create(fileutil.WorkDir() + "/.pgpass" + fileutil.GenerateRandomName(4))
+	if err != nil {
+		return "", fmt.Errorf("could not create .pgpass file: %v", err)
+	}
+
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("could not close file: %s, err: %v", file.Name(), err)
+		}
+	}()
+
+	contents := fmt.Sprintf("%s:%d:%s:%s:%s", psql.Host, psql.Port, psql.DBName, psql.Username, psql.Password)
+	_, err = file.WriteString(contents)
+	if err != nil {
+		return file.Name(), fmt.Errorf("failed to write credentials to .pgpass file: %w", err)
+	}
+
+	if err = os.Chmod(file.Name(), 0600); err != nil {
+		log.Printf("could not change file permissoin, file: %s, error: %v", file.Name(), err)
+	}
+
+	psql.credentialFiles = append(psql.credentialFiles, file.Name())
+
+	return file.Name(), nil
 }
