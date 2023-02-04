@@ -12,6 +12,7 @@ import (
 )
 
 var testDBDsn = "root@tcp(127.0.0.1:3306)/dump_test"
+var testPsqlDBDsn = "postgres://julianli:julian@localhost:5432/mypsqldb"
 
 func TestGetDBDriver(t *testing.T) {
 	job := NewJob("job1", "mysql", testDBDsn)
@@ -21,6 +22,12 @@ func TestGetDBDriver(t *testing.T) {
 		t.Errorf("expect get mysql db driver, but get err: %v", err)
 	}
 
+	job = NewJob("job1", "postgresql", testPsqlDBDsn)
+	_, err = job.GetDBDriver()
+	if err != nil {
+		t.Errorf("expect get postgresql db driver, but get err: %v", err)
+	}
+
 	job = NewJob("job1", "x", testDBDsn)
 	_, err = job.GetDBDriver()
 	if err == nil {
@@ -28,7 +35,35 @@ func TestGetDBDriver(t *testing.T) {
 	}
 }
 
-func TestDumpValidate(t *testing.T) {
+func TestWithSshHost(t *testing.T) {
+	job := NewJob("job", "mysql", testDBDsn, WithSshHost("localhost"))
+	if job.SshHost != "localhost" {
+		t.Errorf("expect ssh host: localhost but got: %s", job.SshHost)
+	}
+}
+
+func TestWithSshUser(t *testing.T) {
+	job := NewJob("job", "mysql", testDBDsn, WithSshUser("root"))
+	if job.SshUser != "root" {
+		t.Errorf("expect ssh user: root but got: %s", job.SshUser)
+	}
+}
+
+func TestWithGzip(t *testing.T) {
+	job := NewJob("job", "mysql", testDBDsn, WithGzip(true))
+	if !job.Gzip {
+		t.Error("expect gzip but got false")
+	}
+}
+
+func TestWithSshKey(t *testing.T) {
+	job := NewJob("job", "mysql", testDBDsn, WithSshKey("ssh key"))
+	if job.SshKey != "ssh key" {
+		t.Errorf("expect ssh key: ssh key, but got: %s", job.SshKey)
+	}
+}
+
+func TestValidateDump(t *testing.T) {
 	jobs := make([]*Job, 0)
 	job1 := NewJob(
 		"job1",
