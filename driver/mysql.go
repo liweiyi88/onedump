@@ -110,7 +110,7 @@ host = %s`
 
 	file, err := os.Create(fileutil.WorkDir() + "/.mysqlpass" + fileutil.GenerateRandomName(4))
 	if err != nil {
-		return file.Name(), fmt.Errorf("failed to create temp folder: %w", err)
+		return file.Name(), fmt.Errorf("failed to create temp mysql credentials file: %w", err)
 	}
 
 	defer func() {
