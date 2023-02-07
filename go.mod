@@ -21,6 +21,8 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.2.1 // indirect
 	github.com/googleapis/gax-go/v2 v2.7.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/net v0.5.0 // indirect
@@ -34,6 +36,7 @@ require (
 
 require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/jackc/pgx/v5 v5.2.0
 	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/crypto v0.5.0
 	golang.org/x/oauth2 v0.4.0

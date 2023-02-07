@@ -1,4 +1,4 @@
-package dumper
+package runner
 
 import (
 	"bytes"
@@ -7,12 +7,20 @@ import (
 
 type MockDriver struct{}
 
-func (md *MockDriver) GetDumpCommand() (string, []string, error) {
+func (md *MockDriver) GetExecDumpCommand() (string, []string, error) {
 	return "date", nil, nil
 }
 
 func (md *MockDriver) GetSshDumpCommand() (string, error) {
 	return "", nil
+}
+
+func (md *MockDriver) ExecDumpEnviron() ([]string, error) {
+	return nil, nil
+}
+
+func (md *MockDriver) Close() error {
+	return nil
 }
 
 func TestNewExecRunner(t *testing.T) {
@@ -25,7 +33,6 @@ func TestNewExecRunner(t *testing.T) {
 }
 
 func TestDumpToFile(t *testing.T) {
-
 	buf := make([]byte, 50)
 	buffer := bytes.NewBuffer(buf)
 

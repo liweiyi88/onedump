@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/liweiyi88/onedump/filenaming"
+	"github.com/liweiyi88/onedump/fileutil"
 )
 
 type Local struct {
@@ -14,7 +14,7 @@ type Local struct {
 }
 
 func (local *Local) Save(reader io.Reader, gzip bool, unique bool) error {
-	path := filenaming.EnsureFileName(local.Path, gzip, unique)
+	path := fileutil.EnsureFileName(local.Path, gzip, unique)
 	file, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("failed to create local dump file: %w", err)

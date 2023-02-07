@@ -1,7 +1,9 @@
 package driver
 
 type Driver interface {
-	GetDumpCommand() (string, []string, error)
+	Close() error
+	ExecDumpEnviron() ([]string, error)
+	GetExecDumpCommand() (string, []string, error)
 	GetSshDumpCommand() (string, error)
 }
 

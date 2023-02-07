@@ -198,7 +198,7 @@ jobs:
 | Driver | Status |
 | --- | --- |
 | MySQL | ✅ Suported |
-| PostgreSQL | 🚧 WIP |
+| PostgreSQL | ✅ Suported |
 
 ## Storages
 | Storage | Status |

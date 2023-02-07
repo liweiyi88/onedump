@@ -1,4 +1,4 @@
-package filenaming
+package fileutil
 
 import (
 	"strings"
@@ -59,5 +59,13 @@ func TestEnsureUniqueness(t *testing.T) {
 
 	if !strings.HasSuffix(filename, "-hello.sql") {
 		t.Errorf("got incorrect filename suffix: %s", filename)
+	}
+}
+
+func TestGenerateRandomName(t *testing.T) {
+	n := GenerateRandomName(10)
+
+	if len(n) != 10 {
+		t.Errorf("expect length 10: but got: %d", len(n))
 	}
 }

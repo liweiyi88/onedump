@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -14,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/liweiyi88/onedump/config"
-	"github.com/liweiyi88/onedump/filenaming"
+	"github.com/liweiyi88/onedump/fileutil"
 	"github.com/liweiyi88/onedump/storage/local"
 	"golang.org/x/crypto/ssh"
 )
@@ -50,7 +51,7 @@ func TestUploadCacheDir(t *testing.T) {
 
 func TestGenerateCacheFileName(t *testing.T) {
 	expectedLen := 5
-	name := generateRandomName(expectedLen)
+	name := fileutil.GenerateRandomName(expectedLen)
 
 	actualLen := len([]rune(name))
 	if actualLen != expectedLen {
@@ -79,6 +80,50 @@ func TestUploadCacheFilePath(t *testing.T) {
 	if sql == sql2 {
 		t.Errorf("expected unique file name but got same filename %s", sql)
 	}
+}
+
+type mockRunner struct {
+}
+
+func (mockRunner *mockRunner) DumpToFile(file io.Writer) error {
+	return nil
+}
+
+type mockErrorRunner struct {
+}
+
+func (mockRunner *mockErrorRunner) DumpToFile(file io.Writer) error {
+	return errors.New("mock runner err")
+}
+
+func TestDumpToCacheFile(t *testing.T) {
+	runner := &mockRunner{}
+	dumper := &Dumper{
+		Job: &config.Job{},
+	}
+
+	_, cacheDir1, err := dumper.dumpToCacheFile(runner)
+	if err != nil {
+		t.Error(err)
+	}
+
+	er := &mockErrorRunner{}
+	_, cacheDir2, err := dumper.dumpToCacheFile(er)
+	if err == nil {
+		t.Error("expect error but got nil")
+	}
+
+	defer func() {
+		err := os.RemoveAll(cacheDir1)
+		if err != nil {
+			log.Println("failed to remove cache dir after dump", err)
+		}
+
+		err = os.RemoveAll(cacheDir2)
+		if err != nil {
+			log.Println("failed to remove cache dir after dump", err)
+		}
+	}()
 }
 
 func TestRun(t *testing.T) {
@@ -190,12 +235,12 @@ func TestRun(t *testing.T) {
 }
 
 func TestEnsureFileSuffix(t *testing.T) {
-	gzip := filenaming.EnsureFileSuffix("test.sql", true)
+	gzip := fileutil.EnsureFileSuffix("test.sql", true)
 	if gzip != "test.sql.gz" {
 		t.Errorf("expected filename has .gz extension, actual file name: %s", gzip)
 	}
 
-	sql := filenaming.EnsureFileSuffix("test.sql.gz", true)
+	sql := fileutil.EnsureFileSuffix("test.sql.gz", true)
 
 	if sql != "test.sql.gz" {
 		t.Errorf("expected: %s is not equals to actual: %s", sql, "test.sql.gz")
