@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/dumper"
 	"github.com/liweiyi88/onedump/storage/s3"
@@ -49,10 +50,14 @@ var rootCmd = &cobra.Command{
 			}(job, resultCh)
 		}
 
+		var jobErr error
 		var wg sync.WaitGroup
 		wg.Add(numberOfJobs)
 		go func(resultCh chan *config.JobResult) {
 			for result := range resultCh {
+				if result.Error != nil {
+					jobErr = multierror.Append(jobErr, result.Error)
+				}
 				fmt.Println(result.String())
 				wg.Done()
 			}
@@ -61,7 +66,7 @@ var rootCmd = &cobra.Command{
 		wg.Wait()
 		close(resultCh)
 
-		return nil
+		return jobErr
 	},
 }
 
