@@ -22,6 +22,7 @@ type MysqlDriver struct {
 	*DBConfig
 }
 
+// Create the mysql dump driver.
 func NewMysqlDriver(dsn string, options []string, viaSsh bool) (*MysqlDriver, error) {
 	config, err := mysql.ParseDSN(dsn)
 	if err != nil {
@@ -52,6 +53,7 @@ func NewMysqlDriver(dsn string, options []string, viaSsh bool) (*MysqlDriver, er
 	}, nil
 }
 
+// Get the exec dump command.
 func (mysql *MysqlDriver) GetExecDumpCommand() (string, []string, error) {
 	args, err := mysql.getDumpCommandArgs()
 
@@ -77,9 +79,6 @@ func (mysql *MysqlDriver) GetSshDumpCommand() (string, error) {
 	return fmt.Sprintf("mysqldump %s", strings.Join(args, " ")), nil
 }
 
-// Store the username password in a temp file, and use it with the mysqldump command.
-// It avoids to expoes credentials when you run the mysqldump command as user can view the whole command via ps aux.
-// Inspired by https://github.com/spatie/db-dumper
 func (mysql *MysqlDriver) getDumpCommandArgs() ([]string, error) {
 	args := []string{}
 
@@ -99,6 +98,8 @@ func (mysql *MysqlDriver) getDumpCommandArgs() ([]string, error) {
 	return args, nil
 }
 
+// Store the username password in a temp file, and use it with the mysqldump command.
+// It avoids to expoes credentials when you run the mysqldump command as user can view the whole command via ps aux.
 func (mysql *MysqlDriver) createCredentialFile() (string, error) {
 	contents := `[client]
 user = %s
@@ -130,10 +131,12 @@ host = %s`
 	return file.Name(), nil
 }
 
+// Get the required environment variables for running exec dump.
 func (mysql *MysqlDriver) ExecDumpEnviron() ([]string, error) {
 	return nil, nil
 }
 
+// Cleanup the credentials file.
 func (mysql *MysqlDriver) Close() error {
 	var err error
 	if len(mysql.credentialFiles) > 0 {
@@ -142,6 +145,8 @@ func (mysql *MysqlDriver) Close() error {
 				err = multierror.Append(err, e)
 			}
 		}
+
+		mysql.credentialFiles = nil
 	}
 
 	return err

@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/driver"
+	"github.com/liweiyi88/onedump/dumper/runner"
 	"github.com/liweiyi88/onedump/storage/dropbox"
 	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
@@ -144,7 +145,20 @@ func (job *Job) ViaSsh() bool {
 	return false
 }
 
-func (job *Job) GetDBDriver() (driver.Driver, error) {
+func (job *Job) GetRunner() (runner.Runner, error) {
+	driver, err := job.getDBDriver()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get db driver %v", err)
+	}
+
+	if job.ViaSsh() {
+		return runner.NewSshRunner(job.SshHost, job.SshKey, job.SshUser, job.Gzip, driver), nil
+	} else {
+		return runner.NewExecRunner(job.Gzip, driver), nil
+	}
+}
+
+func (job *Job) getDBDriver() (driver.Driver, error) {
 	switch job.DBDriver {
 	case "mysql":
 		driver, err := driver.NewMysqlDriver(job.DBDsn, job.DumpOptions, job.ViaSsh())

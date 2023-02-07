@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -79,6 +80,50 @@ func TestUploadCacheFilePath(t *testing.T) {
 	if sql == sql2 {
 		t.Errorf("expected unique file name but got same filename %s", sql)
 	}
+}
+
+type mockRunner struct {
+}
+
+func (mockRunner *mockRunner) DumpToFile(file io.Writer) error {
+	return nil
+}
+
+type mockErrorRunner struct {
+}
+
+func (mockRunner *mockErrorRunner) DumpToFile(file io.Writer) error {
+	return errors.New("mock runner err")
+}
+
+func TestDumpToCacheFile(t *testing.T) {
+	runner := &mockRunner{}
+	dumper := &Dumper{
+		Job: &config.Job{},
+	}
+
+	_, cacheDir1, err := dumper.dumpToCacheFile(runner)
+	if err != nil {
+		t.Error(err)
+	}
+
+	er := &mockErrorRunner{}
+	_, cacheDir2, err := dumper.dumpToCacheFile(er)
+	if err == nil {
+		t.Error("expect error but got nil")
+	}
+
+	defer func() {
+		err := os.RemoveAll(cacheDir1)
+		if err != nil {
+			log.Println("failed to remove cache dir after dump", err)
+		}
+
+		err = os.RemoveAll(cacheDir2)
+		if err != nil {
+			log.Println("failed to remove cache dir after dump", err)
+		}
+	}()
 }
 
 func TestRun(t *testing.T) {

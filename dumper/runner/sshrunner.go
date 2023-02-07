@@ -1,4 +1,4 @@
-package dumper
+package runner
 
 import (
 	"bytes"

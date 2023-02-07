@@ -20,6 +20,7 @@ type PostgreSqlDriver struct {
 	*DBConfig
 }
 
+// Create the postgressql dump driver.
 // Dsn example: postgres://username:password@localhost:5432/database_name"
 func NewPostgreSqlDriver(dsn string, options []string, viaSsh bool) (*PostgreSqlDriver, error) {
 	config, err := pgx.ParseConfig(dsn)
@@ -46,6 +47,7 @@ func (psql *PostgreSqlDriver) getDumpCommandArgs() []string {
 	return args
 }
 
+// Get the exec dump command.
 func (psql *PostgreSqlDriver) GetExecDumpCommand() (string, []string, error) {
 	pgDumpPath, err := exec.LookPath(psql.PgDumpBinaryPath)
 	if err != nil {
@@ -55,6 +57,7 @@ func (psql *PostgreSqlDriver) GetExecDumpCommand() (string, []string, error) {
 	return pgDumpPath, psql.getDumpCommandArgs(), nil
 }
 
+// Get the required environment variables for running exec dump.
 func (psql *PostgreSqlDriver) ExecDumpEnviron() ([]string, error) {
 	pgpassFileName, err := psql.createCredentialFile()
 	if err != nil {
@@ -65,10 +68,12 @@ func (psql *PostgreSqlDriver) ExecDumpEnviron() ([]string, error) {
 	return env, nil
 }
 
+// Get the ssh dump command.
 func (psql *PostgreSqlDriver) GetSshDumpCommand() (string, error) {
 	return fmt.Sprintf("PGPASSWORD=%s pg_dump %s", psql.Password, strings.Join(psql.getDumpCommandArgs(), " ")), nil
 }
 
+// Cleanup the credentials file.
 func (psql *PostgreSqlDriver) Close() error {
 	var err error
 	if len(psql.credentialFiles) > 0 {
@@ -77,11 +82,15 @@ func (psql *PostgreSqlDriver) Close() error {
 				err = multierror.Append(err, e)
 			}
 		}
+
+		psql.credentialFiles = nil
 	}
 
 	return err
 }
 
+// Store the username password in a temp file, and use it with the pg_dump command.
+// It avoids to expoes credentials when you run the pg_dump command as user can view the whole command via ps aux.
 func (psql *PostgreSqlDriver) createCredentialFile() (string, error) {
 	file, err := os.Create(fileutil.WorkDir() + "/.pgpass" + fileutil.GenerateRandomName(4))
 	if err != nil {

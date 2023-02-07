@@ -2,6 +2,14 @@
 ## All configurable items
 ```
 jobs:
+- name: local-dump
+  dbdriver: postgresql
+    dbdsn: postgres://<user>:<password>@<host>:<port>/<dbname>
+    gzip: true
+    options:
+    storage:
+      local:
+        - path: /Users/jack/Desktop/postgresql-dump.sql
 - name: ssh-dump #dump job name is required.
   dbdriver: mysql #db driver is required.
   dbdsn: user:password@tcp(127.0.0.1:3306)/dbname # dbdsn is required. you should replace, <user>, <password>, <127.0.0.1:3306> and <dbname> with your real db credentials

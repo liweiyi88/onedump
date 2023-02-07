@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/liweiyi88/onedump/dumper/runner"
 	"github.com/liweiyi88/onedump/storage/dropbox"
 	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
@@ -17,19 +18,19 @@ var testPsqlDBDsn = "postgres://julianli:julian@localhost:5432/mypsqldb"
 func TestGetDBDriver(t *testing.T) {
 	job := NewJob("job1", "mysql", testDBDsn)
 
-	_, err := job.GetDBDriver()
+	_, err := job.getDBDriver()
 	if err != nil {
 		t.Errorf("expect get mysql db driver, but get err: %v", err)
 	}
 
 	job = NewJob("job1", "postgresql", testPsqlDBDsn)
-	_, err = job.GetDBDriver()
+	_, err = job.getDBDriver()
 	if err != nil {
 		t.Errorf("expect get postgresql db driver, but get err: %v", err)
 	}
 
 	job = NewJob("job1", "x", testDBDsn)
-	_, err = job.GetDBDriver()
+	_, err = job.getDBDriver()
 	if err == nil {
 		t.Error("expect unsupport database driver err, but actual get nil")
 	}
@@ -172,5 +173,37 @@ func TestViaSsh(t *testing.T) {
 
 	if job.ViaSsh() != true {
 		t.Error("expected via ssh but got false")
+	}
+}
+
+func TestGetRunner(t *testing.T) {
+	job := &Job{}
+
+	_, err := job.GetRunner()
+	if err == nil {
+		t.Error("expect error but got nil")
+	}
+
+	job.DBDriver = "mysql"
+	r, err := job.GetRunner()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if _, ok := r.(*runner.ExecRunner); !ok {
+		t.Errorf("expect exec runner, but got type: %T", r)
+	}
+
+	job.DBDriver = "postgresql"
+	job.SshHost = "localhost"
+	job.SshUser = "admin"
+	job.SshKey = "ssh key"
+	r, err = job.GetRunner()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if _, ok := r.(*runner.SshRunner); !ok {
+		t.Errorf("expect ssh runner, but got type: %T", r)
 	}
 }

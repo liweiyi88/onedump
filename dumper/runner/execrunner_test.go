@@ -1,4 +1,4 @@
-package dumper
+package runner
 
 import (
 	"bytes"
@@ -33,7 +33,6 @@ func TestNewExecRunner(t *testing.T) {
 }
 
 func TestDumpToFile(t *testing.T) {
-
 	buf := make([]byte, 50)
 	buffer := bytes.NewBuffer(buf)
 
