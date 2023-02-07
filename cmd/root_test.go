@@ -78,7 +78,7 @@ func TestRootCmd(t *testing.T) {
 	cmd.SetOutput(o)
 	err = cmd.Execute()
 
-	if err != nil {
-		t.Errorf("unexpected err :%v", err)
+	if err == nil {
+		t.Error("expect errr but got nil")
 	}
 }
