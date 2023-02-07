@@ -1,6 +1,9 @@
 FROM alpine:latest as certs
-RUN apk update && apk add ca-certificates mysql mysql-client postgresql
+RUN apk update && apk add ca-certificates
 
+FROM scratch
+
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY onedump /usr/local/bin/
 
 ENTRYPOINT ["/usr/local/bin/onedump"]
