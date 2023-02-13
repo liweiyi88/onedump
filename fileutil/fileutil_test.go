@@ -1,6 +1,7 @@
 package fileutil
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -37,19 +38,14 @@ func TestEnsureFileSuffix(t *testing.T) {
 func TestEnsureUniqueness(t *testing.T) {
 	path := "/Users/jack/Desktop/hello.sql"
 
-	p := ensureUniqueness("/Users/jack/Desktop/hello.sql", false)
+	p := ensureUniqueness(path, false)
 	if path != p {
 		t.Errorf("expected same paths but got %s", p)
 	}
 
-	p = ensureUniqueness("/Users/jack/Desktop/hello.sql", true)
+	p = ensureUniqueness(path, true)
 
-	if !strings.HasPrefix(p, "/Users/jack/Desktop/") {
-		t.Errorf("got incorrect path: %s", p)
-	}
-
-	s := strings.Split(p, "/")
-	filename := s[len(s)-1]
+	_, filename := filepath.Split(p)
 
 	now := time.Now().UTC().Format("2006010215")
 
