@@ -4,7 +4,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"strings"
+	"path/filepath"
 	"time"
 )
 
@@ -14,7 +14,8 @@ func EnsureFileSuffix(filename string, shouldGzip bool) string {
 		return filename
 	}
 
-	if strings.HasSuffix(filename, ".gz") {
+	fileExt := filepath.Ext(filename)
+	if fileExt == ".gz" {
 		return filename
 	}
 
@@ -27,15 +28,12 @@ func ensureUniqueness(path string, unique bool) string {
 		return path
 	}
 
-	s := strings.Split(path, "/")
+	dir, filename := filepath.Split(path)
 
-	filename := s[len(s)-1]
 	now := time.Now().UTC().Format("20060102150405")
-	uniqueFile := now + "-" + filename
+	filename = now + "-" + filename
 
-	s[len(s)-1] = uniqueFile
-
-	return strings.Join(s, "/")
+	return filepath.Join(dir, filename)
 }
 
 func EnsureFileName(path string, shouldGzip, unique bool) string {
