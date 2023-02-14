@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"time"
 
@@ -181,27 +182,18 @@ func (job *Job) getDBDriver() (driver.Driver, error) {
 
 func (job *Job) GetStorages() []Storage {
 	var storages []Storage
-	if len(job.Storage.Local) > 0 {
-		for _, v := range job.Storage.Local {
-			storages = append(storages, v)
-		}
-	}
 
-	if len(job.Storage.S3) > 0 {
-		for _, v := range job.Storage.S3 {
-			storages = append(storages, v)
-		}
-	}
-
-	if len(job.Storage.GDrive) > 0 {
-		for _, v := range job.Storage.GDrive {
-			storages = append(storages, v)
-		}
-	}
-
-	if len(job.Storage.Dropbox) > 0 {
-		for _, v := range job.Storage.Dropbox {
-			storages = append(storages, v)
+	v := reflect.ValueOf(job.Storage)
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		switch field.Kind() {
+		case reflect.Slice:
+			for i := 0; i < field.Len(); i++ {
+				s, ok := field.Index(i).Interface().(Storage)
+				if ok {
+					storages = append(storages, s)
+				}
+			}
 		}
 	}
 
