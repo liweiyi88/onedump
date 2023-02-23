@@ -10,7 +10,9 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/driver"
-	"github.com/liweiyi88/onedump/dumper/runner"
+	"github.com/liweiyi88/onedump/dumper"
+	"github.com/liweiyi88/onedump/notifier/console"
+	"github.com/liweiyi88/onedump/notifier/slack"
 	"github.com/liweiyi88/onedump/storage/dropbox"
 	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
@@ -23,12 +25,40 @@ var (
 	ErrMissingDBDriver = errors.New("databse driver is required")
 )
 
+type Notifier interface {
+	Notify(message []string) error
+}
+
 type Storage interface {
 	Save(reader io.Reader, gzip bool, unique bool) error
 }
 
 type Dump struct {
+	Notifier struct {
+		Slack []*slack.Slack `yaml:"slack"`
+	} `yaml:"notifier"`
 	Jobs []*Job `yaml:"jobs"`
+}
+
+func (dump *Dump) GetNotifiers() []Notifier {
+	var notifiers []Notifier
+	notifiers = append(notifiers, console.New())
+
+	v := reflect.ValueOf(dump.Notifier)
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		switch field.Kind() {
+		case reflect.Slice:
+			for i := 0; i < field.Len(); i++ {
+				n, ok := field.Index(i).Interface().(Notifier)
+				if ok {
+					notifiers = append(notifiers, n)
+				}
+			}
+		}
+	}
+
+	return notifiers
 }
 
 func (dump *Dump) Validate() error {
@@ -146,16 +176,16 @@ func (job *Job) ViaSsh() bool {
 	return false
 }
 
-func (job *Job) GetRunner() (runner.Runner, error) {
+func (job *Job) GetRunner() (dumper.Dumper, error) {
 	driver, err := job.getDBDriver()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get db driver %v", err)
 	}
 
 	if job.ViaSsh() {
-		return runner.NewSshRunner(job.SshHost, job.SshKey, job.SshUser, job.Gzip, driver), nil
+		return dumper.NewSshRunner(job.SshHost, job.SshKey, job.SshUser, job.Gzip, driver), nil
 	} else {
-		return runner.NewExecRunner(job.Gzip, driver), nil
+		return dumper.NewExecRunner(job.Gzip, driver), nil
 	}
 }
 

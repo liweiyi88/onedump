@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liweiyi88/onedump/dumper/runner"
+	"github.com/liweiyi88/onedump/dumper"
 	"github.com/liweiyi88/onedump/storage/dropbox"
 	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
@@ -190,7 +190,7 @@ func TestGetRunner(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, ok := r.(*runner.ExecRunner); !ok {
+	if _, ok := r.(*dumper.ExecRunner); !ok {
 		t.Errorf("expect exec runner, but got type: %T", r)
 	}
 
@@ -203,7 +203,7 @@ func TestGetRunner(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, ok := r.(*runner.SshRunner); !ok {
+	if _, ok := r.(*dumper.SshRunner); !ok {
 		t.Errorf("expect ssh runner, but got type: %T", r)
 	}
 }
