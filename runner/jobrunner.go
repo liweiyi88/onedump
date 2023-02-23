@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"reflect"
 	"sync"
 	"time"
 
@@ -64,6 +65,22 @@ func createCacheFile(gzip bool) (*os.File, string, error) {
 	return file, cacheDir, nil
 }
 
+// Pipe readers, writers and closer for fanout the same os.file
+func storageReadWriteCloser(count int) ([]io.Reader, io.Writer, io.Closer) {
+	var prs []io.Reader
+	var pws []io.Writer
+	var pcs []io.Closer
+	for i := 0; i < count; i++ {
+		pr, pw := io.Pipe()
+
+		prs = append(prs, pr)
+		pws = append(pws, pw)
+		pcs = append(pcs, pw)
+	}
+
+	return prs, io.MultiWriter(pws...), config.NewMultiCloser(pcs)
+}
+
 // Dump the db to the cache file.
 func (dumper *JobRunner) dumpToCacheFile(runner dumper.Dumper) (string, string, error) {
 	file, cacheDir, err := createCacheFile(dumper.Job.Gzip)
@@ -89,7 +106,7 @@ func (dumper *JobRunner) dumpToCacheFile(runner dumper.Dumper) (string, string, 
 
 func (jobRunner *JobRunner) save(cacheFile io.Reader) error {
 	job := jobRunner.Job
-	storages := job.GetStorages()
+	storages := jobRunner.getStorages()
 	numberOfStorages := len(storages)
 
 	var err error
@@ -123,6 +140,26 @@ func (jobRunner *JobRunner) save(cacheFile io.Reader) error {
 	}
 
 	return err
+}
+
+func (jobRunner *JobRunner) getStorages() []Storage {
+	var storages []Storage
+
+	v := reflect.ValueOf(jobRunner.Job.Storage)
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		switch field.Kind() {
+		case reflect.Slice:
+			for i := 0; i < field.Len(); i++ {
+				s, ok := field.Index(i).Interface().(Storage)
+				if ok {
+					storages = append(storages, s)
+				}
+			}
+		}
+	}
+
+	return storages
 }
 
 func (jobRunner *JobRunner) Run() *config.JobResult {
@@ -174,20 +211,4 @@ func (jobRunner *JobRunner) Run() *config.JobResult {
 	}
 
 	return result
-}
-
-// Pipe readers, writers and closer for fanout the same os.file
-func storageReadWriteCloser(count int) ([]io.Reader, io.Writer, io.Closer) {
-	var prs []io.Reader
-	var pws []io.Writer
-	var pcs []io.Closer
-	for i := 0; i < count; i++ {
-		pr, pw := io.Pipe()
-
-		prs = append(prs, pr)
-		pws = append(pws, pw)
-		pcs = append(pcs, pw)
-	}
-
-	return prs, io.MultiWriter(pws...), config.NewMultiCloser(pcs)
 }

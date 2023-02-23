@@ -40,7 +40,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		runner := runner.NewDumpRunner(&oneDump)
-		return runner.Do()
+		return runner.Run()
 	},
 }
 

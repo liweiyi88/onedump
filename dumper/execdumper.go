@@ -11,19 +11,19 @@ import (
 	"github.com/liweiyi88/onedump/driver"
 )
 
-type ExecRunner struct {
+type ExecDumper struct {
 	ShouldGzip bool
 	DBDriver   driver.Driver
 }
 
-func NewExecRunner(shouldGzip bool, driver driver.Driver) *ExecRunner {
-	return &ExecRunner{
+func NewExecDumper(shouldGzip bool, driver driver.Driver) *ExecDumper {
+	return &ExecDumper{
 		ShouldGzip: shouldGzip,
 		DBDriver:   driver,
 	}
 }
 
-func (execDump *ExecRunner) DumpToFile(file io.Writer) error {
+func (execDump *ExecDumper) DumpToFile(file io.Writer) error {
 	defer func() {
 		if err := execDump.DBDriver.Close(); err != nil {
 			log.Printf("could not cleanup db driver: %v", err)

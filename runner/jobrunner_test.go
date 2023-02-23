@@ -16,7 +16,10 @@ import (
 
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/fileutil"
+	"github.com/liweiyi88/onedump/storage/dropbox"
+	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
+	"github.com/liweiyi88/onedump/storage/s3"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -231,6 +234,32 @@ func TestRun(t *testing.T) {
 		if err != nil {
 			t.Fatal("failed to remove the test dump file", err)
 		}
+	}
+}
+
+func TestGetStorages(t *testing.T) {
+
+	localStore := local.Local{Path: "db_backup/onedump.sql"}
+	s3 := s3.NewS3("mybucket", "key", "", "", "")
+	gdrive := &gdrive.GDrive{
+		FileName: "mydump",
+		FolderId: "",
+	}
+
+	dropbox := &dropbox.Dropbox{
+		RefreshToken: "token",
+	}
+
+	job := &config.Job{}
+	job.Storage.Local = append(job.Storage.Local, &localStore)
+	job.Storage.S3 = append(job.Storage.S3, s3)
+	job.Storage.GDrive = append(job.Storage.GDrive, gdrive)
+	job.Storage.Dropbox = append(job.Storage.Dropbox, dropbox)
+
+	jobRunner := NewJobRunner(job)
+
+	if len(jobRunner.getStorages()) != 4 {
+		t.Errorf("expecte 4 storage but actual got: %d", len(jobRunner.getStorages()))
 	}
 }
 

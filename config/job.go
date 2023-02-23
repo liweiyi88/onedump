@@ -3,15 +3,12 @@ package config
 import (
 	"errors"
 	"fmt"
-	"io"
-	"reflect"
 	"strings"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/driver"
 	"github.com/liweiyi88/onedump/dumper"
-	"github.com/liweiyi88/onedump/notifier/console"
 	"github.com/liweiyi88/onedump/notifier/slack"
 	"github.com/liweiyi88/onedump/storage/dropbox"
 	"github.com/liweiyi88/onedump/storage/gdrive"
@@ -25,40 +22,11 @@ var (
 	ErrMissingDBDriver = errors.New("databse driver is required")
 )
 
-type Notifier interface {
-	Notify(message []string) error
-}
-
-type Storage interface {
-	Save(reader io.Reader, gzip bool, unique bool) error
-}
-
 type Dump struct {
 	Notifier struct {
 		Slack []*slack.Slack `yaml:"slack"`
 	} `yaml:"notifier"`
 	Jobs []*Job `yaml:"jobs"`
-}
-
-func (dump *Dump) GetNotifiers() []Notifier {
-	var notifiers []Notifier
-	notifiers = append(notifiers, console.New())
-
-	v := reflect.ValueOf(dump.Notifier)
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		switch field.Kind() {
-		case reflect.Slice:
-			for i := 0; i < field.Len(); i++ {
-				n, ok := field.Index(i).Interface().(Notifier)
-				if ok {
-					notifiers = append(notifiers, n)
-				}
-			}
-		}
-	}
-
-	return notifiers
 }
 
 func (dump *Dump) Validate() error {
@@ -183,9 +151,9 @@ func (job *Job) GetRunner() (dumper.Dumper, error) {
 	}
 
 	if job.ViaSsh() {
-		return dumper.NewSshRunner(job.SshHost, job.SshKey, job.SshUser, job.Gzip, driver), nil
+		return dumper.NewSshDumper(job.SshHost, job.SshKey, job.SshUser, job.Gzip, driver), nil
 	} else {
-		return dumper.NewExecRunner(job.Gzip, driver), nil
+		return dumper.NewExecDumper(job.Gzip, driver), nil
 	}
 }
 
@@ -208,24 +176,4 @@ func (job *Job) getDBDriver() (driver.Driver, error) {
 	default:
 		return nil, fmt.Errorf("%s is not a supported database driver", job.DBDriver)
 	}
-}
-
-func (job *Job) GetStorages() []Storage {
-	var storages []Storage
-
-	v := reflect.ValueOf(job.Storage)
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		switch field.Kind() {
-		case reflect.Slice:
-			for i := 0; i < field.Len(); i++ {
-				s, ok := field.Index(i).Interface().(Storage)
-				if ok {
-					storages = append(storages, s)
-				}
-			}
-		}
-	}
-
-	return storages
 }
