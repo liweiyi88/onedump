@@ -12,6 +12,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/config"
+	"github.com/liweiyi88/onedump/driver"
 	"github.com/liweiyi88/onedump/dumper"
 	"github.com/liweiyi88/onedump/fileutil"
 )
@@ -162,6 +163,42 @@ func (jobRunner *JobRunner) getStorages() []Storage {
 	return storages
 }
 
+func (jobRunner *JobRunner) getDumper() (dumper.Dumper, error) {
+	job := jobRunner.Job
+	driver, err := jobRunner.getDBDriver()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get db driver %v", err)
+	}
+
+	if job.ViaSsh() {
+		return dumper.NewSshDumper(job.SshHost, job.SshKey, job.SshUser, job.Gzip, driver), nil
+	} else {
+		return dumper.NewExecDumper(job.Gzip, driver), nil
+	}
+}
+
+func (jobRunner *JobRunner) getDBDriver() (driver.Driver, error) {
+	job := jobRunner.Job
+	switch job.DBDriver {
+	case "mysql":
+		driver, err := driver.NewMysqlDriver(job.DBDsn, job.DumpOptions, job.ViaSsh())
+		if err != nil {
+			return nil, err
+		}
+
+		return driver, nil
+	case "postgresql":
+		driver, err := driver.NewPostgreSqlDriver(job.DBDsn, job.DumpOptions, job.ViaSsh())
+		if err != nil {
+			return nil, err
+		}
+
+		return driver, nil
+	default:
+		return nil, fmt.Errorf("%s is not a supported database driver", job.DBDriver)
+	}
+}
+
 func (jobRunner *JobRunner) Run() *config.JobResult {
 	start := time.Now()
 	result := &config.JobResult{}
@@ -173,7 +210,7 @@ func (jobRunner *JobRunner) Run() *config.JobResult {
 
 	result.JobName = jobRunner.Job.Name
 
-	runner, err := jobRunner.Job.GetRunner()
+	runner, err := jobRunner.getDumper()
 	if err != nil {
 		result.Error = fmt.Errorf("could not get job runner: %v", err)
 		return result

@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/liweiyi88/onedump/config"
+	"github.com/liweiyi88/onedump/dumper"
 	"github.com/liweiyi88/onedump/fileutil"
 	"github.com/liweiyi88/onedump/storage/dropbox"
 	"github.com/liweiyi88/onedump/storage/gdrive"
@@ -24,6 +25,7 @@ import (
 )
 
 var testDBDsn = "root@tcp(127.0.0.1:3306)/dump_test"
+var testPsqlDBDsn = "postgres://julianli:julian@localhost:5432/mypsqldb"
 
 func generateRSAPrivateKey() (string, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -295,5 +297,62 @@ func TestCreateCacheFile(t *testing.T) {
 
 	if fileInfo.Size() != 0 {
 		t.Errorf("expected empty file but get size: %d", fileInfo.Size())
+	}
+}
+
+func TestGetDumper(t *testing.T) {
+	job := &config.Job{}
+	jobRunner := NewJobRunner(job)
+
+	_, err := jobRunner.getDumper()
+	if err == nil {
+		t.Error("expect error but got nil")
+	}
+
+	job.DBDriver = "mysql"
+	r, err := jobRunner.getDumper()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if _, ok := r.(*dumper.ExecDumper); !ok {
+		t.Errorf("expect exec runner, but got type: %T", r)
+	}
+
+	job.DBDriver = "postgresql"
+	job.SshHost = "localhost"
+	job.SshUser = "admin"
+	job.SshKey = "ssh key"
+	r, err = jobRunner.getDumper()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if _, ok := r.(*dumper.SshDumper); !ok {
+		t.Errorf("expect ssh runner, but got type: %T", r)
+	}
+}
+
+func TestGetDBDriver(t *testing.T) {
+	job := config.NewJob("job1", "mysql", testDBDsn)
+	jobRunner := NewJobRunner(job)
+
+	_, err := jobRunner.getDBDriver()
+	if err != nil {
+		t.Errorf("expect get mysql db driver, but get err: %v", err)
+	}
+
+	job = config.NewJob("job1", "postgresql", testPsqlDBDsn)
+	jobRunner = NewJobRunner(job)
+	_, err = jobRunner.getDBDriver()
+	if err != nil {
+		t.Errorf("expect get postgresql db driver, but get err: %v", err)
+	}
+
+	job = config.NewJob("job1", "x", testDBDsn)
+	jobRunner = NewJobRunner(job)
+	_, err = jobRunner.getDBDriver()
+	if err == nil {
+		t.Error("expect unsupport database driver err, but actual get nil")
 	}
 }
