@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/liweiyi88/onedump/config"
-	"github.com/liweiyi88/onedump/runner"
+	"github.com/liweiyi88/onedump/handler"
 	"github.com/liweiyi88/onedump/storage/s3"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -39,8 +39,7 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("no job is defined in the file %s", file)
 		}
 
-		runner := runner.NewDumpRunner(&oneDump)
-		return runner.Run()
+		return handler.NewDumpHandler(&oneDump).Do()
 	},
 }
 
