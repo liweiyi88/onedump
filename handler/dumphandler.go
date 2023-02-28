@@ -7,11 +7,12 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/config"
+	"github.com/liweiyi88/onedump/jobresult"
 	"github.com/liweiyi88/onedump/notifier/console"
 )
 
 type Notifier interface {
-	Notify(message []string) error
+	Notify(results []*jobresult.JobResult) error
 }
 
 type Storage interface {
@@ -32,7 +33,7 @@ func (d *DumpHandler) Do() error {
 	var dumpErr error
 	var wg sync.WaitGroup
 
-	messages := make([]string, 0, len(d.Dump.Jobs))
+	results := make([]*jobresult.JobResult, 0, len(d.Dump.Jobs))
 
 	for _, job := range d.Dump.Jobs {
 		wg.Add(1)
@@ -43,14 +44,15 @@ func (d *DumpHandler) Do() error {
 				dumpErr = multierror.Append(dumpErr, result.Error)
 			}
 
-			messages = append(messages, result.String())
+			results = append(results, result)
 			wg.Done()
 		}(job)
 	}
 
 	wg.Wait()
 
-	err := d.notify(messages)
+	err := d.notify(results)
+
 	if err != nil {
 		dumpErr = multierror.Append(dumpErr, err)
 	}
@@ -58,15 +60,15 @@ func (d *DumpHandler) Do() error {
 	return dumpErr
 }
 
-func (d *DumpHandler) notify(message []string) error {
+func (d *DumpHandler) notify(results []*jobresult.JobResult) error {
 	var err error
 	var wg sync.WaitGroup
 	for _, notifier := range d.getNotifiers() {
 		wg.Add(1)
 		go func(notifier Notifier) {
-			err := notifier.Notify(message)
-			if err != nil {
-				err = multierror.Append(err, err)
+			notifErr := notifier.Notify(results)
+			if notifErr != nil {
+				err = multierror.Append(err, notifErr)
 			}
 			wg.Done()
 		}(notifier)

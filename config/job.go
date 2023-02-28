@@ -2,9 +2,7 @@ package config
 
 import (
 	"errors"
-	"fmt"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/notifier/slack"
@@ -38,20 +36,6 @@ func (dump *Dump) Validate() error {
 	}
 
 	return errs
-}
-
-type JobResult struct {
-	Error   error
-	JobName string
-	Elapsed time.Duration
-}
-
-func (result *JobResult) String() string {
-	if result.Error != nil {
-		return fmt.Sprintf("Job: %s failed, it took %s with error: %v", result.JobName, result.Elapsed, result.Error)
-	}
-
-	return fmt.Sprintf("Job: %s succeeded, it took %v", result.JobName, result.Elapsed)
 }
 
 type Job struct {

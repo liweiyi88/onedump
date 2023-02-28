@@ -15,6 +15,7 @@ import (
 	"github.com/liweiyi88/onedump/driver"
 	"github.com/liweiyi88/onedump/dumper"
 	"github.com/liweiyi88/onedump/fileutil"
+	"github.com/liweiyi88/onedump/jobresult"
 )
 
 const cacheDirPrefix = ".onedump"
@@ -199,9 +200,9 @@ func (handler *JobHandler) getDBDriver() (driver.Driver, error) {
 	}
 }
 
-func (handler *JobHandler) Do() *config.JobResult {
+func (handler *JobHandler) Do() *jobresult.JobResult {
 	start := time.Now()
-	result := &config.JobResult{}
+	result := &jobresult.JobResult{}
 
 	defer func() {
 		elapsed := time.Since(start)

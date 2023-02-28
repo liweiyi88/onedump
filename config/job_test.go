@@ -4,10 +4,11 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/liweiyi88/onedump/jobresult"
 )
 
 var testDBDsn = "root@tcp(127.0.0.1:3306)/dump_test"
-var testPsqlDBDsn = "postgres://julianli:julian@localhost:5432/mypsqldb"
 
 func TestWithSshHost(t *testing.T) {
 	job := NewJob("job", "mysql", testDBDsn, WithSshHost("localhost"))
@@ -87,24 +88,24 @@ func TestValidateDump(t *testing.T) {
 }
 
 func TestResultString(t *testing.T) {
-	r1 := &JobResult{
+	r1 := &jobresult.JobResult{
 		JobName: "job1",
 		Elapsed: time.Second,
 	}
 
 	s := r1.String()
-	if s != "Job: job1 succeeded, it took 1s" {
+	if s != "job1 succeeded, it took 1s" {
 		t.Errorf("unexpected string result: %s", s)
 	}
 
-	r2 := &JobResult{
+	r2 := &jobresult.JobResult{
 		Error:   errors.New("test err"),
 		JobName: "job1",
 		Elapsed: time.Second,
 	}
 
 	s = r2.String()
-	if s != "Job: job1 failed, it took 1s with error: test err" {
+	if s != "job1 failed, it took 1s with error: test err" {
 		t.Errorf("unexpected string result: %s", s)
 	}
 }

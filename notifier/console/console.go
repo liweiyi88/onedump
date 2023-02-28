@@ -2,7 +2,8 @@ package console
 
 import (
 	"fmt"
-	"strings"
+
+	"github.com/liweiyi88/onedump/jobresult"
 )
 
 type Console struct{}
@@ -11,7 +12,9 @@ func New() *Console {
 	return &Console{}
 }
 
-func (console *Console) Notify(message []string) error {
-	fmt.Println(strings.Join(message, "\r\n"))
+func (console *Console) Notify(results []*jobresult.JobResult) error {
+	for _, result := range results {
+		fmt.Println(result.String())
+	}
 	return nil
 }

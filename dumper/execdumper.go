@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/liweiyi88/onedump/driver"
 )
@@ -56,7 +57,9 @@ func (execDump *ExecDumper) DumpToFile(file io.Writer) error {
 		cmd.Env = append(os.Environ(), envs...)
 	}
 
-	cmd.Stderr = os.Stderr
+	var errBuf strings.Builder
+
+	cmd.Stderr = &errBuf
 	if gzipWriter != nil {
 		cmd.Stdout = gzipWriter
 	} else {
@@ -64,7 +67,7 @@ func (execDump *ExecDumper) DumpToFile(file io.Writer) error {
 	}
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("command error: %v", err)
+		return fmt.Errorf("command error: %v, %s", err, errBuf.String())
 	}
 
 	return nil
