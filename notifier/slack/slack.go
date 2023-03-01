@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -70,9 +71,15 @@ func (slack *Slack) Notify(results []*jobresult.JobResult) error {
 	client := &http.Client{}
 	res, err := client.Post(slack.IncomingWebhook, "application/json", bytesReader)
 
+	defer func() {
+		err := res.Body.Close()
+		if err != nil {
+			log.Printf("failed to close slack notification response body: %v", err)
+		}
+	}()
+
 	if res.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(res.Body)
-
 		return fmt.Errorf("slack notification failed: %v", string(body))
 	}
 
