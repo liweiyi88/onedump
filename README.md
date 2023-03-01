@@ -47,7 +47,7 @@ $ onedump
 ### Docker image
 If you want to run onedump in Kubernetes, ECS or any other container environment. We also offer the docker images for you. Images are available in [docker hub](https://hub.docker.com/r/julianli/onedump/tags).
 
-*Note: Although we maintain both arm64 and amd64 docker image, usually what you need is the `amd64` image in your prod linux machine. For example: `julianli/onedump:v0.2.0-amd64`*
+*Note: Although we maintain both arm64 and amd64 docker image, usually what you need is the `amd64` image in your prod linux machine. For example: `julianli/onedump:v1.0.0-amd64`*
 
 ## Prerequisites
 Behind the scenes, `onedump` uses `mysqldump` and `pg_dump` for database dump. If you use onedump binary in a single machine, make sure you install `mysql-client` or `postgresql-client` as required. If you use the docker image maintained by us, you will have these tools by default. Besides, build the docker image yourself if you need more customisation.
