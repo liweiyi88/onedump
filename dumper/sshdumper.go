@@ -1,4 +1,4 @@
-package runner
+package dumper
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type SshRunner struct {
+type SshDumper struct {
 	SshHost    string
 	SshKey     string
 	SshUser    string
@@ -20,8 +20,8 @@ type SshRunner struct {
 	DBDriver   driver.Driver
 }
 
-func NewSshRunner(host, key, user string, shouldGzip bool, driver driver.Driver) *SshRunner {
-	return &SshRunner{
+func NewSshDumper(host, key, user string, shouldGzip bool, driver driver.Driver) *SshDumper {
+	return &SshDumper{
 		SshHost:    host,
 		SshKey:     key,
 		SshUser:    user,
@@ -37,7 +37,7 @@ func ensureHaveSSHPort(addr string) string {
 	return addr
 }
 
-func (sshDumper *SshRunner) createSshClient() (*ssh.Client, error) {
+func (sshDumper *SshDumper) createSshClient() (*ssh.Client, error) {
 	host := ensureHaveSSHPort(sshDumper.SshHost)
 
 	signer, err := ssh.ParsePrivateKey([]byte(sshDumper.SshKey))
@@ -56,7 +56,7 @@ func (sshDumper *SshRunner) createSshClient() (*ssh.Client, error) {
 	return ssh.Dial("tcp", host, conf)
 }
 
-func (sshDumper *SshRunner) DumpToFile(file io.Writer) error {
+func (sshDumper *SshDumper) DumpToFile(file io.Writer) error {
 	var gzipWriter *gzip.Writer
 	if sshDumper.ShouldGzip {
 		gzipWriter = gzip.NewWriter(file)

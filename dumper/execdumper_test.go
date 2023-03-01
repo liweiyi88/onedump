@@ -1,4 +1,4 @@
-package runner
+package dumper
 
 import (
 	"bytes"
@@ -23,12 +23,12 @@ func (md *MockDriver) Close() error {
 	return nil
 }
 
-func TestNewExecRunner(t *testing.T) {
+func TestNewExecDumper(t *testing.T) {
 	driver := &MockDriver{}
-	execRunner := NewExecRunner(true, driver)
+	execDumper := NewExecDumper(true, driver)
 
-	if execRunner.ShouldGzip != true || execRunner.DBDriver != driver {
-		t.Errorf("unexpected exec runner %v", execRunner)
+	if execDumper.ShouldGzip != true || execDumper.DBDriver != driver {
+		t.Errorf("unexpected exec dumper %v", execDumper)
 	}
 }
 
@@ -37,14 +37,14 @@ func TestDumpToFile(t *testing.T) {
 	buffer := bytes.NewBuffer(buf)
 
 	driver := &MockDriver{}
-	execRunner := NewExecRunner(true, driver)
-	err := execRunner.DumpToFile(buffer)
+	execDumper := NewExecDumper(true, driver)
+	err := execDumper.DumpToFile(buffer)
 	if err != nil {
 		t.Errorf("failed to dump to file: %v", err)
 	}
 
-	execRunner.ShouldGzip = false
-	err = execRunner.DumpToFile(buffer)
+	execDumper.ShouldGzip = false
+	err = execDumper.DumpToFile(buffer)
 	if err != nil {
 		t.Errorf("failed to dump to file: %v", err)
 	}

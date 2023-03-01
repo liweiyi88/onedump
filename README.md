@@ -11,6 +11,29 @@
 
 Onedump is a database dump and backup tool. It can dump different databases to different storages with a simple configuration file or cli commands.
 
+## Features
+* Database backup from different sources to different destinations.
+* Load configuration from S3 bucket.
+* Compression (use `job.gzip: true` to enable compression).
+* Unique filename (use `job.unique: true` to enable unique filename).
+* Slack notification.
+* Maintained docker image.
+
+### Supported data sources
+| Driver | Status |
+| --- | --- |
+| MySQL | ✅ Suported |
+| PostgreSQL | ✅ Suported |
+
+### Supported destinations
+| Storage | Status |
+| --- | --- |
+| Local | ✅ Suported |
+| S3 | ✅ Suported |
+| Googl Drive | ✅ Supported |
+| Dropbox | ✅ Supported |
+
+
 ## Installation
 We build and publish both binaries and docker images via the release process.
 
@@ -24,7 +47,7 @@ $ onedump
 ### Docker image
 If you want to run onedump in Kubernetes, ECS or any other container environment. We also offer the docker images for you. Images are available in [docker hub](https://hub.docker.com/r/julianli/onedump/tags).
 
-*Note: Although we maintain both arm64 and amd64 docker image, usually what you need is the `amd64` image in your prod linux machine. For example: `julianli/onedump:v0.2.0-amd64`*
+*Note: Although we maintain both arm64 and amd64 docker image, usually what you need is the `amd64` image in your prod linux machine. For example: `julianli/onedump:v1.0.0-amd64`*
 
 ## Prerequisites
 Behind the scenes, `onedump` uses `mysqldump` and `pg_dump` for database dump. If you use onedump binary in a single machine, make sure you install `mysql-client` or `postgresql-client` as required. If you use the docker image maintained by us, you will have these tools by default. Besides, build the docker image yourself if you need more customisation.
@@ -116,6 +139,22 @@ jobs:
         secret-access-key: awssecret
 ```
 
+#### Slack notification
+
+```
+notifier:
+    slack:
+      - incomingwebhook: https://hooks.slack.com/services/A0B8A11N4N/...
+jobs:
+- name: local-dump
+  dbdriver: mysql
+  dbdsn: root@tcp(127.0.0.1)/test_local
+  gzip: true
+  storage:
+    local:
+      - path: /Users/jack/Desktop/mydb.sql
+```
+
 ### Recommendation
 
 Loading the configuration from a local directory is handy when you have control of a machine and want to run `onedump` as a normal cli command. However, you are responsible to make sure the config file is stored securely in that machine or maybe you are responsible for encryption at rest yourself.
@@ -177,37 +216,3 @@ jobs:
         access-key-id: MYKEY...
         secret-access-key: AWSSECRET..
 ```
-
-### Extra features
-#### Compression
-Compress your DB content in gzip format. Set the `gzip` config to `true` (it is `false` by default)
-```
-jobs:
-- name: local-dump
-  gzip: true
-  # the rest of config...
-```
-#### Unique filename
-If you want to keep previous DB dump files in the storage. Set the `unique` config to `true` (it is `false` by default). For example:
-```
-jobs:
-- name: local-dump
-  unique: true
-  # the rest of config...
-```
-`onedump` will add a unique prefix to the dump file, by doing so, it won't overwrite previous dump files.
-
-
-## Database drivers
-| Driver | Status |
-| --- | --- |
-| MySQL | ✅ Suported |
-| PostgreSQL | ✅ Suported |
-
-## Storages
-| Storage | Status |
-| --- | --- |
-| Local | ✅ Suported |
-| S3 | ✅ Suported |
-| Googl Drive | ✅ Supported |
-| Dropbox | ✅ Supported |

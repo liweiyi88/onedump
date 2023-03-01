@@ -3,11 +3,9 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"sync"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/config"
-	"github.com/liweiyi88/onedump/dumper"
+	"github.com/liweiyi88/onedump/handler"
 	"github.com/liweiyi88/onedump/storage/s3"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -41,32 +39,7 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("no job is defined in the file %s", file)
 		}
 
-		resultCh := make(chan *config.JobResult)
-
-		for _, job := range oneDump.Jobs {
-			go func(job *config.Job, resultCh chan *config.JobResult) {
-				dumper := dumper.NewDumper(job)
-				resultCh <- dumper.Dump()
-			}(job, resultCh)
-		}
-
-		var jobErr error
-		var wg sync.WaitGroup
-		wg.Add(numberOfJobs)
-		go func(resultCh chan *config.JobResult) {
-			for result := range resultCh {
-				if result.Error != nil {
-					jobErr = multierror.Append(jobErr, result.Error)
-				}
-				fmt.Println(result.String())
-				wg.Done()
-			}
-		}(resultCh)
-
-		wg.Wait()
-		close(resultCh)
-
-		return jobErr
+		return handler.NewDumpHandler(&oneDump).Do()
 	},
 }
 

@@ -5,36 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liweiyi88/onedump/dumper/runner"
-	"github.com/liweiyi88/onedump/storage/dropbox"
-	"github.com/liweiyi88/onedump/storage/gdrive"
-	"github.com/liweiyi88/onedump/storage/local"
-	"github.com/liweiyi88/onedump/storage/s3"
+	"github.com/liweiyi88/onedump/jobresult"
 )
 
 var testDBDsn = "root@tcp(127.0.0.1:3306)/dump_test"
-var testPsqlDBDsn = "postgres://julianli:julian@localhost:5432/mypsqldb"
-
-func TestGetDBDriver(t *testing.T) {
-	job := NewJob("job1", "mysql", testDBDsn)
-
-	_, err := job.getDBDriver()
-	if err != nil {
-		t.Errorf("expect get mysql db driver, but get err: %v", err)
-	}
-
-	job = NewJob("job1", "postgresql", testPsqlDBDsn)
-	_, err = job.getDBDriver()
-	if err != nil {
-		t.Errorf("expect get postgresql db driver, but get err: %v", err)
-	}
-
-	job = NewJob("job1", "x", testDBDsn)
-	_, err = job.getDBDriver()
-	if err == nil {
-		t.Error("expect unsupport database driver err, but actual get nil")
-	}
-}
 
 func TestWithSshHost(t *testing.T) {
 	job := NewJob("job", "mysql", testDBDsn, WithSshHost("localhost"))
@@ -114,49 +88,25 @@ func TestValidateDump(t *testing.T) {
 }
 
 func TestResultString(t *testing.T) {
-	r1 := &JobResult{
+	r1 := &jobresult.JobResult{
 		JobName: "job1",
 		Elapsed: time.Second,
 	}
 
 	s := r1.String()
-	if s != "Job: job1 succeeded, it took 1s" {
+	if s != "job1 succeeded, it took 1s" {
 		t.Errorf("unexpected string result: %s", s)
 	}
 
-	r2 := &JobResult{
+	r2 := &jobresult.JobResult{
 		Error:   errors.New("test err"),
 		JobName: "job1",
 		Elapsed: time.Second,
 	}
 
 	s = r2.String()
-	if s != "Job: job1 failed, it took 1s with error: test err" {
+	if s != "job1 failed, it took 1s with error: test err" {
 		t.Errorf("unexpected string result: %s", s)
-	}
-}
-
-func TestGetStorages(t *testing.T) {
-
-	localStore := local.Local{Path: "db_backup/onedump.sql"}
-	s3 := s3.NewS3("mybucket", "key", "", "", "")
-	gdrive := &gdrive.GDrive{
-		FileName: "mydump",
-		FolderId: "",
-	}
-
-	dropbox := &dropbox.Dropbox{
-		RefreshToken: "token",
-	}
-
-	job := &Job{}
-	job.Storage.Local = append(job.Storage.Local, &localStore)
-	job.Storage.S3 = append(job.Storage.S3, s3)
-	job.Storage.GDrive = append(job.Storage.GDrive, gdrive)
-	job.Storage.Dropbox = append(job.Storage.Dropbox, dropbox)
-
-	if len(job.GetStorages()) != 4 {
-		t.Errorf("expecte 4 storage but actual got: %d", len(job.GetStorages()))
 	}
 }
 
@@ -173,37 +123,5 @@ func TestViaSsh(t *testing.T) {
 
 	if job.ViaSsh() != true {
 		t.Error("expected via ssh but got false")
-	}
-}
-
-func TestGetRunner(t *testing.T) {
-	job := &Job{}
-
-	_, err := job.GetRunner()
-	if err == nil {
-		t.Error("expect error but got nil")
-	}
-
-	job.DBDriver = "mysql"
-	r, err := job.GetRunner()
-	if err != nil {
-		t.Error(err)
-	}
-
-	if _, ok := r.(*runner.ExecRunner); !ok {
-		t.Errorf("expect exec runner, but got type: %T", r)
-	}
-
-	job.DBDriver = "postgresql"
-	job.SshHost = "localhost"
-	job.SshUser = "admin"
-	job.SshKey = "ssh key"
-	r, err = job.GetRunner()
-	if err != nil {
-		t.Error(err)
-	}
-
-	if _, ok := r.(*runner.SshRunner); !ok {
-		t.Errorf("expect ssh runner, but got type: %T", r)
 	}
 }

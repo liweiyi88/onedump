@@ -1,4 +1,4 @@
-package dumper
+package handler
 
 import (
 	"crypto/rand"
@@ -15,12 +15,17 @@ import (
 	"testing"
 
 	"github.com/liweiyi88/onedump/config"
+	"github.com/liweiyi88/onedump/dumper"
 	"github.com/liweiyi88/onedump/fileutil"
+	"github.com/liweiyi88/onedump/storage/dropbox"
+	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
+	"github.com/liweiyi88/onedump/storage/s3"
 	"golang.org/x/crypto/ssh"
 )
 
 var testDBDsn = "root@tcp(127.0.0.1:3306)/dump_test"
+var testPsqlDBDsn = "postgres://julianli:julian@localhost:5432/mypsqldb"
 
 func generateRSAPrivateKey() (string, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -82,33 +87,33 @@ func TestUploadCacheFilePath(t *testing.T) {
 	}
 }
 
-type mockRunner struct {
+type mockDumper struct {
 }
 
-func (mockRunner *mockRunner) DumpToFile(file io.Writer) error {
+func (mockDumper *mockDumper) DumpToFile(file io.Writer) error {
 	return nil
 }
 
-type mockErrorRunner struct {
+type mockErrorDumper struct {
 }
 
-func (mockRunner *mockErrorRunner) DumpToFile(file io.Writer) error {
-	return errors.New("mock runner err")
+func (mockDumper *mockErrorDumper) DumpToFile(file io.Writer) error {
+	return errors.New("mock dumper err")
 }
 
 func TestDumpToCacheFile(t *testing.T) {
-	runner := &mockRunner{}
-	dumper := &Dumper{
+	dumper := &mockDumper{}
+	jobHandler := &JobHandler{
 		Job: &config.Job{},
 	}
 
-	_, cacheDir1, err := dumper.dumpToCacheFile(runner)
+	_, cacheDir1, err := jobHandler.dumpToCacheFile(dumper)
 	if err != nil {
 		t.Error(err)
 	}
 
-	er := &mockErrorRunner{}
-	_, cacheDir2, err := dumper.dumpToCacheFile(er)
+	er := &mockErrorDumper{}
+	_, cacheDir2, err := jobHandler.dumpToCacheFile(er)
 	if err == nil {
 		t.Error("expect error but got nil")
 	}
@@ -126,7 +131,7 @@ func TestDumpToCacheFile(t *testing.T) {
 	}()
 }
 
-func TestRun(t *testing.T) {
+func TestDo(t *testing.T) {
 	privateKey, err := generateRSAPrivateKey()
 	if err != nil {
 		t.Errorf("failed to generate test private key %v", err)
@@ -178,8 +183,7 @@ func TestRun(t *testing.T) {
 	finishCh := make(chan struct{})
 	go func(onedump config.Dump) {
 		for _, job := range onedump.Jobs {
-			dumper := NewDumper(job)
-			dumper.Dump()
+			NewJobHandler(job).Do()
 			finishCh <- struct{}{}
 		}
 	}(onedump)
@@ -234,6 +238,32 @@ func TestRun(t *testing.T) {
 	}
 }
 
+func TestGetStorages(t *testing.T) {
+
+	localStore := local.Local{Path: "db_backup/onedump.sql"}
+	s3 := s3.NewS3("mybucket", "key", "", "", "")
+	gdrive := &gdrive.GDrive{
+		FileName: "mydump",
+		FolderId: "",
+	}
+
+	dropbox := &dropbox.Dropbox{
+		RefreshToken: "token",
+	}
+
+	job := &config.Job{}
+	job.Storage.Local = append(job.Storage.Local, &localStore)
+	job.Storage.S3 = append(job.Storage.S3, s3)
+	job.Storage.GDrive = append(job.Storage.GDrive, gdrive)
+	job.Storage.Dropbox = append(job.Storage.Dropbox, dropbox)
+
+	jobHandler := NewJobHandler(job)
+
+	if len(jobHandler.getStorages()) != 4 {
+		t.Errorf("expecte 4 storage but actual got: %d", len(jobHandler.getStorages()))
+	}
+}
+
 func TestEnsureFileSuffix(t *testing.T) {
 	gzip := fileutil.EnsureFileSuffix("test.sql", true)
 	if gzip != "test.sql.gz" {
@@ -266,5 +296,62 @@ func TestCreateCacheFile(t *testing.T) {
 
 	if fileInfo.Size() != 0 {
 		t.Errorf("expected empty file but get size: %d", fileInfo.Size())
+	}
+}
+
+func TestGetDumper(t *testing.T) {
+	job := &config.Job{}
+	jobHandler := NewJobHandler(job)
+
+	_, err := jobHandler.getDumper()
+	if err == nil {
+		t.Error("expect error but got nil")
+	}
+
+	job.DBDriver = "mysql"
+	r, err := jobHandler.getDumper()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if _, ok := r.(*dumper.ExecDumper); !ok {
+		t.Errorf("expect exec dumper, but got type: %T", r)
+	}
+
+	job.DBDriver = "postgresql"
+	job.SshHost = "localhost"
+	job.SshUser = "admin"
+	job.SshKey = "ssh key"
+	r, err = jobHandler.getDumper()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if _, ok := r.(*dumper.SshDumper); !ok {
+		t.Errorf("expect ssh dumper, but got type: %T", r)
+	}
+}
+
+func TestGetDBDriver(t *testing.T) {
+	job := config.NewJob("job1", "mysql", testDBDsn)
+	jobHandler := NewJobHandler(job)
+
+	_, err := jobHandler.getDBDriver()
+	if err != nil {
+		t.Errorf("expect get mysql db driver, but get err: %v", err)
+	}
+
+	job = config.NewJob("job1", "postgresql", testPsqlDBDsn)
+	jobHandler = NewJobHandler(job)
+	_, err = jobHandler.getDBDriver()
+	if err != nil {
+		t.Errorf("expect get postgresql db driver, but get err: %v", err)
+	}
+
+	job = config.NewJob("job1", "x", testDBDsn)
+	jobHandler = NewJobHandler(job)
+	_, err = jobHandler.getDBDriver()
+	if err == nil {
+		t.Error("expect unsupport database driver err, but actual get nil")
 	}
 }

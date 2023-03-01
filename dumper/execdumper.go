@@ -1,4 +1,4 @@
-package runner
+package dumper
 
 import (
 	"compress/gzip"
@@ -7,23 +7,24 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/liweiyi88/onedump/driver"
 )
 
-type ExecRunner struct {
+type ExecDumper struct {
 	ShouldGzip bool
 	DBDriver   driver.Driver
 }
 
-func NewExecRunner(shouldGzip bool, driver driver.Driver) *ExecRunner {
-	return &ExecRunner{
+func NewExecDumper(shouldGzip bool, driver driver.Driver) *ExecDumper {
+	return &ExecDumper{
 		ShouldGzip: shouldGzip,
 		DBDriver:   driver,
 	}
 }
 
-func (execDump *ExecRunner) DumpToFile(file io.Writer) error {
+func (execDump *ExecDumper) DumpToFile(file io.Writer) error {
 	defer func() {
 		if err := execDump.DBDriver.Close(); err != nil {
 			log.Printf("could not cleanup db driver: %v", err)
@@ -56,7 +57,9 @@ func (execDump *ExecRunner) DumpToFile(file io.Writer) error {
 		cmd.Env = append(os.Environ(), envs...)
 	}
 
-	cmd.Stderr = os.Stderr
+	var errBuf strings.Builder
+
+	cmd.Stderr = &errBuf
 	if gzipWriter != nil {
 		cmd.Stdout = gzipWriter
 	} else {
@@ -64,7 +67,7 @@ func (execDump *ExecRunner) DumpToFile(file io.Writer) error {
 	}
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("command error: %v", err)
+		return fmt.Errorf("command error: %v, %s", err, errBuf.String())
 	}
 
 	return nil

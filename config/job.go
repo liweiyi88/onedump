@@ -2,15 +2,10 @@ package config
 
 import (
 	"errors"
-	"fmt"
-	"io"
-	"reflect"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/liweiyi88/onedump/driver"
-	"github.com/liweiyi88/onedump/dumper/runner"
+	"github.com/liweiyi88/onedump/notifier/slack"
 	"github.com/liweiyi88/onedump/storage/dropbox"
 	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
@@ -23,11 +18,10 @@ var (
 	ErrMissingDBDriver = errors.New("databse driver is required")
 )
 
-type Storage interface {
-	Save(reader io.Reader, gzip bool, unique bool) error
-}
-
 type Dump struct {
+	Notifier struct {
+		Slack []*slack.Slack `yaml:"slack"`
+	} `yaml:"notifier"`
 	Jobs []*Job `yaml:"jobs"`
 }
 
@@ -42,20 +36,6 @@ func (dump *Dump) Validate() error {
 	}
 
 	return errs
-}
-
-type JobResult struct {
-	Error   error
-	JobName string
-	Elapsed time.Duration
-}
-
-func (result *JobResult) String() string {
-	if result.Error != nil {
-		return fmt.Sprintf("Job: %s failed, it took %s with error: %v", result.JobName, result.Elapsed, result.Error)
-	}
-
-	return fmt.Sprintf("Job: %s succeeded, it took %v", result.JobName, result.Elapsed)
 }
 
 type Job struct {
@@ -144,58 +124,4 @@ func (job *Job) ViaSsh() bool {
 	}
 
 	return false
-}
-
-func (job *Job) GetRunner() (runner.Runner, error) {
-	driver, err := job.getDBDriver()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get db driver %v", err)
-	}
-
-	if job.ViaSsh() {
-		return runner.NewSshRunner(job.SshHost, job.SshKey, job.SshUser, job.Gzip, driver), nil
-	} else {
-		return runner.NewExecRunner(job.Gzip, driver), nil
-	}
-}
-
-func (job *Job) getDBDriver() (driver.Driver, error) {
-	switch job.DBDriver {
-	case "mysql":
-		driver, err := driver.NewMysqlDriver(job.DBDsn, job.DumpOptions, job.ViaSsh())
-		if err != nil {
-			return nil, err
-		}
-
-		return driver, nil
-	case "postgresql":
-		driver, err := driver.NewPostgreSqlDriver(job.DBDsn, job.DumpOptions, job.ViaSsh())
-		if err != nil {
-			return nil, err
-		}
-
-		return driver, nil
-	default:
-		return nil, fmt.Errorf("%s is not a supported database driver", job.DBDriver)
-	}
-}
-
-func (job *Job) GetStorages() []Storage {
-	var storages []Storage
-
-	v := reflect.ValueOf(job.Storage)
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		switch field.Kind() {
-		case reflect.Slice:
-			for i := 0; i < field.Len(); i++ {
-				s, ok := field.Index(i).Interface().(Storage)
-				if ok {
-					storages = append(storages, s)
-				}
-			}
-		}
-	}
-
-	return storages
 }
