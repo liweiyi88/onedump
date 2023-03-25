@@ -9,7 +9,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/liweiyi88/onedump)](https://goreportcard.com/report/github.com/liweiyi88/onedump)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/liweiyi88/onedump/blob/main/LICENSE.md)
 
-Onedump is a database dump and backup tool. It can dump different databases to different storages with a simple configuration file or cli commands.
+Onedump is a database dump and backup tool that can dump different databases to different storages with a simple configuration file or CLI commands.
 
 ## Features
 * Database backup from different sources to different destinations.
@@ -35,22 +35,23 @@ Onedump is a database dump and backup tool. It can dump different databases to d
 
 
 ## Installation
-We build and publish both binaries and docker images via the release process.
+Onedump provides both binaries and Docker images via the release process.
 
 ### Binary
-`onedump` binaries are available in https://github.com/liweiyi88/onedump/releases. Use the latest version of the binary that is suitable to your OS.
-After downloading the binary and move it to the folder that is in your $PATH env var (e.g. `/usr/local/bin/onedump`), give it executable permissions (e.g. `sudo chmod +x /usr/local/bin/onedump`). Then you should be able to run it:
+`onedump` binaries are available at https://github.com/liweiyi88/onedump/releases. Use the latest version of the binary that is suitable for your OS.
+After downloading the binary and moving it to a folder that is in your `$PATH` environment variable (e.g., `/usr/local/bin/onedump`), give it executable permissions (e.g., `sudo chmod +x /usr/local/bin/onedump`). Then you should be able to run it:
 ```
 $ onedump
 ```
 
 ### Docker image
-If you want to run onedump in Kubernetes, ECS or any other container environment. We also offer the docker images for you. Images are available in [docker hub](https://hub.docker.com/r/julianli/onedump/tags).
+If you want to run Onedump in Kubernetes, ECS, or any other container environment, Docker images are also available in [Docker Hub](https://hub.docker.com/r/julianli/onedump/tags).
 
-*Note: Although we maintain both arm64 and amd64 docker image, usually what you need is the `amd64` image in your prod linux machine. For example: `julianli/onedump:v1.0.0-amd64`*
+*Note: Although we maintain both `ARM64` and `AMD64` Docker images, usually what you need is the `AMD64` image on your production Linux machine. For example: `julianli/onedump:v1.0.0-amd64`*
 
 ## Prerequisites
-Behind the scenes, `onedump` uses `mysqldump` and `pg_dump` for database dump. If you use onedump binary in a single machine, make sure you install `mysql-client` or `postgresql-client` as required. If you use the docker image maintained by us, you will have these tools by default. Besides, build the docker image yourself if you need more customisation.
+
+Behind the scenes, `onedump` uses `mysqldump` and `pg_dump` for database dump. If you use Onedump binary on a single machine, make sure you install `mysql-client` or `postgresql-client` as required. If you use the Docker image maintained by us, these tools are included by default. Besides, build the Docker image yourself if you need more customization.
 
 ## Run onedump
 
