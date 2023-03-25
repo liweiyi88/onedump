@@ -1,12 +1,12 @@
 package slack
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/liweiyi88/onedump/jobresult"
 )
@@ -66,7 +66,7 @@ func (slack *Slack) Notify(results []*jobresult.JobResult) error {
 		return fmt.Errorf("failed to marshal slack message, err: %v", err)
 	}
 
-	bytesReader := strings.NewReader(string(data))
+	bytesReader := bytes.NewReader(data)
 
 	client := &http.Client{}
 	res, err := client.Post(slack.IncomingWebhook, "application/json", bytesReader)
