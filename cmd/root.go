@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/handler"
@@ -11,10 +12,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey string
+var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey, interval string
 
 var rootCmd = &cobra.Command{
-	Use:   "-f /path/to/jobs.yaml",
+	Use:   "onedump",
 	Short: "Dump database content from different sources to different destinations with a yaml config file.",
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,18 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("no job is defined in the file %s", file)
 		}
 
-		return handler.NewDumpHandler(&oneDump).Do()
+		if interval == "" {
+			return handler.NewDumpHandler(&oneDump).Do()
+		} else {
+			d, _ := time.ParseDuration(interval)
+			ticker := time.NewTicker(d)
+			for range ticker.C {
+				if err := handler.NewDumpHandler(&oneDump).Do(); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	},
 }
 
@@ -62,6 +74,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&file, "file", "f", "", "jobs yaml file path.")
 	rootCmd.MarkFlagRequired("file")
 
+	rootCmd.Flags().StringVarP(&interval, "interval", "i", "", "amount of time to wait before running jobs again (optional)")
 	rootCmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "read config file from a s3 bucket (optional)")
 	rootCmd.Flags().StringVarP(&s3Region, "aws-region", "r", "", "the aws region to read the config file (optional)")
 	rootCmd.Flags().StringVarP(&s3AccessKeyId, "aws-key", "k", "", "aws access key id to overwrite the default one. (optional)")
