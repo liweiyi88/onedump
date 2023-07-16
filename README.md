@@ -217,3 +217,11 @@ jobs:
         access-key-id: MYKEY...
         secret-access-key: AWSSECRET..
 ```
+
+### Setting interval
+
+It also has one flag for setting interval (`-i` `--interval`) time to rerun jobs.
+
+```
+$ onedump -f /path/to/config.yaml -i 21h
+```
