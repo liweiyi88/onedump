@@ -50,6 +50,8 @@ var rootCmd = &cobra.Command{
 					return err
 				}
 			}
+			
+			ticker.Stop()
 		}
 		return nil
 	},
