@@ -220,7 +220,7 @@ jobs:
 
 ### Setting interval
 
-It also has one flag for setting interval (`-i` `--interval`) time to rerun jobs.
+It also has one flag for setting interval (`-i` `--interval`) time to re-run jobs.
 
 ```
 $ onedump -f /path/to/config.yaml -i 21h
