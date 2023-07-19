@@ -8,6 +8,8 @@ import (
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/handler"
 	"github.com/liweiyi88/onedump/storage/s3"
+
+	"github.com/jasonlvhit/gocron"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -43,15 +45,15 @@ var rootCmd = &cobra.Command{
 		if interval == "" {
 			return handler.NewDumpHandler(&oneDump).Do()
 		} else {
-			d, _ := time.ParseDuration(interval)
-			ticker := time.NewTicker(d)
-			for range ticker.C {
-				if err := handler.NewDumpHandler(&oneDump).Do(); err != nil {
-					return err
-				}
+			d, err := time.ParseDuration(interval)
+			if err != nil {
+				return err
 			}
-			
-			ticker.Stop()
+
+			err = gocron.Every(uint64(d.Seconds())).Seconds().Do(handler.NewDumpHandler(&oneDump).Do())
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	},

@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.195
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/jasonlvhit/gocron v0.0.1
 	github.com/spf13/cobra v1.6.1
 	golang.org/x/exp v0.0.0-20230126173853-a67bb567ff2e
 	google.golang.org/api v0.109.0
