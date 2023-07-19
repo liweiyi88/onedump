@@ -54,6 +54,8 @@ var rootCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
+
+			<-gocron.Start()
 		}
 		return nil
 	},
