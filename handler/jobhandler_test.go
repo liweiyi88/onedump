@@ -14,6 +14,8 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/crypto/ssh"
+
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/dumper"
 	"github.com/liweiyi88/onedump/fileutil"
@@ -21,7 +23,6 @@ import (
 	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
 	"github.com/liweiyi88/onedump/storage/s3"
-	"golang.org/x/crypto/ssh"
 )
 
 var testDBDsn = "root@tcp(127.0.0.1:3306)/dump_test"

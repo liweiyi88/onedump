@@ -8,8 +8,9 @@ import (
 	"log"
 	"net"
 
-	"github.com/liweiyi88/onedump/driver"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/liweiyi88/onedump/driver"
 )
 
 type SshDumper struct {

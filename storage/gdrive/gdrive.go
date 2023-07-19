@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/liweiyi88/onedump/fileutil"
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
 	drive "google.golang.org/api/drive/v3"
+
+	"github.com/liweiyi88/onedump/fileutil"
 )
 
 type GDrive struct {

@@ -5,10 +5,11 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/jobresult"
 	"github.com/liweiyi88/onedump/notifier/console"
+
+	"github.com/hashicorp/go-multierror"
 )
 
 type Notifier interface {

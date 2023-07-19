@@ -5,13 +5,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/liweiyi88/onedump/config"
-	"github.com/liweiyi88/onedump/handler"
-	"github.com/liweiyi88/onedump/storage/s3"
-
 	"github.com/jasonlvhit/gocron"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+
+	"github.com/liweiyi88/onedump/config"
+	"github.com/liweiyi88/onedump/handler"
+	"github.com/liweiyi88/onedump/storage/s3"
 )
 
 var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey, interval string
