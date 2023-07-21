@@ -218,10 +218,10 @@ jobs:
         secret-access-key: AWSSECRET..
 ```
 
-### Setting interval
+### Setting cron job
 
-It also has one flag for setting interval (`-i` `--interval`) time to re-run jobs.
+It also has one flag for setting cron job (`-c` `--cron`) with specific time interval to re-run jobs.
 
 ```
-$ onedump -f /path/to/config.yaml -i 21h
+$ onedump -f /path/to/config.yaml -c 21h
 ```

@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/jasonlvhit/gocron"
+	"github.com/go-co-op/gocron"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
@@ -14,7 +14,7 @@ import (
 	"github.com/liweiyi88/onedump/storage/s3"
 )
 
-var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey, interval string
+var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey, cron string
 
 var rootCmd = &cobra.Command{
 	Use:   "onedump",
@@ -42,20 +42,21 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("no job is defined in the file %s", file)
 		}
 
-		if interval == "" {
+		if cron == "" {
 			return handler.NewDumpHandler(&oneDump).Do()
 		} else {
-			d, err := time.ParseDuration(interval)
+			d, err := time.ParseDuration(cron)
 			if err != nil {
 				return err
 			}
 
-			err = gocron.Every(uint64(d.Seconds())).Seconds().Do(handler.NewDumpHandler(&oneDump).Do())
+			c := gocron.NewScheduler(time.UTC)
+			_, err = c.Every(uint64(d.Seconds())).Seconds().Do(handler.NewDumpHandler(&oneDump).Do())
 			if err != nil {
 				return err
 			}
 
-			<-gocron.Start()
+			c.StartBlocking()
 		}
 		return nil
 	},
