@@ -81,7 +81,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&file, "file", "f", "", "jobs yaml file path.")
 	rootCmd.MarkFlagRequired("file")
 
-	rootCmd.Flags().StringVarP(&interval, "interval", "i", "", "amount of time to wait before running jobs again (optional)")
+	rootCmd.Flags().StringVarP(&cron, "cron", "c", "", "amount of time to wait before running jobs again (optional)")
 	rootCmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "read config file from a s3 bucket (optional)")
 	rootCmd.Flags().StringVarP(&s3Region, "aws-region", "r", "", "the aws region to read the config file (optional)")
 	rootCmd.Flags().StringVarP(&s3AccessKeyId, "aws-key", "k", "", "aws access key id to overwrite the default one. (optional)")
