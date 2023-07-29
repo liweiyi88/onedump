@@ -51,7 +51,7 @@ var rootCmd = &cobra.Command{
 			}
 
 			c := gocron.NewScheduler(time.UTC)
-			_, err = c.Every(uint64(d.Seconds())).Seconds().Do(handler.NewDumpHandler(&oneDump).Do())
+			_, err = c.Every(d).Do(handler.NewDumpHandler(&oneDump).Do)
 			if err != nil {
 				return err
 			}
