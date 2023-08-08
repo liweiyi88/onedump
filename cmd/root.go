@@ -47,13 +47,13 @@ var rootCmd = &cobra.Command{
 		} else {
 			d, err := time.ParseDuration(cron)
 			if err != nil {
-				return err
+				return fmt.Errorf("invalid job's interval time duration, error: %v", err)
 			}
 
 			c := gocron.NewScheduler(time.UTC)
 			_, err = c.Every(d).Do(handler.NewDumpHandler(&oneDump).Do)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to run the job, error: %v", err)
 			}
 
 			c.StartBlocking()
