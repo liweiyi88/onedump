@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
+
 	"github.com/liweiyi88/onedump/fileutil"
 )
 

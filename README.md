@@ -217,3 +217,11 @@ jobs:
         access-key-id: MYKEY...
         secret-access-key: AWSSECRET..
 ```
+
+### Setting cron job
+
+It also has one flag for setting cron job (`-c` `--cron`) with specific time interval to re-run jobs.
+
+```
+$ onedump -f /path/to/config.yaml -c 21h
+```
