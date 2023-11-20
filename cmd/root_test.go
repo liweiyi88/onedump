@@ -21,8 +21,6 @@ func TestRootCmdWithCron(t *testing.T) {
 	defer os.Remove(filename)
 	file.Close()
 
-	cmd.SetArgs([]string{"-f", filename, "-c", "1h"})
-
 	config := `jobs:
 - name: local-dump
   dbdriver: mysql
@@ -47,9 +45,19 @@ func TestRootCmdWithCron(t *testing.T) {
 	newFd.Close()
 	o := bytes.NewBufferString("")
 	cmd.SetOutput(o)
+	cmd.SetArgs([]string{"-f", filename, "-c", "1sec"})
 	err = cmd.Execute()
 
 	if err == nil {
+		t.Log(err)
+		t.Error("expect errr but got nil")
+	}
+
+	cmd.SetArgs([]string{"-f", filename, "-c", "10s"})
+	err = cmd.Execute()
+
+	if err == nil {
+		t.Log(err)
 		t.Error("expect errr but got nil")
 	}
 }
