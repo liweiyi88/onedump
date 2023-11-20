@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-co-op/gocron"
@@ -21,6 +24,14 @@ var rootCmd = &cobra.Command{
 	Short: "Dump database content from different sources to different destinations with a yaml config file.",
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		_, stop := context.WithCancel(context.Background())
+		appSignal := make(chan os.Signal, 3)
+		signal.Notify(appSignal, os.Interrupt, syscall.SIGTERM)
+
+		defer func() {
+			stop()
+		}()
+
 		content, err := getConfigContent()
 		if err != nil {
 			return fmt.Errorf("failed to read job file from %s, error: %v", file, err)
@@ -50,15 +61,31 @@ var rootCmd = &cobra.Command{
 				return fmt.Errorf("invalid job's interval time duration, error: %v", err)
 			}
 
-			c := gocron.NewScheduler(time.UTC)
-			_, err = c.Every(d).Do(handler.NewDumpHandler(&oneDump).Do)
+			scheduler := gocron.NewScheduler(time.UTC)
+			job, err := scheduler.Every(d).Do(handler.NewDumpHandler(&oneDump).Do)
 			if err != nil {
-				return fmt.Errorf("failed to run the job, error: %v", err)
+				return fmt.Errorf("failed to specify the job func, error: %v", err)
 			}
 
-			c.StartBlocking()
+			var jobErr error
+			job.RegisterEventListeners(gocron.WhenJobReturnsError(func(jobName string, err error) {
+				go func() {
+					jobErr = err
+					// Stop the scheduler if job has an error.
+					scheduler.Stop()
+				}()
+			}))
+
+			go func() {
+				<-appSignal
+				stop()
+				// graceful shutdown
+				scheduler.Stop()
+			}()
+
+			scheduler.StartBlocking()
+			return jobErr
 		}
-		return nil
 	},
 }
 
@@ -81,7 +108,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&file, "file", "f", "", "jobs yaml file path.")
 	rootCmd.MarkFlagRequired("file")
 
-	rootCmd.Flags().StringVarP(&cron, "cron", "c", "", "amount of time to wait before running jobs again (optional)")
+	rootCmd.Flags().StringVarP(&cron, "cron", "c", "", "run onedump with cron mode by passing cron experssions. e.g. --cron '1h' (optional)")
 	rootCmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "read config file from a s3 bucket (optional)")
 	rootCmd.Flags().StringVarP(&s3Region, "aws-region", "r", "", "the aws region to read the config file (optional)")
 	rootCmd.Flags().StringVarP(&s3AccessKeyId, "aws-key", "k", "", "aws access key id to overwrite the default one. (optional)")

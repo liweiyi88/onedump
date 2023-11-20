@@ -8,6 +8,52 @@ import (
 	"testing"
 )
 
+func TestRootCmdWithCron(t *testing.T) {
+	cmd := rootCmd
+
+	workDir, _ := os.Getwd()
+	filename := workDir + "/test.sql"
+	file, err := os.Create(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.Remove(filename)
+	file.Close()
+
+	cmd.SetArgs([]string{"-f", filename, "-c", "1h"})
+
+	config := `jobs:
+- name: local-dump
+  dbdriver: mysql
+  dbdsn: root@tcp(127.0.0.1)/unknow
+  gzip: true
+  storage:
+    local:
+    - path: /Users/julianli/Desktop/test-local.sql
+`
+
+	newFd, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, os.ModePerm)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(filename, []byte(config), 0644)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newFd.Close()
+	o := bytes.NewBufferString("")
+	cmd.SetOutput(o)
+	err = cmd.Execute()
+
+	if err == nil {
+		t.Error("expect errr but got nil")
+	}
+}
+
 func TestRootCmd(t *testing.T) {
 	cmd := rootCmd
 	cmd.SetArgs([]string{"-f", "/Users/jobs.yaml"})
