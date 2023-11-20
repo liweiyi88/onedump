@@ -219,8 +219,7 @@ jobs:
 ```
 
 ### Setting cron job
-
-It also has one flag for setting cron job (`-c` `--cron`) with specific time interval to re-run jobs.
+Run onedump with cron mode by passing cron experssions.
 
 ```
 $ onedump -f /path/to/config.yaml -c 21h
