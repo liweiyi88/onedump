@@ -175,13 +175,12 @@ func TestMysqlGetDumpCommandArgs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expect := "--host 127.0.0.1 --port 3306 -u admin -p my_password --skip-comments --extended-insert dump_test"
+	expect := "--host 127.0.0.1 --port 3306 -u admin -pmy_password --skip-comments --extended-insert dump_test"
 	actual := strings.Join(args, " ")
 
 	if expect != actual {
 		t.Errorf("expect :%s, actual: %s", expect, actual)
 	}
-
 }
 
 func TestCloseMysql(t *testing.T) {

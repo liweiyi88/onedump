@@ -80,7 +80,7 @@ func TestPostGreSqlGetExecDumpCommand(t *testing.T) {
 		t.Errorf("expect command: %s, actual: %s", command, pgDumpPath)
 	}
 
-	expect := "--host=localhost --username=julianli --dbname=mypsqldb"
+	expect := "--host=localhost --port=5432 --username=julianli --dbname=mypsqldb"
 	actual := strings.Join(args, " ")
 
 	if expect != actual {
@@ -105,7 +105,7 @@ func TestPostGreSqlGetSshDumpCommand(t *testing.T) {
 		t.Error(err)
 	}
 
-	expectCommand := "PGPASSWORD=julian pg_dump --host=localhost --username=julianli --dbname=mypsqldb"
+	expectCommand := "PGPASSWORD=julian pg_dump --host=localhost --port=5432 --username=julianli --dbname=mypsqldb"
 	if expectCommand != command {
 		t.Errorf("expect: %s, actual got: %s", expectCommand, command)
 	}
