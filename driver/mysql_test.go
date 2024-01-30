@@ -135,7 +135,6 @@ func TestGetSshDumpCommand(t *testing.T) {
 	if !strings.Contains(command, "mysqldump --defaults-extra-file") || !strings.Contains(command, "--skip-comments --extended-insert dump_test") {
 		t.Errorf("unexpected command: %s", command)
 	}
-
 }
 
 func TestGetDumpCommand(t *testing.T) {
