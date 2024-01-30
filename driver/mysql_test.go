@@ -135,6 +135,7 @@ func TestGetSshDumpCommand(t *testing.T) {
 	if !strings.Contains(command, "mysqldump --defaults-extra-file") || !strings.Contains(command, "--skip-comments --extended-insert dump_test") {
 		t.Errorf("unexpected command: %s", command)
 	}
+
 }
 
 func TestGetDumpCommand(t *testing.T) {
@@ -158,6 +159,30 @@ func TestGetDumpCommand(t *testing.T) {
 	if len(args) != 4 {
 		t.Errorf("get unexpected args, expected %d args, but got: %d", 4, len(args))
 	}
+}
+
+func TestMysqlGetDumpCommandArgs(t *testing.T) {
+	mysql, _ := NewMysqlDriver(testDBDsn, nil, true)
+	defer mysql.Close()
+
+	_, err := exec.LookPath(mysql.MysqlDumpBinaryPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, args, err := mysql.GetExecDumpCommand()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expect := "--host 127.0.0.1 --port 3306 -u admin -p my_password --skip-comments --extended-insert dump_test"
+	actual := strings.Join(args, " ")
+
+	if expect != actual {
+		t.Errorf("expect :%s, actual: %s", expect, actual)
+	}
+
 }
 
 func TestCloseMysql(t *testing.T) {

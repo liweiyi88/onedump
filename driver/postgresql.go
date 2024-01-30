@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -41,6 +42,7 @@ func (psql *PostgreSqlDriver) getDumpCommandArgs() []string {
 	args := []string{}
 
 	args = append(args, "--host="+psql.Host)
+	args = append(args, "--port="+strconv.Itoa(psql.Port))
 	args = append(args, "--username="+psql.Username)
 	args = append(args, "--dbname="+psql.DBName)
 	args = append(args, psql.Options...)

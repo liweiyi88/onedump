@@ -90,6 +90,8 @@ func (mysql *MysqlDriver) getDumpCommandArgs() ([]string, error) {
 		}
 		args = append(args, "--defaults-extra-file="+credentialsFileName+"")
 	} else {
+		args = append(args, "--host "+mysql.Host)
+		args = append(args, "--port "+strconv.Itoa(mysql.Port))
 		args = append(args, "-u "+mysql.Username+" -p"+mysql.Password)
 	}
 

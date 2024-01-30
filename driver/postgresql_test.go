@@ -9,6 +9,8 @@ import (
 
 var testPsqlDBDsn = "postgres://julianli:julian@localhost:5432/mypsqldb"
 
+var testPsqlRemoteDBDsn = "postgres://julianli:julian@example.com:8888/mypsqldb"
+
 func TestNewPostgreSqlDriver(t *testing.T) {
 	psqlDriver, _ := NewPostgreSqlDriver(testPsqlDBDsn, nil, false)
 
@@ -43,8 +45,19 @@ func TestGetDumpCommandArgs(t *testing.T) {
 
 	args := psqlDriver.getDumpCommandArgs()
 
-	expect := "--host=localhost --username=julianli --dbname=mypsqldb"
+	expect := "--host=localhost --port=5432 --username=julianli --dbname=mypsqldb"
 	actual := strings.Join(args, " ")
+
+	if expect != actual {
+		t.Errorf("expect :%s, actual: %s", expect, actual)
+	}
+
+	psqlDriver, _ = NewPostgreSqlDriver(testPsqlRemoteDBDsn, nil, false)
+
+	args = psqlDriver.getDumpCommandArgs()
+
+	expect = "--host=example.com --port=8888 --username=julianli --dbname=mypsqldb"
+	actual = strings.Join(args, " ")
 
 	if expect != actual {
 		t.Errorf("expect :%s, actual: %s", expect, actual)
