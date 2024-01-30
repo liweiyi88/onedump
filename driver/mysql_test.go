@@ -160,6 +160,29 @@ func TestGetDumpCommand(t *testing.T) {
 	}
 }
 
+func TestMysqlGetDumpCommandArgs(t *testing.T) {
+	mysql, _ := NewMysqlDriver(testDBDsn, nil, true)
+	defer mysql.Close()
+
+	_, err := exec.LookPath(mysql.MysqlDumpBinaryPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, args, err := mysql.GetExecDumpCommand()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expect := "--host 127.0.0.1 --port 3306 -u admin -pmy_password --skip-comments --extended-insert dump_test"
+	actual := strings.Join(args, " ")
+
+	if expect != actual {
+		t.Errorf("expect :%s, actual: %s", expect, actual)
+	}
+}
+
 func TestCloseMysql(t *testing.T) {
 	mysql, _ := NewMysqlDriver(testDBDsn, nil, false)
 	file1, err := mysql.createCredentialFile()
