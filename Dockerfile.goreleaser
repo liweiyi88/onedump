@@ -5,9 +5,9 @@ ENV PG_VERSION_16=16
 
 RUN apk update && apk add dpkg ca-certificates mysql-client postgresql${PG_VERSION_15}-client postgresql${PG_VERSION_16}-client --no-cache
 
-COPY ./entrypoint.sh /
+COPY entrypoint.sh /entrypoint.sh
 COPY onedump /usr/local/bin/
 
-RUN ["chmod", "+x", "./entrypoint.sh"]
+RUN ["chmod", "+x", "/entrypoint.sh"]
 
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
