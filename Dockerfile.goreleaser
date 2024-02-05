@@ -1,6 +1,13 @@
 FROM alpine:latest as certs
-RUN apk update && apk add ca-certificates mysql-client postgresql-client --no-cache
 
+ENV PG_VERSION_15=15
+ENV PG_VERSION_16=16
+
+RUN apk update && apk add dpkg ca-certificates mysql-client postgresql${PG_VERSION_15}-client postgresql${PG_VERSION_16}-client --no-cache
+
+COPY ./entrypoint.sh /
 COPY onedump /usr/local/bin/
 
-ENTRYPOINT ["/usr/local/bin/onedump"]
+RUN ["chmod", "+x", "./entrypoint.sh"]
+
+ENTRYPOINT ["./entrypoint.sh"]
