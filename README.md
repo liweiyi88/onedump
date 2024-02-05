@@ -47,6 +47,9 @@ $ onedump
 ### Docker image
 If you want to run Onedump in Kubernetes, ECS, or any other container environment, Docker images are also available in [Docker Hub](https://hub.docker.com/r/julianli/onedump/tags).
 
+#### Use certain pg_dump version
+The managed docker image contains mysql client, postgresql15-client and postgresql16-client. By default it uses postgresql16-client. However, you can pass an environemnt `PG_VERSION` to swtich postgresql client version between `15` and `16`. For example, `docker run -e PG_VERSION=15 julianli/onedump:v1.1.4-arm64 -f config.yaml`.
+
 *Note: Although we maintain both `ARM64` and `AMD64` Docker images, usually what you need is the `AMD64` image on your production Linux machine. For example: `julianli/onedump:v1.0.0-amd64`*
 
 ## Prerequisites
