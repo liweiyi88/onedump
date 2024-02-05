@@ -15,6 +15,8 @@ dockers:
     build_flag_templates:
       - "--pull"
       - "--platform=linux/arm64"
+    extra_files:
+      - entrypoint.sh
     image_templates:
       - "julianli/onedump:{{ .Tag }}-arm64"
   - use: buildx
@@ -23,6 +25,8 @@ dockers:
     build_flag_templates:
       - "--pull"
       - "--platform=linux/amd64"
+    extra_files:
+      - entrypoint.sh
     image_templates:
       - julianli/onedump
       - "julianli/onedump:{{ .Tag }}-amd64"
