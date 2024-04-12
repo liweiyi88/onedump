@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"log"
 	"reflect"
 	"sync"
 	"time"
@@ -65,10 +66,13 @@ func (handler *JobHandler) save(dumper dumper.Dumper) error {
 		go func() {
 			e := dumper.DumpTo(writer)
 			if e != nil {
-				multierror.Append(err, e)
+				err = multierror.Append(err, e)
 			}
 
-			closer.Close()
+			closeErr := closer.Close()
+			if closeErr != nil {
+				log.Printf("Cannot close pipe readers and writers: %v", closeErr)
+			}
 		}()
 
 		var wg sync.WaitGroup
