@@ -22,46 +22,53 @@ type JobHandler struct {
 	Job *config.Job
 }
 
+// Create a new job handler.
 func NewJobHandler(job *config.Job) *JobHandler {
 	return &JobHandler{
 		Job: job,
 	}
 }
 
-// Pipe readers, writers and closer for fanout the same os.file
+// Pipe readers, writer and closers for fanout the same writer.
 func storageReadWriteCloser(count int, compress bool) ([]io.Reader, io.Writer, io.Closer) {
 	var prs []io.Reader
 	var pws []io.Writer
 	var pcs []io.Closer
 	for i := 0; i < count; i++ {
 		pr, pw := io.Pipe()
+		prs = append(prs, pr)
+
+		// no mater if it needs compression, we need to close the original pipe writer anyway.
+		pcs = append(pcs, pw)
 
 		if compress {
 			gw := gzip.NewWriter(pw)
-
-			prs = append(prs, pr)
 			pws = append(pws, gw)
 			pcs = append(pcs, gw)
-			pcs = append(pcs, pw)
 		} else {
-			prs = append(prs, pr)
 			pws = append(pws, pw)
-			pcs = append(pcs, pw)
 		}
 	}
 
 	return prs, io.MultiWriter(pws...), config.NewMultiCloser(pcs)
 }
 
-func (handler *JobHandler) save(dumper dumper.Dumper) error {
+// Save database dump to different storages.
+func (handler *JobHandler) save() error {
+	var err error
+
+	dumper, err := handler.getDumper()
+
+	if err != nil {
+		return fmt.Errorf("could not get dumper: %v", err)
+	}
+
 	job := handler.Job
 	storages := handler.getStorages()
 	numberOfStorages := len(storages)
 
-	var err error
-
 	if numberOfStorages > 0 {
-		// Use pipe to pass content from the cache file to different writer.
+		// Use pipe to pass content from the database dump to different writer.
 		readers, writer, closer := storageReadWriteCloser(numberOfStorages, job.Gzip)
 
 		go func() {
@@ -100,6 +107,7 @@ func (handler *JobHandler) save(dumper dumper.Dumper) error {
 	return err
 }
 
+// Get all storage structs based on job configuration.
 func (handler *JobHandler) getStorages() []storage.Storage {
 	var storages []storage.Storage
 
@@ -120,6 +128,7 @@ func (handler *JobHandler) getStorages() []storage.Storage {
 	return storages
 }
 
+// Get the database dumper.
 func (handler *JobHandler) getDumper() (dumper.Dumper, error) {
 	job := handler.Job
 	driver, err := handler.getDBDriver()
@@ -134,6 +143,7 @@ func (handler *JobHandler) getDumper() (dumper.Dumper, error) {
 	}
 }
 
+// Get the database driver.
 func (handler *JobHandler) getDBDriver() (driver.Driver, error) {
 	job := handler.Job
 	switch job.DBDriver {
@@ -156,6 +166,7 @@ func (handler *JobHandler) getDBDriver() (driver.Driver, error) {
 	}
 }
 
+// Do the job.
 func (handler *JobHandler) Do() *jobresult.JobResult {
 	start := time.Now()
 	result := &jobresult.JobResult{}
@@ -167,13 +178,7 @@ func (handler *JobHandler) Do() *jobresult.JobResult {
 
 	result.JobName = handler.Job.Name
 
-	dumper, err := handler.getDumper()
-	if err != nil {
-		result.Error = fmt.Errorf("could not get dumper: %v", err)
-		return result
-	}
-
-	err = handler.save(dumper)
+	err := handler.save()
 	if err != nil {
 		result.Error = fmt.Errorf("failed to store dump file %v", err)
 	}
