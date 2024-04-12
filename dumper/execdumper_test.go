@@ -25,26 +25,25 @@ func (md *MockDriver) Close() error {
 
 func TestNewExecDumper(t *testing.T) {
 	driver := &MockDriver{}
-	execDumper := NewExecDumper(true, driver)
+	execDumper := NewExecDumper(driver)
 
-	if execDumper.ShouldGzip != true || execDumper.DBDriver != driver {
+	if execDumper.DBDriver != driver {
 		t.Errorf("unexpected exec dumper %v", execDumper)
 	}
 }
 
-func TestDumpTo(t *testing.T) {
+func TestDump(t *testing.T) {
 	buf := make([]byte, 50)
 	buffer := bytes.NewBuffer(buf)
 
 	driver := &MockDriver{}
-	execDumper := NewExecDumper(true, driver)
-	err := execDumper.DumpTo(buffer)
+	execDumper := NewExecDumper(driver)
+	err := execDumper.Dump(buffer)
 	if err != nil {
 		t.Errorf("failed to dump to file: %v", err)
 	}
 
-	execDumper.ShouldGzip = false
-	err = execDumper.DumpTo(buffer)
+	err = execDumper.Dump(buffer)
 	if err != nil {
 		t.Errorf("failed to dump to file: %v", err)
 	}

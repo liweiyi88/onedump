@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/driver"
 	"github.com/liweiyi88/onedump/dumper"
+	"github.com/liweiyi88/onedump/fileutil"
 	"github.com/liweiyi88/onedump/jobresult"
+	"github.com/liweiyi88/onedump/storage"
 )
 
 type JobHandler struct {
@@ -64,7 +65,7 @@ func (handler *JobHandler) save(dumper dumper.Dumper) error {
 		readers, writer, closer := storageReadWriteCloser(numberOfStorages, job.Gzip)
 
 		go func() {
-			e := dumper.DumpTo(writer)
+			e := dumper.Dump(writer)
 			if e != nil {
 				err = multierror.Append(err, e)
 			}
@@ -81,7 +82,12 @@ func (handler *JobHandler) save(dumper dumper.Dumper) error {
 			storage := s
 			go func(i int) {
 				defer wg.Done()
-				e := storage.Save(readers[i], job.Gzip, job.Unique)
+
+				pathGenerator := func(filename string) string {
+					return fileutil.EnsureFileName(filename, job.Gzip, job.Unique)
+				}
+
+				e := storage.Save(readers[i], pathGenerator)
 				if e != nil {
 					err = multierror.Append(err, e)
 				}
@@ -94,8 +100,8 @@ func (handler *JobHandler) save(dumper dumper.Dumper) error {
 	return err
 }
 
-func (handler *JobHandler) getStorages() []Storage {
-	var storages []Storage
+func (handler *JobHandler) getStorages() []storage.Storage {
+	var storages []storage.Storage
 
 	v := reflect.ValueOf(handler.Job.Storage)
 	for i := 0; i < v.NumField(); i++ {
@@ -103,7 +109,7 @@ func (handler *JobHandler) getStorages() []Storage {
 		switch field.Kind() {
 		case reflect.Slice:
 			for i := 0; i < field.Len(); i++ {
-				s, ok := field.Index(i).Interface().(Storage)
+				s, ok := field.Index(i).Interface().(storage.Storage)
 				if ok {
 					storages = append(storages, s)
 				}
@@ -122,9 +128,9 @@ func (handler *JobHandler) getDumper() (dumper.Dumper, error) {
 	}
 
 	if job.ViaSsh() {
-		return dumper.NewSshDumper(job.SshHost, job.SshKey, job.SshUser, job.Gzip, driver), nil
+		return dumper.NewSshDumper(job.SshHost, job.SshKey, job.SshUser, driver), nil
 	} else {
-		return dumper.NewExecDumper(job.Gzip, driver), nil
+		return dumper.NewExecDumper(driver), nil
 	}
 }
 

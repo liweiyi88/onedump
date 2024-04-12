@@ -12,18 +12,16 @@ import (
 )
 
 type ExecDumper struct {
-	ShouldGzip bool
-	DBDriver   driver.Driver
+	DBDriver driver.Driver
 }
 
-func NewExecDumper(shouldGzip bool, driver driver.Driver) *ExecDumper {
+func NewExecDumper(driver driver.Driver) *ExecDumper {
 	return &ExecDumper{
-		ShouldGzip: shouldGzip,
-		DBDriver:   driver,
+		DBDriver: driver,
 	}
 }
 
-func (execDump *ExecDumper) DumpTo(storage io.Writer) error {
+func (execDump *ExecDumper) Dump(storage io.Writer) error {
 	defer func() {
 		if err := execDump.DBDriver.Close(); err != nil {
 			log.Printf("could not cleanup db driver: %v", err)

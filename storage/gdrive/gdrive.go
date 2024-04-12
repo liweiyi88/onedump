@@ -9,7 +9,7 @@ import (
 	"golang.org/x/oauth2/jwt"
 	drive "google.golang.org/api/drive/v3"
 
-	"github.com/liweiyi88/onedump/fileutil"
+	"github.com/liweiyi88/onedump/storage"
 )
 
 type GDrive struct {
@@ -21,7 +21,7 @@ type GDrive struct {
 	FolderId   string `yaml:"folderid"`
 }
 
-func (gdrive *GDrive) Save(reader io.Reader, gzip bool, unique bool) error {
+func (gdrive *GDrive) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) error {
 	conf := &jwt.Config{
 		Email:      gdrive.Email,
 		PrivateKey: []byte(gdrive.PrivateKey),
@@ -38,7 +38,7 @@ func (gdrive *GDrive) Save(reader io.Reader, gzip bool, unique bool) error {
 		return fmt.Errorf("could not create drive client error: %v", err)
 	}
 
-	path := fileutil.EnsureFileName(gdrive.FileName, gzip, unique)
+	path := pathGenerator(gdrive.FileName)
 
 	driveFile := &drive.File{Name: path}
 

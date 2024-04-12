@@ -13,20 +13,18 @@ import (
 )
 
 type SshDumper struct {
-	SshHost    string
-	SshKey     string
-	SshUser    string
-	ShouldGzip bool
-	DBDriver   driver.Driver
+	SshHost  string
+	SshKey   string
+	SshUser  string
+	DBDriver driver.Driver
 }
 
-func NewSshDumper(host, key, user string, shouldGzip bool, driver driver.Driver) *SshDumper {
+func NewSshDumper(host, key, user string, driver driver.Driver) *SshDumper {
 	return &SshDumper{
-		SshHost:    host,
-		SshKey:     key,
-		SshUser:    user,
-		ShouldGzip: shouldGzip,
-		DBDriver:   driver,
+		SshHost:  host,
+		SshKey:   key,
+		SshUser:  user,
+		DBDriver: driver,
 	}
 }
 
@@ -56,7 +54,7 @@ func (sshDumper *SshDumper) createSshClient() (*ssh.Client, error) {
 	return ssh.Dial("tcp", host, conf)
 }
 
-func (sshDumper *SshDumper) DumpTo(storage io.Writer) error {
+func (sshDumper *SshDumper) Dump(storage io.Writer) error {
 	client, err := sshDumper.createSshClient()
 	if err != nil {
 		return fmt.Errorf("failed to dial remote server via ssh: %w", err)

@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/liweiyi88/onedump/fileutil"
+	"github.com/liweiyi88/onedump/storage"
 )
 
 var (
@@ -84,7 +84,7 @@ type Dropbox struct {
 	ClientSecret string `yaml:"clientsecret"`
 }
 
-func (dropbox *Dropbox) Save(reader io.Reader, gzip bool, unique bool) error {
+func (dropbox *Dropbox) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) error {
 	offset := 0
 	sessionId := ""
 	buf := make([]byte, maxUpload)
@@ -106,7 +106,7 @@ func (dropbox *Dropbox) Save(reader io.Reader, gzip bool, unique bool) error {
 			}
 
 			if int64(len(buf)) < maxUpload {
-				err := dropbox.uploadSessionFinish(client, buf, offset, sessionId, gzip, unique)
+				err := dropbox.uploadSessionFinish(client, buf, offset, sessionId, pathGenerator)
 				if err != nil {
 					return err
 				}
@@ -206,12 +206,12 @@ func (dropbox *Dropbox) startUploadSession(client *http.Client) (string, error) 
 	return sessionResponse.SessionId, nil
 }
 
-func (dropbox *Dropbox) uploadSessionFinish(client *http.Client, data []byte, offset int, sessionId string, gzip bool, unique bool) error {
+func (dropbox *Dropbox) uploadSessionFinish(client *http.Client, data []byte, offset int, sessionId string, pathGenerator storage.PathGeneratorFunc) error {
 	bytesReader := bytes.NewReader(data)
-	filename := fileutil.EnsureFileName(dropbox.Path, gzip, unique)
+	path := pathGenerator(dropbox.Path)
 	param := uploadSessionFinishParam{
 		Commit: Commit{
-			Path: filename,
+			Path: path,
 			Mode: "overwrite",
 		},
 		Cursor: Cursor{

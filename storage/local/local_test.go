@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/liweiyi88/onedump/storage"
 )
 
 func TestSave(t *testing.T) {
@@ -13,7 +15,7 @@ func TestSave(t *testing.T) {
 	expected := "hello"
 	reader := strings.NewReader(expected)
 
-	err := local.Save(reader, true, false)
+	err := local.Save(reader, storage.PathGenerator(true, false))
 	if err != nil {
 		t.Errorf("failed to save file: %v", err)
 	}

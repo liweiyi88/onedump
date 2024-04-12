@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/liweiyi88/onedump/storage"
 )
 
 func TestHasTokenExpired(t *testing.T) {
@@ -119,7 +121,7 @@ func TestSaveSuccess(t *testing.T) {
 	dropbox := &Dropbox{}
 
 	sr := strings.NewReader("file upload")
-	err := dropbox.Save(sr, true, true)
+	err := dropbox.Save(sr, storage.PathGenerator(true, true))
 	if err != nil {
 		t.Errorf("expected err to be nil got %v", err)
 	}
@@ -146,7 +148,8 @@ func TestUploadSessionFailure(t *testing.T) {
 	dropbox := &Dropbox{}
 
 	sr := strings.NewReader("file upload")
-	err := dropbox.Save(sr, true, true)
+
+	err := dropbox.Save(sr, storage.PathGenerator(true, true))
 
 	if err == nil {
 		t.Error("expected error but got nil error")

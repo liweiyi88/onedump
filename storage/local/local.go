@@ -6,15 +6,16 @@ import (
 	"log"
 	"os"
 
-	"github.com/liweiyi88/onedump/fileutil"
+	"github.com/liweiyi88/onedump/storage"
 )
 
 type Local struct {
 	Path string `yaml:"path"`
 }
 
-func (local *Local) Save(reader io.Reader, gzip bool, unique bool) error {
-	path := fileutil.EnsureFileName(local.Path, gzip, unique)
+func (local *Local) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) error {
+	path := pathGenerator(local.Path)
+
 	file, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("failed to create local dump file: %w", err)
