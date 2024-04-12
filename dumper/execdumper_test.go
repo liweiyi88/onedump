@@ -32,19 +32,19 @@ func TestNewExecDumper(t *testing.T) {
 	}
 }
 
-func TestDumpToFile(t *testing.T) {
+func TestDumpTo(t *testing.T) {
 	buf := make([]byte, 50)
 	buffer := bytes.NewBuffer(buf)
 
 	driver := &MockDriver{}
 	execDumper := NewExecDumper(true, driver)
-	err := execDumper.DumpToFile(buffer)
+	err := execDumper.DumpTo(buffer)
 	if err != nil {
 		t.Errorf("failed to dump to file: %v", err)
 	}
 
 	execDumper.ShouldGzip = false
-	err = execDumper.DumpToFile(buffer)
+	err = execDumper.DumpTo(buffer)
 	if err != nil {
 		t.Errorf("failed to dump to file: %v", err)
 	}

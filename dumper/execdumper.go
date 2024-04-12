@@ -1,7 +1,6 @@
 package dumper
 
 import (
-	"compress/gzip"
 	"fmt"
 	"io"
 	"log"
@@ -24,23 +23,12 @@ func NewExecDumper(shouldGzip bool, driver driver.Driver) *ExecDumper {
 	}
 }
 
-func (execDump *ExecDumper) DumpToFile(file io.Writer) error {
+func (execDump *ExecDumper) DumpTo(storage io.Writer) error {
 	defer func() {
 		if err := execDump.DBDriver.Close(); err != nil {
 			log.Printf("could not cleanup db driver: %v", err)
 		}
 	}()
-
-	var gzipWriter *gzip.Writer
-	if execDump.ShouldGzip {
-		gzipWriter = gzip.NewWriter(file)
-		defer func() {
-			err := gzipWriter.Close()
-			if err != nil {
-				log.Printf("failed to close gzip writer: %v", err)
-			}
-		}()
-	}
 
 	command, args, err := execDump.DBDriver.GetExecDumpCommand()
 	if err != nil {
@@ -60,11 +48,7 @@ func (execDump *ExecDumper) DumpToFile(file io.Writer) error {
 	var errBuf strings.Builder
 
 	cmd.Stderr = &errBuf
-	if gzipWriter != nil {
-		cmd.Stdout = gzipWriter
-	} else {
-		cmd.Stdout = file
-	}
+	cmd.Stdout = storage
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("command error: %v, %s", err, errBuf.String())

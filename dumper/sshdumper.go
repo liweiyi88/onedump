@@ -2,7 +2,6 @@ package dumper
 
 import (
 	"bytes"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"log"
@@ -57,18 +56,7 @@ func (sshDumper *SshDumper) createSshClient() (*ssh.Client, error) {
 	return ssh.Dial("tcp", host, conf)
 }
 
-func (sshDumper *SshDumper) DumpToFile(file io.Writer) error {
-	var gzipWriter *gzip.Writer
-	if sshDumper.ShouldGzip {
-		gzipWriter = gzip.NewWriter(file)
-		defer func() {
-			err := gzipWriter.Close()
-			if err != nil {
-				log.Printf("failed to close gzip writer: %v", err)
-			}
-		}()
-	}
-
+func (sshDumper *SshDumper) DumpTo(storage io.Writer) error {
 	client, err := sshDumper.createSshClient()
 	if err != nil {
 		return fmt.Errorf("failed to dial remote server via ssh: %w", err)
@@ -88,12 +76,9 @@ func (sshDumper *SshDumper) DumpToFile(file io.Writer) error {
 	}
 
 	var remoteErr bytes.Buffer
+
 	sshSession.Stderr = &remoteErr
-	if gzipWriter != nil {
-		sshSession.Stdout = gzipWriter
-	} else {
-		sshSession.Stdout = file
-	}
+	sshSession.Stdout = storage
 
 	sshCommand, err := sshDumper.DBDriver.GetSshDumpCommand()
 	if err != nil {

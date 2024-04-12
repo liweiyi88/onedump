@@ -3,5 +3,5 @@ package dumper
 import "io"
 
 type Dumper interface {
-	DumpToFile(file io.Writer) error
+	DumpTo(storage io.Writer) error
 }
