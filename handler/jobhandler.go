@@ -36,10 +36,8 @@ func storageReadWriteCloser(count int, compress bool) ([]io.Reader, io.Writer, i
 	var pcs []io.Closer
 	for i := 0; i < count; i++ {
 		pr, pw := io.Pipe()
-		prs = append(prs, pr)
 
-		// no mater if it needs compression, we need to close the original pipe writer anyway.
-		pcs = append(pcs, pw)
+		prs = append(prs, pr)
 
 		if compress {
 			gw := gzip.NewWriter(pw)
@@ -47,7 +45,11 @@ func storageReadWriteCloser(count int, compress bool) ([]io.Reader, io.Writer, i
 			pcs = append(pcs, gw)
 		} else {
 			pws = append(pws, pw)
+
 		}
+
+		// Do not move the blew line before the if else blcok as we have to keep this order for the closer method to close pipe properly.
+		pcs = append(pcs, pw)
 	}
 
 	return prs, io.MultiWriter(pws...), config.NewMultiCloser(pcs)

@@ -91,8 +91,20 @@ func (dropbox *Dropbox) Save(reader io.Reader, pathGenerator storage.PathGenerat
 	client := &http.Client{}
 
 	for {
-		n, readErr := reader.Read(buf)
+		// We have to use io.ReadFull, otherwise reader.Read(buf) won't be able to read contents to the full length of buf.
+		// Which will cause error for uploading.
+		n, readErr := io.ReadFull(reader, buf)
 		buf = buf[:n]
+
+		if readErr != nil {
+			if readErr == io.EOF {
+				break
+			}
+
+			if readErr != io.ErrUnexpectedEOF {
+				return fmt.Errorf("failed to read from reader :%v", readErr)
+			}
+		}
 
 		if n > 0 {
 			if sessionId == "" {
@@ -124,14 +136,6 @@ func (dropbox *Dropbox) Save(reader io.Reader, pathGenerator storage.PathGenerat
 
 			log.Printf("append dropbox upload session with offset: %d", offset)
 			offset += n
-		}
-
-		if readErr != nil {
-			if readErr == io.EOF {
-				break
-			}
-
-			return fmt.Errorf("failed to read from reader :%v", readErr)
 		}
 	}
 
@@ -221,6 +225,7 @@ func (dropbox *Dropbox) uploadSessionFinish(client *http.Client, data []byte, of
 	}
 
 	_, err := dropbox.sendRequest(client, "POST", uploadSessionFinishEndpoint, bytesReader, param)
+
 	return err
 }
 
