@@ -45,10 +45,10 @@ func storageReadWriteCloser(count int, compress bool) ([]io.Reader, io.Writer, i
 			pcs = append(pcs, gw)
 		} else {
 			pws = append(pws, pw)
-
 		}
 
-		// Do not move the blew line before the if else blcok as we have to keep this order for the closer method to close pipe properly.
+		// This following append method must not be moved before pcs = append(pcs, gw) if compress is in use as the closer won't be able to close properly.
+		// Thus, we put this line here and do not move it to other place.
 		pcs = append(pcs, pw)
 	}
 
