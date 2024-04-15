@@ -10,7 +10,7 @@ import (
 	s3Client "github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
-	"github.com/liweiyi88/onedump/fileutil"
+	"github.com/liweiyi88/onedump/storage"
 )
 
 func NewS3(bucket, key, region, accessKeyId, secretAccessKey string) *S3 {
@@ -31,7 +31,7 @@ type S3 struct {
 	SecretAccessKey string `yaml:"secret-access-key"`
 }
 
-func (s3 *S3) Save(reader io.Reader, gzip bool, unique bool) error {
+func (s3 *S3) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) error {
 	var awsConfig aws.Config
 
 	if s3.Region != "" {
@@ -45,7 +45,7 @@ func (s3 *S3) Save(reader io.Reader, gzip bool, unique bool) error {
 	session := session.Must(session.NewSession(&awsConfig))
 	uploader := s3manager.NewUploader(session)
 
-	key := fileutil.EnsureFileName(s3.Key, gzip, unique)
+	key := pathGenerator(s3.Key)
 
 	// TODO: implement re-try
 	_, uploadErr := uploader.Upload(&s3manager.UploadInput{

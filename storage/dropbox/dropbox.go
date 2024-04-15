@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/liweiyi88/onedump/fileutil"
+	"github.com/liweiyi88/onedump/storage"
 )
 
 var (
@@ -84,15 +84,27 @@ type Dropbox struct {
 	ClientSecret string `yaml:"clientsecret"`
 }
 
-func (dropbox *Dropbox) Save(reader io.Reader, gzip bool, unique bool) error {
+func (dropbox *Dropbox) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) error {
 	offset := 0
 	sessionId := ""
 	buf := make([]byte, maxUpload)
 	client := &http.Client{}
 
 	for {
-		n, readErr := reader.Read(buf)
+		// We have to use io.ReadFull, otherwise reader.Read(buf) won't be able to read contents to the full length of buf.
+		// Which will cause error for uploading.
+		n, readErr := io.ReadFull(reader, buf)
 		buf = buf[:n]
+
+		if readErr != nil {
+			if readErr == io.EOF {
+				break
+			}
+
+			if readErr != io.ErrUnexpectedEOF {
+				return fmt.Errorf("failed to read from reader :%v", readErr)
+			}
+		}
 
 		if n > 0 {
 			if sessionId == "" {
@@ -106,7 +118,7 @@ func (dropbox *Dropbox) Save(reader io.Reader, gzip bool, unique bool) error {
 			}
 
 			if int64(len(buf)) < maxUpload {
-				err := dropbox.uploadSessionFinish(client, buf, offset, sessionId, gzip, unique)
+				err := dropbox.uploadSessionFinish(client, buf, offset, sessionId, pathGenerator)
 				if err != nil {
 					return err
 				}
@@ -124,14 +136,6 @@ func (dropbox *Dropbox) Save(reader io.Reader, gzip bool, unique bool) error {
 
 			log.Printf("append dropbox upload session with offset: %d", offset)
 			offset += n
-		}
-
-		if readErr != nil {
-			if readErr == io.EOF {
-				break
-			}
-
-			return fmt.Errorf("failed to read from reader :%v", readErr)
 		}
 	}
 
@@ -206,12 +210,12 @@ func (dropbox *Dropbox) startUploadSession(client *http.Client) (string, error) 
 	return sessionResponse.SessionId, nil
 }
 
-func (dropbox *Dropbox) uploadSessionFinish(client *http.Client, data []byte, offset int, sessionId string, gzip bool, unique bool) error {
+func (dropbox *Dropbox) uploadSessionFinish(client *http.Client, data []byte, offset int, sessionId string, pathGenerator storage.PathGeneratorFunc) error {
 	bytesReader := bytes.NewReader(data)
-	filename := fileutil.EnsureFileName(dropbox.Path, gzip, unique)
+	path := pathGenerator(dropbox.Path)
 	param := uploadSessionFinishParam{
 		Commit: Commit{
-			Path: filename,
+			Path: path,
 			Mode: "overwrite",
 		},
 		Cursor: Cursor{
@@ -221,6 +225,7 @@ func (dropbox *Dropbox) uploadSessionFinish(client *http.Client, data []byte, of
 	}
 
 	_, err := dropbox.sendRequest(client, "POST", uploadSessionFinishEndpoint, bytesReader, param)
+
 	return err
 }
 

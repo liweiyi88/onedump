@@ -1,75 +1,36 @@
 package handler
 
 import (
+	"compress/gzip"
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
-	"os"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/driver"
 	"github.com/liweiyi88/onedump/dumper"
 	"github.com/liweiyi88/onedump/fileutil"
 	"github.com/liweiyi88/onedump/jobresult"
+	"github.com/liweiyi88/onedump/storage"
 )
-
-const cacheDirPrefix = ".onedump"
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 type JobHandler struct {
 	Job *config.Job
 }
 
+// Create a new job handler.
 func NewJobHandler(job *config.Job) *JobHandler {
 	return &JobHandler{
 		Job: job,
 	}
 }
 
-// For uploading dump file to remote storage, we need to firstly dump the db content to a dir locally.
-// We firstly try to get current work dir, if not successful, then try to get home dir and finally try temp dir.
-// Be aware of the size limit of a temp dir in different OS.
-func cacheFileDir() string {
-	// randomise the upload cache dir, otherwise we will have race condition when have more than one dump jobs.
-	return fmt.Sprintf("%s/%s%s", fileutil.WorkDir(), cacheDirPrefix, fileutil.GenerateRandomName(4))
-}
-
-// Get the cache file path that stores the dump contents.
-func cacheFilePath(cacheDir string, shouldGzip bool) string {
-	filename := fmt.Sprintf("%s/%s", cacheDir, fileutil.GenerateRandomName(8)+".sql")
-	return fileutil.EnsureFileSuffix(filename, shouldGzip)
-}
-
-// Create the cache file that stores the dump contents.
-func createCacheFile(gzip bool) (*os.File, string, error) {
-	cacheDir := cacheFileDir()
-	err := os.MkdirAll(cacheDir, 0750)
-
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create cache dir for remote upload. %w", err)
-	}
-
-	dumpFileName := cacheFilePath(cacheDir, gzip)
-
-	file, err := os.Create(dumpFileName)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create cache file: %w", err)
-	}
-
-	return file, cacheDir, nil
-}
-
-// Pipe readers, writers and closer for fanout the same os.file
-func storageReadWriteCloser(count int) ([]io.Reader, io.Writer, io.Closer) {
+// Pipe readers, writer and closers for fanout the same writer.
+func storageReadWriteCloser(count int, compress bool) ([]io.Reader, io.Writer, io.Closer) {
 	var prs []io.Reader
 	var pws []io.Writer
 	var pcs []io.Closer
@@ -77,53 +38,51 @@ func storageReadWriteCloser(count int) ([]io.Reader, io.Writer, io.Closer) {
 		pr, pw := io.Pipe()
 
 		prs = append(prs, pr)
-		pws = append(pws, pw)
+
+		if compress {
+			gw := gzip.NewWriter(pw)
+			pws = append(pws, gw)
+			pcs = append(pcs, gw)
+		} else {
+			pws = append(pws, pw)
+		}
+
+		// This following append method must not be moved before pcs = append(pcs, gw) if compress is in use as the closer won't be able to close properly.
+		// Thus, we put this line here and do not move it to other place.
 		pcs = append(pcs, pw)
 	}
 
 	return prs, io.MultiWriter(pws...), config.NewMultiCloser(pcs)
 }
 
-// Dump the db to the cache file.
-func (handler *JobHandler) dumpToCacheFile(dumper dumper.Dumper) (string, string, error) {
-	file, cacheDir, err := createCacheFile(handler.Job.Gzip)
+// Save database dump to different storages.
+func (handler *JobHandler) save() error {
+	var err error
+
+	dumper, err := handler.getDumper()
 
 	if err != nil {
-		return "", cacheDir, err
+		return fmt.Errorf("could not get dumper: %v", err)
 	}
 
-	defer func() {
-		err := file.Close()
-		if err != nil {
-			log.Printf("failed to close cache file: %v", err)
-		}
-	}()
-
-	err = dumper.DumpToFile(file)
-	if err != nil {
-		return "", cacheDir, fmt.Errorf("failed to dump file: %v", err)
-	}
-
-	return file.Name(), cacheDir, nil
-}
-
-func (handler *JobHandler) save(cacheFile io.Reader) error {
 	job := handler.Job
 	storages := handler.getStorages()
 	numberOfStorages := len(storages)
 
-	var err error
-
 	if numberOfStorages > 0 {
-		// Use pipe to pass content from the cache file to different writer.
-		readers, writer, closer := storageReadWriteCloser(numberOfStorages)
+		// Use pipe to pass content from the database dump to different writer.
+		readers, writer, closer := storageReadWriteCloser(numberOfStorages, job.Gzip)
 
 		go func() {
-			_, e := io.Copy(writer, cacheFile)
+			e := dumper.Dump(writer)
 			if e != nil {
-				multierror.Append(err, e)
+				err = multierror.Append(err, e)
 			}
-			closer.Close()
+
+			closeErr := closer.Close()
+			if closeErr != nil {
+				log.Printf("Cannot close pipe readers and writers: %v", closeErr)
+			}
 		}()
 
 		var wg sync.WaitGroup
@@ -132,7 +91,12 @@ func (handler *JobHandler) save(cacheFile io.Reader) error {
 			storage := s
 			go func(i int) {
 				defer wg.Done()
-				e := storage.Save(readers[i], job.Gzip, job.Unique)
+
+				pathGenerator := func(filename string) string {
+					return fileutil.EnsureFileName(filename, job.Gzip, job.Unique)
+				}
+
+				e := storage.Save(readers[i], pathGenerator)
 				if e != nil {
 					err = multierror.Append(err, e)
 				}
@@ -145,8 +109,9 @@ func (handler *JobHandler) save(cacheFile io.Reader) error {
 	return err
 }
 
-func (handler *JobHandler) getStorages() []Storage {
-	var storages []Storage
+// Get all storage structs based on job configuration.
+func (handler *JobHandler) getStorages() []storage.Storage {
+	var storages []storage.Storage
 
 	v := reflect.ValueOf(handler.Job.Storage)
 	for i := 0; i < v.NumField(); i++ {
@@ -154,7 +119,7 @@ func (handler *JobHandler) getStorages() []Storage {
 		switch field.Kind() {
 		case reflect.Slice:
 			for i := 0; i < field.Len(); i++ {
-				s, ok := field.Index(i).Interface().(Storage)
+				s, ok := field.Index(i).Interface().(storage.Storage)
 				if ok {
 					storages = append(storages, s)
 				}
@@ -165,6 +130,7 @@ func (handler *JobHandler) getStorages() []Storage {
 	return storages
 }
 
+// Get the database dumper.
 func (handler *JobHandler) getDumper() (dumper.Dumper, error) {
 	job := handler.Job
 	driver, err := handler.getDBDriver()
@@ -173,12 +139,13 @@ func (handler *JobHandler) getDumper() (dumper.Dumper, error) {
 	}
 
 	if job.ViaSsh() {
-		return dumper.NewSshDumper(job.SshHost, job.SshKey, job.SshUser, job.Gzip, driver), nil
+		return dumper.NewSshDumper(job.SshHost, job.SshKey, job.SshUser, driver), nil
 	} else {
-		return dumper.NewExecDumper(job.Gzip, driver), nil
+		return dumper.NewExecDumper(driver), nil
 	}
 }
 
+// Get the database driver.
 func (handler *JobHandler) getDBDriver() (driver.Driver, error) {
 	job := handler.Job
 	switch job.DBDriver {
@@ -201,6 +168,7 @@ func (handler *JobHandler) getDBDriver() (driver.Driver, error) {
 	}
 }
 
+// Do the job.
 func (handler *JobHandler) Do() *jobresult.JobResult {
 	start := time.Now()
 	result := &jobresult.JobResult{}
@@ -212,39 +180,7 @@ func (handler *JobHandler) Do() *jobresult.JobResult {
 
 	result.JobName = handler.Job.Name
 
-	dumper, err := handler.getDumper()
-	if err != nil {
-		result.Error = fmt.Errorf("could not get dumper: %v", err)
-		return result
-	}
-
-	cacheFileName, cacheDir, err := handler.dumpToCacheFile(dumper)
-	defer func() {
-		err := os.RemoveAll(cacheDir)
-		if err != nil {
-			log.Println("failed to remove cache dir after dump", err)
-		}
-	}()
-
-	if err != nil {
-		result.Error = fmt.Errorf("failed to dump content to cache file: %v", err)
-		return result
-	}
-
-	cacheFile, err := os.Open(cacheFileName)
-	if err != nil {
-		result.Error = fmt.Errorf("failed to open cache file: %v", err)
-		return result
-	}
-
-	defer func() {
-		err := cacheFile.Close()
-		if err != nil {
-			log.Printf("failed to close cache file: %v", err)
-		}
-	}()
-
-	err = handler.save(cacheFile)
+	err := handler.save()
 	if err != nil {
 		result.Error = fmt.Errorf("failed to store dump file %v", err)
 	}

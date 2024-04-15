@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/liweiyi88/onedump/storage"
 )
 
 func TestNewS3(t *testing.T) {
@@ -46,7 +48,7 @@ func TestSave(t *testing.T) {
 	}
 
 	reader := strings.NewReader("hello s3")
-	err := s3.Save(reader, true, true)
+	err := s3.Save(reader, storage.PathGenerator(true, true))
 
 	actual := errors.Unwrap(err).Error()
 	if !strings.HasPrefix(actual, "InvalidAccessKeyId") {

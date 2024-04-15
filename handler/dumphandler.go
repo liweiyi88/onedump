@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"io"
 	"reflect"
 	"sync"
 
@@ -14,10 +13,6 @@ import (
 
 type Notifier interface {
 	Notify(results []*jobresult.JobResult) error
-}
-
-type Storage interface {
-	Save(reader io.Reader, gzip bool, unique bool) error
 }
 
 type DumpHandler struct {
