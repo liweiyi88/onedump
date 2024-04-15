@@ -30,7 +30,7 @@ Onedump is a database dump and backup tool that can dump different databases to 
 | --- | --- |
 | Local | ✅ Suported |
 | S3 | ✅ Suported |
-| Googl Drive | ✅ Supported |
+| Google Drive | ✅ Supported |
 | Dropbox | ✅ Supported |
 
 
