@@ -133,6 +133,11 @@ func (handler *JobHandler) getStorages() []storage.Storage {
 // Get the database dumper.
 func (handler *JobHandler) getDumper() (dumper.Dumper, error) {
 	job := handler.Job
+
+	if job.DBDriver == "mysql" {
+		return dumper.NewMysqlDump(job)
+	}
+
 	driver, err := handler.getDBDriver()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get db driver %v", err)
@@ -149,13 +154,6 @@ func (handler *JobHandler) getDumper() (dumper.Dumper, error) {
 func (handler *JobHandler) getDBDriver() (driver.Driver, error) {
 	job := handler.Job
 	switch job.DBDriver {
-	case "mysql":
-		driver, err := driver.NewMysqlDriver(job.DBDsn, job.DumpOptions, job.ViaSsh())
-		if err != nil {
-			return nil, err
-		}
-
-		return driver, nil
 	case "postgresql":
 		driver, err := driver.NewPostgreSqlDriver(job.DBDsn, job.DumpOptions, job.ViaSsh())
 		if err != nil {

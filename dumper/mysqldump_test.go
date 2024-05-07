@@ -1,4 +1,4 @@
-package driver
+package dumper
 
 import (
 	"os"
@@ -6,14 +6,18 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/liweiyi88/onedump/config"
 	"golang.org/x/exp/slices"
 )
 
 var testDBDsn = "admin:my_password@tcp(127.0.0.1:3306)/dump_test"
 
 func TestDefaultGetDumpCommand(t *testing.T) {
-	mysql, _ := NewMysqlDriver(testDBDsn, nil, false)
-	defer mysql.Close()
+
+	job := config.NewJob("test", "mysql", testDBDsn)
+
+	mysql, _ := NewMysqlDump(job)
+	defer mysql.close()
 
 	args, err := mysql.getDumpCommandArgs()
 	if err != nil {
@@ -34,8 +38,9 @@ func TestDefaultGetDumpCommand(t *testing.T) {
 }
 
 func TestGetDumpCommandWithOptions(t *testing.T) {
-	mysql, _ := NewMysqlDriver(testDBDsn, []string{"--skip-comments", "--extended-insert", "--no-create-info", "--default-character-set=utf-8", "--single-transaction", "--skip-lock-tables", "--quick", "--set-gtid-purged=ON"}, false)
-	defer mysql.Close()
+	job := config.NewJob("test", "mysql", testDBDsn, config.WithDumpOptions("--skip-comments", "--extended-insert", "--no-create-info", "--default-character-set=utf-8", "--single-transaction", "--skip-lock-tables", "--quick", "--set-gtid-purged=ON"))
+	mysql, _ := NewMysqlDump(job)
+	defer mysql.close()
 
 	args, err := mysql.getDumpCommandArgs()
 	if err != nil {
@@ -76,9 +81,11 @@ func TestGetDumpCommandWithOptions(t *testing.T) {
 }
 
 func TestCreateCredentialFileMysql(t *testing.T) {
-	mysql, err := NewMysqlDriver(testDBDsn, nil, false)
+	job := config.NewJob("test", "mysql", testDBDsn)
+	mysql, err := NewMysqlDump(job)
+
 	if err != nil {
-		t.Fatal(err)
+		t.Error(t)
 	}
 
 	fileName, err := mysql.createCredentialFile()
@@ -111,23 +118,13 @@ host = 127.0.0.1`
 	t.Log("removed temp credential file", fileName)
 }
 
-func TestExecDumpEnviron(t *testing.T) {
-	mysql, _ := NewMysqlDriver(testDBDsn, nil, false)
-	env, err := mysql.ExecDumpEnviron()
-	if err != nil {
-		t.Error(err)
-	}
-
-	if env != nil {
-		t.Errorf("expect nil mysql exec dump env but got %v", env)
-	}
-}
-
 func TestGetSshDumpCommand(t *testing.T) {
-	mysql, _ := NewMysqlDriver(testDBDsn, nil, false)
-	defer mysql.Close()
+	job := config.NewJob("test", "mysql", testDBDsn)
+	mysql, _ := NewMysqlDump(job)
 
-	command, err := mysql.GetSshDumpCommand()
+	defer mysql.close()
+
+	command, err := mysql.getSshDumpCommand()
 	if err != nil {
 		t.Errorf("failed to get dump command %v", command)
 	}
@@ -138,15 +135,16 @@ func TestGetSshDumpCommand(t *testing.T) {
 }
 
 func TestGetDumpCommand(t *testing.T) {
-	mysql, _ := NewMysqlDriver(testDBDsn, nil, false)
-	defer mysql.Close()
+	job := config.NewJob("test", "mysql", testDBDsn)
+	mysql, _ := NewMysqlDump(job)
+	defer mysql.close()
 
-	mysqldumpPath, err := exec.LookPath(mysql.MysqlDumpBinaryPath)
+	mysqldumpPath, err := exec.LookPath(mysql.path)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	path, args, err := mysql.GetExecDumpCommand()
+	path, args, err := mysql.getExecDumpCommand()
 	if err != nil {
 		t.Error("failed to get dump command")
 	}
@@ -161,15 +159,16 @@ func TestGetDumpCommand(t *testing.T) {
 }
 
 func TestMysqlGetDumpCommandArgs(t *testing.T) {
-	mysql, _ := NewMysqlDriver(testDBDsn, nil, true)
-	defer mysql.Close()
+	job := config.NewJob("test", "mysql", testDBDsn, config.WithSshHost("ssh"), config.WithSshKey("key"), config.WithSshUser("user"))
+	mysql, _ := NewMysqlDump(job)
+	defer mysql.close()
 
-	_, err := exec.LookPath(mysql.MysqlDumpBinaryPath)
+	_, err := exec.LookPath(mysql.path)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, args, err := mysql.GetExecDumpCommand()
+	_, args, err := mysql.getExecDumpCommand()
 
 	if err != nil {
 		t.Fatal(err)
@@ -184,7 +183,8 @@ func TestMysqlGetDumpCommandArgs(t *testing.T) {
 }
 
 func TestCloseMysql(t *testing.T) {
-	mysql, _ := NewMysqlDriver(testDBDsn, nil, false)
+	job := config.NewJob("test", "mysql", testDBDsn)
+	mysql, _ := NewMysqlDump(job)
 	file1, err := mysql.createCredentialFile()
 	if err != nil {
 		t.Error(err)
@@ -208,7 +208,7 @@ func TestCloseMysql(t *testing.T) {
 		t.Errorf("expect 2 credentials files but got: %d", len(mysql.credentialFiles))
 	}
 
-	if err := mysql.Close(); err != nil {
+	if err := mysql.close(); err != nil {
 		t.Errorf("could not cleanup mysql file: %v", err)
 	}
 
@@ -223,7 +223,7 @@ func TestCloseMysql(t *testing.T) {
 	}
 
 	mysql.credentialFiles = append(mysql.credentialFiles, "wrong file")
-	if err := mysql.Close(); err == nil {
+	if err := mysql.close(); err == nil {
 		t.Error("expect close error, but got nil")
 	}
 }

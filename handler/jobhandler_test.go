@@ -213,7 +213,7 @@ func TestGetDumper(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, ok := r.(*dumper.ExecDumper); !ok {
+	if _, ok := r.(*dumper.MysqlDump); !ok {
 		t.Errorf("expect exec dumper, but got type: %T", r)
 	}
 
@@ -232,17 +232,9 @@ func TestGetDumper(t *testing.T) {
 }
 
 func TestGetDBDriver(t *testing.T) {
-	job := config.NewJob("job1", "mysql", testDBDsn)
+	job := config.NewJob("job1", "postgresql", testPsqlDBDsn)
 	jobHandler := NewJobHandler(job)
-
 	_, err := jobHandler.getDBDriver()
-	if err != nil {
-		t.Errorf("expect get mysql db driver, but get err: %v", err)
-	}
-
-	job = config.NewJob("job1", "postgresql", testPsqlDBDsn)
-	jobHandler = NewJobHandler(job)
-	_, err = jobHandler.getDBDriver()
 	if err != nil {
 		t.Errorf("expect get postgresql db driver, but get err: %v", err)
 	}
