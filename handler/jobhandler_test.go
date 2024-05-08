@@ -226,23 +226,7 @@ func TestGetDumper(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, ok := r.(*dumper.SshDumper); !ok {
+	if _, ok := r.(*dumper.PgDump); !ok {
 		t.Errorf("expect ssh dumper, but got type: %T", r)
-	}
-}
-
-func TestGetDBDriver(t *testing.T) {
-	job := config.NewJob("job1", "postgresql", testPsqlDBDsn)
-	jobHandler := NewJobHandler(job)
-	_, err := jobHandler.getDBDriver()
-	if err != nil {
-		t.Errorf("expect get postgresql db driver, but get err: %v", err)
-	}
-
-	job = config.NewJob("job1", "x", testDBDsn)
-	jobHandler = NewJobHandler(job)
-	_, err = jobHandler.getDBDriver()
-	if err == nil {
-		t.Error("expect unsupport database driver err, but actual get nil")
 	}
 }

@@ -1,7 +1,8 @@
-package driver
+package dumper
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -11,57 +12,67 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/liweiyi88/onedump/config"
+	"github.com/liweiyi88/onedump/dumper/runner"
 	"github.com/liweiyi88/onedump/fileutil"
 )
 
-type PostgreSqlDriver struct {
-	credentialFiles  []string
-	PgDumpBinaryPath string
-	Options          []string
-	ViaSsh           bool
+type PgDump struct {
+	credentialFiles []string
+	path            string
+	options         []string
+	viaSsh          bool
+	sshHost         string
+	sshUser         string
+	sshKey          string
 	*DBConfig
 }
 
-// Create the postgressql dump driver.
 // Dsn example: postgres://username:password@localhost:5432/database_name"
-func NewPostgreSqlDriver(dsn string, options []string, viaSsh bool) (*PostgreSqlDriver, error) {
+func NewPgDump(job *config.Job) (*PgDump, error) {
+	dsn := job.DBDsn
+	options := job.DumpOptions
+
 	config, err := pgx.ParseConfig(dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	return &PostgreSqlDriver{
-		PgDumpBinaryPath: "pg_dump",
-		Options:          options,
-		ViaSsh:           viaSsh,
-		DBConfig:         NewDBConfig(config.Database, config.User, config.Password, config.Host, int(config.Port)),
+	return &PgDump{
+		path:     "pg_dump",
+		options:  options,
+		viaSsh:   job.ViaSsh(),
+		sshHost:  job.SshHost,
+		sshUser:  job.SshUser,
+		sshKey:   job.SshKey,
+		DBConfig: NewDBConfig(config.Database, config.User, config.Password, config.Host, int(config.Port)),
 	}, nil
 }
 
-func (psql *PostgreSqlDriver) getDumpCommandArgs() []string {
+func (psql *PgDump) getDumpCommandArgs() []string {
 	args := []string{}
 
 	args = append(args, "--host="+psql.Host)
 	args = append(args, "--port="+strconv.Itoa(psql.Port))
 	args = append(args, "--username="+psql.Username)
 	args = append(args, "--dbname="+psql.DBName)
-	args = append(args, psql.Options...)
+	args = append(args, psql.options...)
 
 	return args
 }
 
 // Get the exec dump command.
-func (psql *PostgreSqlDriver) GetExecDumpCommand() (string, []string, error) {
-	pgDumpPath, err := exec.LookPath(psql.PgDumpBinaryPath)
+func (psql *PgDump) getExecDumpCommand() (string, []string, error) {
+	pgDumpPath, err := exec.LookPath(psql.path)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to find pg_dump executable %s %w", psql.PgDumpBinaryPath, err)
+		return "", nil, fmt.Errorf("failed to find pg_dump executable %s %w", psql.path, err)
 	}
 
 	return pgDumpPath, psql.getDumpCommandArgs(), nil
 }
 
 // Get the required environment variables for running exec dump.
-func (psql *PostgreSqlDriver) ExecDumpEnviron() ([]string, error) {
+func (psql *PgDump) execDumpEnviron() ([]string, error) {
 	pgpassFileName, err := psql.createCredentialFile()
 	if err != nil {
 		return nil, err
@@ -72,12 +83,12 @@ func (psql *PostgreSqlDriver) ExecDumpEnviron() ([]string, error) {
 }
 
 // Get the ssh dump command.
-func (psql *PostgreSqlDriver) GetSshDumpCommand() (string, error) {
+func (psql *PgDump) getSshDumpCommand() (string, error) {
 	return fmt.Sprintf("PGPASSWORD=%s pg_dump %s", psql.Password, strings.Join(psql.getDumpCommandArgs(), " ")), nil
 }
 
 // Cleanup the credentials file.
-func (psql *PostgreSqlDriver) Close() error {
+func (psql *PgDump) close() error {
 	var err error
 	if len(psql.credentialFiles) > 0 {
 		for _, filename := range psql.credentialFiles {
@@ -94,7 +105,7 @@ func (psql *PostgreSqlDriver) Close() error {
 
 // Store the username password in a temp file, and use it with the pg_dump command.
 // It avoids to expoes credentials when you run the pg_dump command as user can view the whole command via ps aux.
-func (psql *PostgreSqlDriver) createCredentialFile() (string, error) {
+func (psql *PgDump) createCredentialFile() (string, error) {
 	file, err := os.Create(fileutil.WorkDir() + "/.pgpass" + fileutil.GenerateRandomName(4))
 	if err != nil {
 		return "", fmt.Errorf("could not create .pgpass file: %v", err)
@@ -119,4 +130,37 @@ func (psql *PostgreSqlDriver) createCredentialFile() (string, error) {
 	psql.credentialFiles = append(psql.credentialFiles, file.Name())
 
 	return file.Name(), nil
+}
+
+func (psql *PgDump) Dump(storage io.Writer) error {
+	defer func() {
+		if err := psql.close(); err != nil {
+			log.Printf("could not pgdump credential files db driver: %v", err)
+		}
+	}()
+
+	host, key, user := psql.sshHost, psql.sshKey, psql.sshUser
+
+	if psql.viaSsh {
+		command, err := psql.getSshDumpCommand()
+		if err != nil {
+			return err
+		}
+
+		runner := runner.NewSshRunner(host, key, user, command)
+		return runner.Run(storage)
+	}
+
+	command, args, err := psql.getExecDumpCommand()
+	if err != nil {
+		return err
+	}
+
+	envs, err := psql.execDumpEnviron()
+	if err != nil {
+		return fmt.Errorf("could not get exec dump environment variables: %v", err)
+	}
+
+	runner := runner.NewExecRunner(command, args, envs)
+	return runner.Run(storage)
 }

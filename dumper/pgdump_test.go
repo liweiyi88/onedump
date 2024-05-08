@@ -1,49 +1,53 @@
-package driver
+package dumper
 
 import (
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/liweiyi88/onedump/config"
 )
 
 var testPsqlDBDsn = "postgres://julianli:julian@localhost:5432/mypsqldb"
-
 var testPsqlRemoteDBDsn = "postgres://julianli:julian@example.com:8888/mypsqldb"
 
 func TestNewPostgreSqlDriver(t *testing.T) {
-	psqlDriver, _ := NewPostgreSqlDriver(testPsqlDBDsn, nil, false)
+	job := config.NewJob("test", "postgresql", testPsqlDBDsn)
+	pgdump, _ := NewPgDump(job)
 
-	if psqlDriver.Username != "julianli" {
-		t.Errorf("expected user: julianli but actual got: %s", psqlDriver.Username)
+	if pgdump.Username != "julianli" {
+		t.Errorf("expected user: julianli but actual got: %s", pgdump.Username)
 	}
 
-	if psqlDriver.Password != "julian" {
-		t.Errorf("expected password: julian but actual got: %s", psqlDriver.Password)
+	if pgdump.Password != "julian" {
+		t.Errorf("expected password: julian but actual got: %s", pgdump.Password)
 	}
 
-	if psqlDriver.Host != "localhost" {
-		t.Errorf("expected host: localhost but actual got: %s", psqlDriver.Host)
+	if pgdump.Host != "localhost" {
+		t.Errorf("expected host: localhost but actual got: %s", pgdump.Host)
 	}
 
-	if psqlDriver.DBName != "mypsqldb" {
-		t.Errorf("expected db: mypsqldb but actual got: %s", psqlDriver.DBName)
+	if pgdump.DBName != "mypsqldb" {
+		t.Errorf("expected db: mypsqldb but actual got: %s", pgdump.DBName)
 	}
 
-	if psqlDriver.Port != 5432 {
-		t.Errorf("expected port: 5432 but actual got: %d", psqlDriver.Port)
+	if pgdump.Port != 5432 {
+		t.Errorf("expected port: 5432 but actual got: %d", pgdump.Port)
 	}
 
-	_, err := NewPostgreSqlDriver("wrongdsn", nil, false)
+	job = config.NewJob("test", "postgresql", "wrongdsn")
+	_, err := NewPgDump(job)
 	if err == nil {
 		t.Error("expect error but got nil")
 	}
 }
 
 func TestGetDumpCommandArgs(t *testing.T) {
-	psqlDriver, _ := NewPostgreSqlDriver(testPsqlDBDsn, nil, false)
+	job := config.NewJob("test", "postgresql", testPsqlDBDsn)
+	pgdump, _ := NewPgDump(job)
 
-	args := psqlDriver.getDumpCommandArgs()
+	args := pgdump.getDumpCommandArgs()
 
 	expect := "--host=localhost --port=5432 --username=julianli --dbname=mypsqldb"
 	actual := strings.Join(args, " ")
@@ -52,9 +56,10 @@ func TestGetDumpCommandArgs(t *testing.T) {
 		t.Errorf("expect :%s, actual: %s", expect, actual)
 	}
 
-	psqlDriver, _ = NewPostgreSqlDriver(testPsqlRemoteDBDsn, nil, false)
+	job = config.NewJob("remotejob", "postgresql", testPsqlRemoteDBDsn)
+	pgdump, _ = NewPgDump(job)
 
-	args = psqlDriver.getDumpCommandArgs()
+	args = pgdump.getDumpCommandArgs()
 
 	expect = "--host=example.com --port=8888 --username=julianli --dbname=mypsqldb"
 	actual = strings.Join(args, " ")
@@ -65,15 +70,16 @@ func TestGetDumpCommandArgs(t *testing.T) {
 }
 
 func TestPostGreSqlGetExecDumpCommand(t *testing.T) {
-	psqlDriver, _ := NewPostgreSqlDriver(testPsqlDBDsn, nil, false)
-	command, args, err := psqlDriver.GetExecDumpCommand()
+	job := config.NewJob("test", "postgresql", testPsqlDBDsn)
+	pgdump, _ := NewPgDump(job)
+	command, args, err := pgdump.getExecDumpCommand()
 	if err != nil {
 		t.Error(err)
 	}
 
-	pgDumpPath, err := exec.LookPath(psqlDriver.PgDumpBinaryPath)
+	pgDumpPath, err := exec.LookPath(pgdump.path)
 	if err != nil {
-		t.Errorf("failed to find pg_dump executable %s %s", psqlDriver.PgDumpBinaryPath, err)
+		t.Errorf("failed to find pg_dump executable %s %s", pgdump.path, err)
 	}
 
 	if command != pgDumpPath {
@@ -87,20 +93,21 @@ func TestPostGreSqlGetExecDumpCommand(t *testing.T) {
 		t.Errorf("expect :%s, actual: %s", expect, actual)
 	}
 
-	psqlDriver.PgDumpBinaryPath = "/wrong"
-	_, _, err = psqlDriver.GetExecDumpCommand()
+	pgdump.path = "/wrong"
+	_, _, err = pgdump.getExecDumpCommand()
 	if err == nil {
 		t.Error("expect error but got nil")
 	}
 }
 
 func TestPostGreSqlGetSshDumpCommand(t *testing.T) {
-	psqlDriver, err := NewPostgreSqlDriver(testPsqlDBDsn, nil, false)
+	job := config.NewJob("test", "postgresql", testPsqlDBDsn, config.WithSshHost("ssh"), config.WithSshKey("key"), config.WithSshUser("user"))
+	pgdump, err := NewPgDump(job)
 	if err != nil {
 		t.Error(err)
 	}
 
-	command, err := psqlDriver.GetSshDumpCommand()
+	command, err := pgdump.getSshDumpCommand()
 	if err != nil {
 		t.Error(err)
 	}
@@ -112,10 +119,11 @@ func TestPostGreSqlGetSshDumpCommand(t *testing.T) {
 }
 
 func TestExecDumpEnvironPostgresql(t *testing.T) {
-	psql, _ := NewPostgreSqlDriver(testPsqlDBDsn, nil, false)
-	defer psql.Close()
+	job := config.NewJob("test", "postgresql", testPsqlDBDsn)
+	pgdump, _ := NewPgDump(job)
+	defer pgdump.close()
 
-	envs, err := psql.ExecDumpEnviron()
+	envs, err := pgdump.execDumpEnviron()
 	if err != nil {
 		t.Error(err)
 	}
@@ -130,12 +138,13 @@ func TestExecDumpEnvironPostgresql(t *testing.T) {
 }
 
 func TestCreateCredentialFilePostgresql(t *testing.T) {
-	psql, err := NewPostgreSqlDriver(testPsqlDBDsn, nil, false)
+	job := config.NewJob("test", "postgresql", testPsqlDBDsn)
+	pgdump, err := NewPgDump(job)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fileName, err := psql.createCredentialFile()
+	fileName, err := pgdump.createCredentialFile()
 	t.Log("create temp credential file", fileName)
 	if err != nil {
 		t.Fatal(err)
@@ -162,8 +171,9 @@ func TestCreateCredentialFilePostgresql(t *testing.T) {
 }
 
 func TestClosePostgresql(t *testing.T) {
-	psql, _ := NewPostgreSqlDriver(testPsqlDBDsn, nil, false)
-	file1, err := psql.createCredentialFile()
+	job := config.NewJob("test", "postgresql", testPsqlDBDsn)
+	pgdump, _ := NewPgDump(job)
+	file1, err := pgdump.createCredentialFile()
 	if err != nil {
 		t.Error(err)
 	}
@@ -172,7 +182,7 @@ func TestClosePostgresql(t *testing.T) {
 		t.Error(err)
 	}
 
-	file2, err := psql.createCredentialFile()
+	file2, err := pgdump.createCredentialFile()
 	if err != nil {
 		t.Error(err)
 	}
@@ -182,11 +192,11 @@ func TestClosePostgresql(t *testing.T) {
 		t.Error(err)
 	}
 
-	if len(psql.credentialFiles) != 2 {
-		t.Errorf("expect 2 credentials files but got: %d", len(psql.credentialFiles))
+	if len(pgdump.credentialFiles) != 2 {
+		t.Errorf("expect 2 credentials files but got: %d", len(pgdump.credentialFiles))
 	}
 
-	if err := psql.Close(); err != nil {
+	if err := pgdump.close(); err != nil {
 		t.Errorf("could not cleanup psql file: %v", err)
 	}
 
@@ -200,8 +210,8 @@ func TestClosePostgresql(t *testing.T) {
 		t.Errorf("expected file2 not exist error but actual got error: %v", err)
 	}
 
-	psql.credentialFiles = append(psql.credentialFiles, "wrong file")
-	if err := psql.Close(); err == nil {
+	pgdump.credentialFiles = append(pgdump.credentialFiles, "wrong file")
+	if err := pgdump.close(); err == nil {
 		t.Error("expect close error, but got nil")
 	}
 }

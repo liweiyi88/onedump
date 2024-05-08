@@ -11,7 +11,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/config"
-	"github.com/liweiyi88/onedump/driver"
 	"github.com/liweiyi88/onedump/dumper"
 	"github.com/liweiyi88/onedump/fileutil"
 	"github.com/liweiyi88/onedump/jobresult"
@@ -134,33 +133,11 @@ func (handler *JobHandler) getStorages() []storage.Storage {
 func (handler *JobHandler) getDumper() (dumper.Dumper, error) {
 	job := handler.Job
 
-	if job.DBDriver == "mysql" {
-		return dumper.NewMysqlDump(job)
-	}
-
-	driver, err := handler.getDBDriver()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get db driver %v", err)
-	}
-
-	if job.ViaSsh() {
-		return dumper.NewSshDumper(job.SshHost, job.SshKey, job.SshUser, driver), nil
-	} else {
-		return dumper.NewExecDumper(driver), nil
-	}
-}
-
-// Get the database driver.
-func (handler *JobHandler) getDBDriver() (driver.Driver, error) {
-	job := handler.Job
 	switch job.DBDriver {
+	case "mysql":
+		return dumper.NewMysqlDump(job)
 	case "postgresql":
-		driver, err := driver.NewPostgreSqlDriver(job.DBDsn, job.DumpOptions, job.ViaSsh())
-		if err != nil {
-			return nil, err
-		}
-
-		return driver, nil
+		return dumper.NewPgDump(job)
 	default:
 		return nil, fmt.Errorf("%s is not a supported database driver", job.DBDriver)
 	}
