@@ -24,7 +24,6 @@ import (
 )
 
 var testDBDsn = "root@tcp(127.0.0.1:3306)/dump_test"
-var testPsqlDBDsn = "postgres://julianli:julian@localhost:5432/mypsqldb"
 
 func generateRSAPrivateKey() (string, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -59,7 +58,7 @@ func TestDo(t *testing.T) {
 	}
 
 	jobs := make([]*config.Job, 0, 1)
-	sshJob := config.NewJob("ssh", "mysql", testDBDsn, config.WithSshHost("127.0.0.1:20001"), config.WithSshUser("root"), config.WithSshKey(privateKey))
+	sshJob := config.NewJob("ssh", "mysqldump", testDBDsn, config.WithSshHost("127.0.0.1:20001"), config.WithSshUser("root"), config.WithSshKey(privateKey))
 	localStorages := make([]*local.Local, 0)
 
 	dir, _ := os.Getwd()
@@ -207,7 +206,7 @@ func TestGetDumper(t *testing.T) {
 		t.Error("expect error but got nil")
 	}
 
-	job.DBDriver = "mysql"
+	job.DBDriver = "mysqldump"
 	r, err := jobHandler.getDumper()
 	if err != nil {
 		t.Error(err)

@@ -135,8 +135,12 @@ func (handler *JobHandler) getDumper() (dumper.Dumper, error) {
 
 	switch job.DBDriver {
 	case "mysql":
-		return dumper.NewMysqlDump(job)
+		return dumper.NewMysqlNativeDump(job)
 	case "postgresql":
+		return dumper.NewPgDump(job)
+	case "mysqldump":
+		return dumper.NewMysqlDump(job)
+	case "pgdump":
 		return dumper.NewPgDump(job)
 	default:
 		return nil, fmt.Errorf("%s is not a supported database driver", job.DBDriver)

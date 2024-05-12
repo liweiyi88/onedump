@@ -13,6 +13,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/config"
+	"github.com/liweiyi88/onedump/dumper/dialer"
 	"github.com/liweiyi88/onedump/dumper/runner"
 	"github.com/liweiyi88/onedump/fileutil"
 )
@@ -175,7 +176,8 @@ func (mysql *MysqlDump) Dump(storage io.Writer) error {
 			return err
 		}
 
-		runner := runner.NewSshRunner(host, key, user, command)
+		ssh := dialer.NewSsh(host, key, user)
+		runner := runner.NewSshRunner(ssh, command)
 		return runner.Run(storage)
 	}
 

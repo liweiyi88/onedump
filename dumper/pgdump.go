@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/liweiyi88/onedump/config"
+	"github.com/liweiyi88/onedump/dumper/dialer"
 	"github.com/liweiyi88/onedump/dumper/runner"
 	"github.com/liweiyi88/onedump/fileutil"
 )
@@ -147,7 +148,8 @@ func (psql *PgDump) Dump(storage io.Writer) error {
 			return err
 		}
 
-		runner := runner.NewSshRunner(host, key, user, command)
+		ssh := dialer.NewSsh(host, key, user)
+		runner := runner.NewSshRunner(ssh, command)
 		return runner.Run(storage)
 	}
 
