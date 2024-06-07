@@ -6,9 +6,12 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRootCmdWithCron(t *testing.T) {
+	assert := assert.New(t)
 	cmd := rootCmd
 
 	workDir, _ := os.Getwd()
@@ -32,37 +35,26 @@ func TestRootCmdWithCron(t *testing.T) {
 `
 
 	newFd, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(err)
 
 	err = os.WriteFile(filename, []byte(config), 0644)
-
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(err)
 
 	newFd.Close()
 	o := bytes.NewBufferString("")
 	cmd.SetOutput(o)
 	cmd.SetArgs([]string{"-f", filename, "-c", "1sec"})
 	err = cmd.Execute()
-
-	if err == nil {
-		t.Log(err)
-		t.Error("expect errr but got nil")
-	}
+	assert.NotNil(err)
 
 	cmd.SetArgs([]string{"-f", filename, "-c", "10s"})
 	err = cmd.Execute()
 
-	if err == nil {
-		t.Log(err)
-		t.Error("expect errr but got nil")
-	}
+	assert.NotNil(err)
 }
 
 func TestRootCmd(t *testing.T) {
+	assert := assert.New(t)
 	cmd := rootCmd
 	cmd.SetArgs([]string{"-f", "/Users/jobs.yaml"})
 	b := bytes.NewBufferString("")
@@ -76,17 +68,12 @@ func TestRootCmd(t *testing.T) {
 
 	expect := "Error: failed to read job file from /Users/jobs.yaml, error: open /Users/jobs.yaml:"
 	actual := string(out)
-
-	if !strings.HasPrefix(strings.TrimSpace(actual), expect) {
-		t.Errorf("expected: %v, but actual get: %s", expect, actual)
-	}
+	assert.True(strings.HasPrefix(strings.TrimSpace(actual), expect))
 
 	workDir, _ := os.Getwd()
 	filename := workDir + "/test.sql"
 	file, err := os.Create(filename)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(err)
 
 	defer os.Remove(filename)
 	file.Close()
@@ -95,21 +82,15 @@ func TestRootCmd(t *testing.T) {
 	cmd.Execute()
 
 	out, err = io.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(err)
 
 	expect = "Error: no job is defined in the file " + filename
 	actual = string(out)
 
-	if strings.TrimSpace(actual) != expect {
-		t.Errorf("expected: %v, but actual get: %s", expect, actual)
-	}
+	assert.Equal(expect, strings.TrimSpace(actual))
 
 	newFd, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(err)
 
 	config := `jobs:
 - name: local-dump
@@ -122,17 +103,11 @@ func TestRootCmd(t *testing.T) {
 `
 
 	err = os.WriteFile(filename, []byte(config), 0644)
-
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(err)
 
 	newFd.Close()
 	o := bytes.NewBufferString("")
 	cmd.SetOutput(o)
 	err = cmd.Execute()
-
-	if err == nil {
-		t.Error("expect errr but got nil")
-	}
+	assert.NotNil(err)
 }

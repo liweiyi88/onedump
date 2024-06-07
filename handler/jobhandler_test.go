@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"testing"
@@ -21,6 +20,7 @@ import (
 	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
 	"github.com/liweiyi88/onedump/storage/s3"
+	"github.com/stretchr/testify/assert"
 )
 
 var testDBDsn = "root@tcp(127.0.0.1:3306)/dump_test"
@@ -46,16 +46,13 @@ func TestGenerateCacheFileName(t *testing.T) {
 	name := fileutil.GenerateRandomName(expectedLen)
 
 	actualLen := len([]rune(name))
-	if actualLen != expectedLen {
-		t.Errorf("unexpected cache filename, expected length: %d, actual length: %d", 5, actualLen)
-	}
+	assert.Equal(t, expectedLen, actualLen)
 }
 
 func TestDo(t *testing.T) {
+	assert := assert.New(t)
 	privateKey, err := generateRSAPrivateKey()
-	if err != nil {
-		t.Errorf("failed to generate test private key %v", err)
-	}
+	assert.Nil(err)
 
 	jobs := make([]*config.Job, 0, 1)
 	sshJob := config.NewJob("ssh", "mysqldump", testDBDsn, config.WithSshHost("127.0.0.1:20001"), config.WithSshUser("root"), config.WithSshKey(privateKey))
@@ -87,18 +84,14 @@ func TestDo(t *testing.T) {
 	}
 
 	private, err := ssh.ParsePrivateKey([]byte(privateKey))
-	if err != nil {
-		t.Fatal("Failed to parse private key: ", err)
-	}
+	assert.Nil(err)
 
 	sshConfig.AddHostKey(private)
 
 	// Once a ServerConfig has been configured, connections can be
 	// accepted.
 	listener, err := net.Listen("tcp", "0.0.0.0:20001")
-	if err != nil {
-		t.Fatal("failed to listen for connection: ", err)
-	}
+	assert.Nil(err)
 
 	finishCh := make(chan struct{})
 	go func(onedump config.Dump) {
@@ -109,16 +102,12 @@ func TestDo(t *testing.T) {
 	}(onedump)
 
 	nConn, err := listener.Accept()
-	if err != nil {
-		t.Fatal("failed to accept incoming connection: ", err)
-	}
+	assert.Nil(err)
 
 	// Before use, a handshake must be performed on the incoming
 	// net.Conn.
 	conn, chans, reqs, err := ssh.NewServerConn(nConn, sshConfig)
-	if err != nil {
-		log.Fatal("failed to handshake: ", err)
-	}
+	assert.Nil(err)
 	t.Logf("logged in with key %s", conn.Permissions.Extensions["pubkey-fp"])
 
 	// The incoming Request channel must be serviced.
@@ -136,10 +125,7 @@ func TestDo(t *testing.T) {
 	}
 
 	channel, requests, err := newChannel.Accept()
-
-	if err != nil {
-		log.Fatalf("Could not accept channel: %v", err)
-	}
+	assert.Nil(err)
 
 	req := <-requests
 	req.Reply(true, []byte("ssh dump"))
@@ -152,14 +138,11 @@ func TestDo(t *testing.T) {
 		t.Error("dump file does not existed")
 	} else {
 		err := os.Remove(dumpFile)
-		if err != nil {
-			t.Fatal("failed to remove the test dump file", err)
-		}
+		assert.Nil(err)
 	}
 }
 
 func TestGetStorages(t *testing.T) {
-
 	localStore := local.Local{Path: "db_backup/onedump.sql"}
 	s3 := s3.NewS3("mybucket", "key", "", "", "")
 	gdrive := &gdrive.GDrive{
@@ -179,38 +162,28 @@ func TestGetStorages(t *testing.T) {
 
 	jobHandler := NewJobHandler(job)
 
-	if len(jobHandler.getStorages()) != 4 {
-		t.Errorf("expecte 4 storage but actual got: %d", len(jobHandler.getStorages()))
-	}
+	assert.Len(t, jobHandler.getStorages(), 4)
 }
 
 func TestEnsureFileSuffix(t *testing.T) {
 	gzip := fileutil.EnsureFileSuffix("test.sql", true)
-	if gzip != "test.sql.gz" {
-		t.Errorf("expected filename has .gz extension, actual file name: %s", gzip)
-	}
+	assert.Equal(t, "test.sql.gz", gzip)
 
 	sql := fileutil.EnsureFileSuffix("test.sql.gz", true)
-
-	if sql != "test.sql.gz" {
-		t.Errorf("expected: %s is not equals to actual: %s", sql, "test.sql.gz")
-	}
+	assert.Equal(t, "test.sql.gz", sql)
 }
 
 func TestGetDumper(t *testing.T) {
+	assert := assert.New(t)
 	job := &config.Job{}
 	jobHandler := NewJobHandler(job)
 
 	_, err := jobHandler.getDumper()
-	if err == nil {
-		t.Error("expect error but got nil")
-	}
+	assert.NotNil(err)
 
 	job.DBDriver = "mysqldump"
 	r, err := jobHandler.getDumper()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(err)
 
 	if _, ok := r.(*dumper.MysqlDump); !ok {
 		t.Errorf("expect exec dumper, but got type: %T", r)
@@ -221,9 +194,7 @@ func TestGetDumper(t *testing.T) {
 	job.SshUser = "admin"
 	job.SshKey = "ssh key"
 	r, err = jobHandler.getDumper()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(err)
 
 	if _, ok := r.(*dumper.PgDump); !ok {
 		t.Errorf("expect ssh dumper, but got type: %T", r)

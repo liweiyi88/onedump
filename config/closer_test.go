@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type mockCloser struct{}
@@ -39,7 +41,6 @@ func TestNewMultiCloser(t *testing.T) {
 
 	expected := buf.String()
 	actual := "closeclose"
-	if expected != actual {
-		t.Errorf("expected: %s, actual: %s", expected, actual)
-	}
+
+	assert.Equal(t, expected, actual)
 }

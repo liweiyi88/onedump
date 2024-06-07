@@ -6,9 +6,11 @@ import (
 	"testing"
 
 	"github.com/liweiyi88/onedump/storage"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewS3(t *testing.T) {
+	assert := assert.New(t)
 	expectedBucket := "onedump"
 	expectedKey := "/backup/dump.sql"
 	expectedRegion := "ap-southeast-2"
@@ -17,25 +19,11 @@ func TestNewS3(t *testing.T) {
 
 	s3 := NewS3(expectedBucket, expectedKey, expectedRegion, expectedAccessKeyId, expectedSecretKey)
 
-	if s3.Bucket != expectedBucket {
-		t.Errorf("expected: %s, actual: %s", expectedBucket, s3.Bucket)
-	}
-
-	if s3.Key != expectedKey {
-		t.Errorf("expected: %s, actual: %s", expectedBucket, s3.Key)
-	}
-
-	if s3.Region != expectedRegion {
-		t.Errorf("expected: %s, actual: %s", expectedRegion, s3.Region)
-	}
-
-	if s3.AccessKeyId != expectedAccessKeyId {
-		t.Errorf("expected: %s, actual: %s", expectedAccessKeyId, s3.AccessKeyId)
-	}
-
-	if s3.SecretAccessKey != expectedSecretKey {
-		t.Errorf("expected: %s, actual: %s", expectedSecretKey, s3.SecretAccessKey)
-	}
+	assert.Equal(expectedBucket, s3.Bucket)
+	assert.Equal(expectedKey, s3.Key)
+	assert.Equal(expectedRegion, s3.Region)
+	assert.Equal(expectedAccessKeyId, s3.AccessKeyId)
+	assert.Equal(expectedSecretKey, s3.SecretAccessKey)
 }
 
 func TestSave(t *testing.T) {
@@ -51,9 +39,7 @@ func TestSave(t *testing.T) {
 	err := s3.Save(reader, storage.PathGenerator(true, true))
 
 	actual := errors.Unwrap(err).Error()
-	if !strings.HasPrefix(actual, "InvalidAccessKeyId") {
-		t.Errorf("expeceted invalid access key id but actual got: %s", actual)
-	}
+	assert.True(t, strings.HasPrefix(actual, "InvalidAccessKeyId"))
 }
 
 func TestGetContent(t *testing.T) {
@@ -67,7 +53,5 @@ func TestGetContent(t *testing.T) {
 
 	_, err := s3.GetContent()
 
-	if !strings.HasPrefix(err.Error(), "InvalidAccessKeyId") {
-		t.Errorf("expeceted invalid access key id but actual got: %s", err.Error())
-	}
+	assert.True(t, strings.HasPrefix(err.Error(), "InvalidAccessKeyId"))
 }

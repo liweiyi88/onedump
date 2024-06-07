@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/liweiyi88/onedump/config"
+	"github.com/stretchr/testify/assert"
 )
 
 var testPsqlDBDsn = "postgres://julianli:julian@localhost:5432/mypsqldb"
@@ -16,34 +17,21 @@ func TestNewPostgreSqlDriver(t *testing.T) {
 	job := config.NewJob("test", "postgresql", testPsqlDBDsn)
 	pgdump, _ := NewPgDump(job)
 
-	if pgdump.Username != "julianli" {
-		t.Errorf("expected user: julianli but actual got: %s", pgdump.Username)
-	}
+	assert := assert.New(t)
 
-	if pgdump.Password != "julian" {
-		t.Errorf("expected password: julian but actual got: %s", pgdump.Password)
-	}
-
-	if pgdump.Host != "localhost" {
-		t.Errorf("expected host: localhost but actual got: %s", pgdump.Host)
-	}
-
-	if pgdump.DBName != "mypsqldb" {
-		t.Errorf("expected db: mypsqldb but actual got: %s", pgdump.DBName)
-	}
-
-	if pgdump.Port != 5432 {
-		t.Errorf("expected port: 5432 but actual got: %d", pgdump.Port)
-	}
+	assert.Equal(pgdump.Username, "julianli")
+	assert.Equal(pgdump.Password, "julian")
+	assert.Equal(pgdump.Host, "localhost")
+	assert.Equal(pgdump.DBName, "mypsqldb")
+	assert.Equal(pgdump.Port, 5432)
 
 	job = config.NewJob("test", "postgresql", "wrongdsn")
 	_, err := NewPgDump(job)
-	if err == nil {
-		t.Error("expect error but got nil")
-	}
+	assert.NotNil(err)
 }
 
 func TestGetDumpCommandArgs(t *testing.T) {
+	assert := assert.New(t)
 	job := config.NewJob("test", "postgresql", testPsqlDBDsn)
 	pgdump, _ := NewPgDump(job)
 
@@ -52,9 +40,7 @@ func TestGetDumpCommandArgs(t *testing.T) {
 	expect := "--host=localhost --port=5432 --username=julianli --dbname=mypsqldb"
 	actual := strings.Join(args, " ")
 
-	if expect != actual {
-		t.Errorf("expect :%s, actual: %s", expect, actual)
-	}
+	assert.Equal(expect, actual)
 
 	job = config.NewJob("remotejob", "postgresql", testPsqlRemoteDBDsn)
 	pgdump, _ = NewPgDump(job)
@@ -63,155 +49,106 @@ func TestGetDumpCommandArgs(t *testing.T) {
 
 	expect = "--host=example.com --port=8888 --username=julianli --dbname=mypsqldb"
 	actual = strings.Join(args, " ")
-
-	if expect != actual {
-		t.Errorf("expect :%s, actual: %s", expect, actual)
-	}
+	assert.Equal(expect, actual)
 }
 
 func TestPostGreSqlGetExecDumpCommand(t *testing.T) {
+	assert := assert.New(t)
 	job := config.NewJob("test", "postgresql", testPsqlDBDsn)
 	pgdump, _ := NewPgDump(job)
+
 	command, args, err := pgdump.getExecDumpCommand()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(err)
 
 	pgDumpPath, err := exec.LookPath(pgdump.path)
-	if err != nil {
-		t.Errorf("failed to find pg_dump executable %s %s", pgdump.path, err)
-	}
-
-	if command != pgDumpPath {
-		t.Errorf("expect command: %s, actual: %s", command, pgDumpPath)
-	}
+	assert.Nil(err)
+	assert.Equal(command, pgDumpPath)
 
 	expect := "--host=localhost --port=5432 --username=julianli --dbname=mypsqldb"
 	actual := strings.Join(args, " ")
-
-	if expect != actual {
-		t.Errorf("expect :%s, actual: %s", expect, actual)
-	}
+	assert.Equal(expect, actual)
 
 	pgdump.path = "/wrong"
 	_, _, err = pgdump.getExecDumpCommand()
-	if err == nil {
-		t.Error("expect error but got nil")
-	}
+	assert.NotNil(err)
 }
 
 func TestPostGreSqlGetSshDumpCommand(t *testing.T) {
+	assert := assert.New(t)
 	job := config.NewJob("test", "postgresql", testPsqlDBDsn, config.WithSshHost("ssh"), config.WithSshKey("key"), config.WithSshUser("user"))
 	pgdump, err := NewPgDump(job)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(err)
 
 	command, err := pgdump.getSshDumpCommand()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(err)
 
 	expectCommand := "PGPASSWORD=julian pg_dump --host=localhost --port=5432 --username=julianli --dbname=mypsqldb"
-	if expectCommand != command {
-		t.Errorf("expect: %s, actual got: %s", expectCommand, command)
-	}
+	assert.Equal(expectCommand, command)
 }
 
 func TestExecDumpEnvironPostgresql(t *testing.T) {
+	assert := assert.New(t)
 	job := config.NewJob("test", "postgresql", testPsqlDBDsn)
 	pgdump, _ := NewPgDump(job)
 	defer pgdump.close()
 
 	envs, err := pgdump.execDumpEnviron()
-	if err != nil {
-		t.Error(err)
-	}
-
-	if len(envs) != 1 {
-		t.Errorf("expect 1 env variable, but got: %d", len(envs))
-	}
-
-	if !strings.HasPrefix(envs[0], "PGPASSFILE=") {
-		t.Errorf("expect prefix PGPASSFILE= but got: %s", envs[0])
-	}
+	assert.Nil(err)
+	assert.Len(envs, 1)
+	assert.True(strings.HasPrefix(envs[0], "PGPASSFILE="))
 }
 
 func TestCreateCredentialFilePostgresql(t *testing.T) {
+	assert := assert.New(t)
 	job := config.NewJob("test", "postgresql", testPsqlDBDsn)
 	pgdump, err := NewPgDump(job)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(err)
 
 	fileName, err := pgdump.createCredentialFile()
 	t.Log("create temp credential file", fileName)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(err)
 
 	file, err := os.ReadFile(fileName)
-
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(err)
 
 	actual := string(file)
 	expected := "localhost:5432:mypsqldb:julianli:julian"
 
-	if actual != expected {
-		t.Errorf("Expected:\n%s \n----should equal to----\n%s", expected, actual)
-	}
+	assert.Equal(expected, actual)
 
 	err = os.Remove(fileName)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.Nil(err)
+
 	t.Log("removed temp credential file", fileName)
 }
 
 func TestClosePostgresql(t *testing.T) {
+	assert := assert.New(t)
 	job := config.NewJob("test", "postgresql", testPsqlDBDsn)
 	pgdump, _ := NewPgDump(job)
+
 	file1, err := pgdump.createCredentialFile()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(err)
+
 	_, err = os.Stat(file1)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(err)
 
 	file2, err := pgdump.createCredentialFile()
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(err)
 
 	_, err = os.Stat(file2)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.Nil(err)
 
-	if len(pgdump.credentialFiles) != 2 {
-		t.Errorf("expect 2 credentials files but got: %d", len(pgdump.credentialFiles))
-	}
-
-	if err := pgdump.close(); err != nil {
-		t.Errorf("could not cleanup psql file: %v", err)
-	}
+	assert.Len(pgdump.credentialFiles, 2)
+	assert.Nil(pgdump.close())
 
 	_, err = os.Stat(file1)
-	if !os.IsNotExist(err) {
-		t.Errorf("expected file1 not exist error but actual got error: %v", err)
-	}
+
+	assert.ErrorIs(err, os.ErrNotExist)
 
 	_, err = os.Stat(file2)
-	if !os.IsNotExist(err) {
-		t.Errorf("expected file2 not exist error but actual got error: %v", err)
-	}
+	assert.ErrorIs(err, os.ErrNotExist)
 
 	pgdump.credentialFiles = append(pgdump.credentialFiles, "wrong file")
-	if err := pgdump.close(); err == nil {
-		t.Error("expect close error, but got nil")
-	}
+	assert.NotNil(pgdump.close())
 }

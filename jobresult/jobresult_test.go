@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestString(t *testing.T) {
@@ -15,15 +17,11 @@ func TestString(t *testing.T) {
 	}
 
 	expect := fmt.Sprintf("%s failed, it took %s with error: %v", jr.JobName, jr.Elapsed, jr.Error)
-	if jr.String() != expect {
-		t.Errorf("expect %s, but actual got: %s", expect, jr.String())
-	}
+	assert.Equal(t, expect, jr.String())
 
 	jr.Error = nil
 	expect = fmt.Sprintf("%s succeeded, it took %v", jr.JobName, jr.Elapsed)
-	if jr.String() != expect {
-		t.Errorf("expect %s, but actual got: %s", expect, jr.String())
-	}
+	assert.Equal(t, expect, jr.String())
 }
 
 func TestToSlackText(t *testing.T) {
@@ -34,13 +32,10 @@ func TestToSlackText(t *testing.T) {
 	}
 
 	expect := fmt.Sprintf(":x: `%s` failed, it took *%s* ```%v```", jr.JobName, jr.Elapsed, jr.Error)
-	if jr.ToSlackText() != expect {
-		t.Errorf("expect %s, but actual got: %s", expect, jr.ToSlackText())
-	}
+
+	assert.Equal(t, expect, jr.ToSlackText())
 
 	jr.Error = nil
 	expect = fmt.Sprintf(":white_check_mark: `%s` succeeded, it took *%v*", jr.JobName, jr.Elapsed)
-	if jr.ToSlackText() != expect {
-		t.Errorf("expect %s, but actual got: %s", expect, jr.ToSlackText())
-	}
+	assert.Equal(t, expect, jr.ToSlackText())
 }

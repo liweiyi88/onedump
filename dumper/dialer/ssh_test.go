@@ -1,17 +1,18 @@
 package dialer
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestEnsureSSHHostHavePort(t *testing.T) {
+	assert := assert.New(t)
 	sshHost := "127.0.0.1"
 
-	if ensureHaveSSHPort(sshHost) != sshHost+":22" {
-		t.Error("ssh host port is not ensured")
-	}
+	assert.Equal(sshHost+":22", ensureHaveSSHPort(sshHost))
 
 	sshHost = "127.0.0.1:22"
 	actual := ensureHaveSSHPort(sshHost)
-	if actual != sshHost {
-		t.Errorf("expect ssh host: %s, actual: %s", sshHost, actual)
-	}
+	assert.Equal(sshHost, actual)
 }
