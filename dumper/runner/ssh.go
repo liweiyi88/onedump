@@ -14,7 +14,8 @@ type SshRunner struct {
 	command string
 }
 
-func NewSshRunner(ssh *dialer.Ssh, command string) *SshRunner {
+func NewSshRunner(sshHost string, sshKey string, sshUser string, command string) *SshRunner {
+	ssh := dialer.NewSsh(sshHost, sshKey, sshUser)
 	return &SshRunner{
 		ssh,
 		command,

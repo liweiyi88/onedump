@@ -13,7 +13,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/liweiyi88/onedump/config"
-	"github.com/liweiyi88/onedump/dumper/dialer"
 	"github.com/liweiyi88/onedump/dumper/runner"
 	"github.com/liweiyi88/onedump/fileutil"
 )
@@ -140,16 +139,13 @@ func (psql *PgDump) Dump(storage io.Writer) error {
 		}
 	}()
 
-	host, key, user := psql.sshHost, psql.sshKey, psql.sshUser
-
 	if psql.viaSsh {
 		command, err := psql.getSshDumpCommand()
 		if err != nil {
 			return err
 		}
 
-		ssh := dialer.NewSsh(host, key, user)
-		runner := runner.NewSshRunner(ssh, command)
+		runner := runner.NewSshRunner(psql.sshHost, psql.sshKey, psql.sshUser, command)
 		return runner.Run(storage)
 	}
 
