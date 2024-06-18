@@ -141,12 +141,12 @@ func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string)
 
 	columns, err := results.Columns()
 	if err != nil {
-		return err
+		return fmt.Errorf("could not get columns, error: %v", err)
 	}
 
 	columnTypes, err := results.ColumnTypes()
 	if err != nil {
-		return err
+		return fmt.Errorf("could not get column types, error: %v", err)
 	}
 
 	var rows [][]any
