@@ -2,6 +2,7 @@ package dumper
 
 import (
 	"bufio"
+	"bytes"
 	"database/sql"
 	"fmt"
 	"io"
@@ -9,6 +10,8 @@ import (
 	"log/slog"
 	"net"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/liweiyi88/onedump/config"
@@ -141,12 +144,12 @@ func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string)
 
 	columns, err := results.Columns()
 	if err != nil {
-		return fmt.Errorf("could not get columns, error: %v", err)
+		return fmt.Errorf("could not get columns: %v", err)
 	}
 
 	columnTypes, err := results.ColumnTypes()
 	if err != nil {
-		return fmt.Errorf("could not get column types, error: %v", err)
+		return fmt.Errorf("could not get column types: %v", err)
 	}
 
 	var rows [][]any
@@ -160,26 +163,178 @@ func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string)
 
 		err = results.Scan(dest...)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to scan row to dest, %v", err)
 		}
 
 		rows = append(rows, row)
 	}
 
 	for _, row := range rows {
-		for i, col := range row {
-			// check https://go.dev/wiki/SQLInterface
-			fmt.Println(col, columnTypes[i].ScanType())
-			// write insert statement.
+		var sb strings.Builder
+		sb.WriteString("INSERT INTO `" + table + "` VALUES (")
+
+		for i, value := range row {
+			if value == nil {
+				sb.WriteString("NULL")
+			} else {
+				typeName := columnTypes[i].DatabaseTypeName()
+
+				switch typeName {
+				case "TINYINT", "SMALLINT", "MEDIUMINT", "INT", "INTEGER", "BIGINT":
+					if v, ok := value.([]byte); ok {
+						sb.WriteString(string(v))
+					} else {
+						sb.WriteString(fmt.Sprintf("%d", value))
+					}
+				case "FLOAT", "DOUBLE":
+					if v, ok := value.([]byte); ok {
+						sb.WriteString(string(v))
+					} else {
+						sb.WriteString(fmt.Sprintf("%f", value))
+					}
+				case "DECIMAL", "DEC":
+					sb.WriteString(fmt.Sprintf("%s", value))
+				case "DATE":
+					v, ok := value.(time.Time)
+					if !ok {
+						return fmt.Errorf("could not parse DATE type, error: %v", err)
+					}
+					sb.WriteString(fmt.Sprintf("'%s'", v.Format("2006-01-02")))
+				case "DATETIME":
+					v, ok := value.([]byte)
+					if !ok {
+						return fmt.Errorf("could not parse DATETIME type, error: %v", err)
+					}
+
+					sb.WriteString(fmt.Sprintf("'%s'", string(v)))
+				case "TIMESTAMP":
+					v, ok := value.([]byte)
+					if !ok {
+						return fmt.Errorf("could not parse TIMESTAMP type, error: %v", err)
+					}
+					sb.WriteString(fmt.Sprintf("'%s'", string(v)))
+				case "TIME":
+					v, ok := value.([]byte)
+					if !ok {
+						return fmt.Errorf("could not parse time type, error: %v", err)
+					}
+					sb.WriteString(fmt.Sprintf("'%s'", string(v)))
+				case "YEAR":
+					v, ok := value.(int64)
+					if !ok {
+						return fmt.Errorf("cloud not parse YEAR type, error: %v", err)
+					}
+					sb.WriteString(fmt.Sprintf("'%d'", v))
+				case "CHAR", "VARCHAR", "TINYTEXT", "TEXT", "MEDIUMTEXT", "LONGTEXT":
+					sb.WriteString(fmt.Sprintf("'%s'", strings.Replace(fmt.Sprintf("%s", value), "'", "''", -1)))
+				case "BINARY":
+					v, ok := value.([]uint8)
+					if !ok {
+						return fmt.Errorf("cloud not parse BINARY type, error: %v", err)
+					}
+
+					v = bytes.TrimRight(v, "\x00") // skip trailing null value
+					sb.WriteString(fmt.Sprintf("'%s'", v))
+				case "VARBINARY":
+					sb.WriteString(fmt.Sprintf("'%s'", value))
+				case "BIT":
+					v, ok := value.([]uint8)
+					if !ok {
+						return fmt.Errorf("cloud not parse BIT type, error: %v", err)
+					}
+
+					if len(v) > 1 {
+						return fmt.Errorf("failed to parse BIT type, expected length 1, but got %d", len(v))
+					}
+
+					sb.WriteString(fmt.Sprintf("b'%d'", v[0]))
+				case "TINYBLOB", "BLOB", "MEDIUMBLOB", "LONGBLOB", "ENUM", "SET":
+					sb.WriteString(fmt.Sprintf("'%s'", value))
+				case "BOOL", "BOOLEAN":
+					if value.(bool) {
+						sb.WriteString("true")
+					} else {
+						sb.WriteString("false")
+					}
+				case "JSON":
+					v, ok := value.([]uint8)
+					if !ok {
+						return fmt.Errorf("cloud not parse JSON type, expect []unint8 but got %T", value)
+					}
+
+					json := string(v)
+
+					json = strings.ReplaceAll(json, `"`, `\"`)
+					sb.WriteString(fmt.Sprintf("'%s'", json))
+				default:
+					return fmt.Errorf("unsupported type database type: %s", typeName)
+				}
+			}
+
+			if i < len(row)-1 {
+				sb.WriteString(",")
+			}
+		}
+		sb.WriteString(");\n")
+
+		_, err := buf.WriteString(sb.String())
+		if err != nil {
+			return fmt.Errorf("failed to write insert statement: %v", err)
 		}
 	}
 
 	return nil
 }
 
+func (mysql *MysqlNativeDump) writeHeader(buf *bufio.Writer) error {
+	charSet, err := mysql.getCharacterSet()
+	if err != nil {
+		return err
+	}
+
+	var sb strings.Builder
+
+	sb.WriteString("-- -------------------------------------------------------------\n")
+	sb.WriteString("-- Onedump\n")
+	sb.WriteString("--\n")
+	sb.WriteString("-- https://github.com/liweiyi88/onedump\n")
+	sb.WriteString("--\n")
+	sb.WriteString("-- Database: " + mysql.DBName + "\n")
+	sb.WriteString("\n\n")
+	sb.WriteString("/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;\n")
+	sb.WriteString("/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;\n")
+	sb.WriteString("/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;\n")
+	sb.WriteString("/*!40101 SET NAMES " + charSet + " */;\n")
+	sb.WriteString("/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;\n")
+	sb.WriteString("/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;\n")
+	sb.WriteString("/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;\n")
+	sb.WriteString("/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;\n")
+	sb.WriteString("\n\n")
+
+	_, err = buf.WriteString(sb.String())
+	return err
+}
+
+func (mysql *MysqlNativeDump) writeFooter(buf *bufio.Writer) error {
+	var sb strings.Builder
+	sb.WriteString("\n\n")
+	sb.WriteString("/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;\n")
+	sb.WriteString("/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;\n")
+	sb.WriteString("/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;\n")
+	sb.WriteString("/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;\n")
+	sb.WriteString("/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;\n")
+	sb.WriteString("/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;\n")
+	sb.WriteString("/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;")
+
+	_, err := buf.WriteString(sb.String())
+	return err
+}
+
 func (mysql *MysqlNativeDump) writeTableStructure(buf *bufio.Writer, table string) error {
+	var sb strings.Builder
+
 	if !mysql.options.isEnabled(skipAddDropTable) {
-		buf.WriteString(fmt.Sprintf("DROP TABLE IF EXISTS `%s`;\n", table))
+		sb.WriteString(fmt.Sprintf("DROP TABLE IF EXISTS `%s`;\n", table))
 	}
 
 	var name string
@@ -192,13 +347,11 @@ func (mysql *MysqlNativeDump) writeTableStructure(buf *bufio.Writer, table strin
 		return fmt.Errorf("faile to scan create table structure for table: %s, error: %v", table, err)
 	}
 
-	_, err = buf.WriteString(createTable)
-	buf.WriteString("\n\n")
-	if err != nil {
-		return fmt.Errorf("faile to write create table structure for table: %s, error: %v", table, err)
-	}
+	sb.WriteString(createTable + ";")
+	sb.WriteString("\n\n")
 
-	return nil
+	_, err = buf.WriteString(sb.String())
+	return err
 }
 
 func (mysql *MysqlNativeDump) Dump(storage io.Writer) error {
@@ -214,54 +367,33 @@ func (mysql *MysqlNativeDump) Dump(storage io.Writer) error {
 		return err
 	}
 
-	charSet, err := mysql.getCharacterSet()
-	if err != nil {
-		return err
-	}
-
 	buf := bufio.NewWriter(storage)
 	defer buf.Flush()
 
-	buf.WriteString("-- -------------------------------------------------------------\n")
-	buf.WriteString("-- Onedump\n")
-	buf.WriteString("--\n")
-	buf.WriteString("-- https://github.com/liweiyi88/onedump\n")
-	buf.WriteString("--\n")
-	buf.WriteString("-- Database: " + mysql.DBName + "\n")
-	buf.WriteString("\n\n")
-	buf.WriteString("/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;\n")
-	buf.WriteString("/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;\n")
-	buf.WriteString("/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;\n")
-	buf.WriteString("/*!40101 SET NAMES " + charSet + " */;\n")
-	buf.WriteString("/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;\n")
-	buf.WriteString("/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;\n")
-	buf.WriteString("/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;\n")
-	buf.WriteString("/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;\n")
-	buf.WriteString("\n\n")
+	err = mysql.writeHeader(buf)
+	if err != nil {
+		return fmt.Errorf("failed to write dump header, error: %v", err)
+	}
 
-	mysql.db.Stats()
 	for _, table := range tables {
 		err := mysql.writeTableStructure(buf, table)
-
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to write table structure, table: %s, error: %v", table, err)
 		}
 	}
 
 	for _, table := range tables {
 		err := mysql.writeTableContent(buf, table)
-		return err
+
+		if err != nil {
+			return fmt.Errorf("failed to write table content, table: %s, error: %v", table, err)
+		}
 	}
 
-	// then dump content.
-
-	buf.WriteString("/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;\n")
-	buf.WriteString("/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;\n")
-	buf.WriteString("/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;\n")
-	buf.WriteString("/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;\n")
-	buf.WriteString("/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;\n")
-	buf.WriteString("/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;\n")
-	buf.WriteString("/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;")
+	err = mysql.writeFooter(buf)
+	if err != nil {
+		return fmt.Errorf("failed to write dump footer, error: %v", err)
+	}
 
 	return nil
 }

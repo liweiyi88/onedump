@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/exp v0.0.0-20230126173853-a67bb567ff2e
+	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225
 	google.golang.org/api v0.183.0
 	gopkg.in/yaml.v3 v3.0.1
 )

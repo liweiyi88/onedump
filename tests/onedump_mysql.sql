@@ -1,10 +1,10 @@
 -- -------------------------------------------------------------
--- TablePlus 6.0.6(558)
+-- TablePlus 6.0.8(562)
 --
 -- https://tableplus.com/
 --
 -- Database: onedump
--- Generation Time: 2024-06-17 17:18:52.9880
+-- Generation Time: 2024-06-21 20:58:51.1800
 -- -------------------------------------------------------------
 
 
@@ -50,7 +50,8 @@ CREATE TABLE `onedump` (
   `datetime` datetime DEFAULT NULL,
   `timestamp` timestamp NULL DEFAULT NULL,
   `time` time DEFAULT NULL,
-  `year` year DEFAULT NULL
+  `year` year DEFAULT NULL,
+  `json` json DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 DROP TABLE IF EXISTS `users`;
@@ -59,11 +60,10 @@ CREATE TABLE `users` (
   `name` varchar(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-INSERT INTO `onedump` (`char`, `varchar`, `binary`, `varbinary`, `tinyblob`, `tinytext`, `text`, `blob`, `mediumtext`, `mediumblob`, `longtext`, `longblob`, `enum`, `set`, `bit`, `tinyint`, `bool`, `boolean`, `smallint`, `mediumint`, `int`, `bigint`, `float`, `double`, `double_precision`, `decimal`, `dec`, `datetime`, `timestamp`, `time`, `year`) VALUES
-('a', 'abc', '7\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0', '7', 'tinyblob', 'tinytext', 'text', 'blob', 'mediumtext', 'mediumblob', 'longtext', 'longblob', '1', '2', b'1', 1, 1, 1, 1, 12, 12, 12, 12, 12.00, 12, 12.00, 12.00, '2024-06-17 16:50:54', '2024-06-17 16:50:58', '16:51:03', '2024');
+INSERT INTO `onedump` (`char`, `varchar`, `binary`, `varbinary`, `tinyblob`, `tinytext`, `text`, `blob`, `mediumtext`, `mediumblob`, `longtext`, `longblob`, `enum`, `set`, `bit`, `tinyint`, `bool`, `boolean`, `smallint`, `mediumint`, `int`, `bigint`, `float`, `double`, `double_precision`, `decimal`, `dec`, `datetime`, `timestamp`, `time`, `year`, `json`) VALUES
+('a', 'abc', '7\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0', '7', 'tinyblob', 'tinytext', 'text', 'blob', 'mediumtext', 'mediumblob', 'longtext', 'longblob', '1', '2', b'1', 1, 1, 1, 1, 12, 12, 12, 12, 12.00, 12, 12.00, 12.00, '2024-06-17 16:50:54', '2024-06-17 16:50:58', '16:51:03', '2024', '{\"age\": 25, \"name\": \"Alice\", \"email\": \"alice@example.com\", \"isActive\": true}');
 
-INSERT INTO `users` (`id`, `name`) VALUES
-(1, 'julian');
+INSERT INTO `users` (`id`, `name`) VALUES (1, 'julian');
 
 
 
