@@ -19,6 +19,7 @@ import (
 
 const (
 	skipAddDropTable = "--skip-add-drop-table"
+	skipAddLocks     = "--skip-add-locks"
 )
 
 type MysqlNativeDump struct {
@@ -61,18 +62,8 @@ func NewMysqlNativeDump(job *config.Job) (*MysqlNativeDump, error) {
 
 	slog.Info("database connected.")
 
-	options := make(map[string]bool)
-	options[skipAddDropTable] = false
-
-	for _, opt := range job.DumpOptions {
-		ok := options[opt]
-		if ok {
-			options[opt] = true
-		}
-	}
-
 	return &MysqlNativeDump{
-		options:  options,
+		options:  newOptions(job.DumpOptions...),
 		viaSsh:   job.ViaSsh(),
 		sshHost:  job.SshHost,
 		sshUser:  job.SshUser,
@@ -169,15 +160,34 @@ func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string)
 		rows = append(rows, row)
 	}
 
-	for _, row := range rows {
-		var sb strings.Builder
-		sb.WriteString("INSERT INTO `" + table + "` VALUES (")
+	var sb strings.Builder
 
-		for i, value := range row {
+	if len(rows) > 0 {
+		if !mysql.options.isEnabled(skipAddLocks) {
+			sb.WriteString("LOCK TABLES `" + table + "` WRITE;\n")
+		}
+
+		sb.WriteString("/*!40000 ALTER TABLE `" + table + "` DISABLE KEYS */;\n")
+		sb.WriteString("INSERT INTO `" + table + "` (")
+		for i, col := range columns {
+			if i < len(columns)-1 {
+				sb.WriteString("`" + col + "`, ")
+			} else {
+				sb.WriteString("`" + col + "`)")
+			}
+		}
+
+		sb.WriteString(" VALUES ")
+	}
+
+	for rowIndex, row := range rows {
+		sb.WriteString("(")
+
+		for colIndex, value := range row {
 			if value == nil {
 				sb.WriteString("NULL")
 			} else {
-				typeName := columnTypes[i].DatabaseTypeName()
+				typeName := columnTypes[colIndex].DatabaseTypeName()
 
 				switch typeName {
 				case "TINYINT", "SMALLINT", "MEDIUMINT", "INT", "INTEGER", "BIGINT":
@@ -197,32 +207,32 @@ func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string)
 				case "DATE":
 					v, ok := value.(time.Time)
 					if !ok {
-						return fmt.Errorf("could not parse DATE type, error: %v", err)
+						return fmt.Errorf("could not parse DATE type, expect time.Time, got %T", value)
 					}
 					sb.WriteString(fmt.Sprintf("'%s'", v.Format("2006-01-02")))
 				case "DATETIME":
 					v, ok := value.([]byte)
 					if !ok {
-						return fmt.Errorf("could not parse DATETIME type, error: %v", err)
+						return fmt.Errorf("could not parse DATETIME type, expect []byte, got %T", value)
 					}
 
 					sb.WriteString(fmt.Sprintf("'%s'", string(v)))
 				case "TIMESTAMP":
 					v, ok := value.([]byte)
 					if !ok {
-						return fmt.Errorf("could not parse TIMESTAMP type, error: %v", err)
+						return fmt.Errorf("could not parse TIMESTAMP type, expect []byte, got %T", value)
 					}
 					sb.WriteString(fmt.Sprintf("'%s'", string(v)))
 				case "TIME":
 					v, ok := value.([]byte)
 					if !ok {
-						return fmt.Errorf("could not parse time type, error: %v", err)
+						return fmt.Errorf("could not parse TIME type, expect []byte, got %T", value)
 					}
 					sb.WriteString(fmt.Sprintf("'%s'", string(v)))
 				case "YEAR":
 					v, ok := value.(int64)
 					if !ok {
-						return fmt.Errorf("cloud not parse YEAR type, error: %v", err)
+						return fmt.Errorf("cloud not parse YEAR type, expect int64, got %T", value)
 					}
 					sb.WriteString(fmt.Sprintf("'%d'", v))
 				case "CHAR", "VARCHAR", "TINYTEXT", "TEXT", "MEDIUMTEXT", "LONGTEXT":
@@ -230,7 +240,7 @@ func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string)
 				case "BINARY":
 					v, ok := value.([]uint8)
 					if !ok {
-						return fmt.Errorf("cloud not parse BINARY type, error: %v", err)
+						return fmt.Errorf("cloud not parse BINARY type, expect []uint8, got %T", value)
 					}
 
 					v = bytes.TrimRight(v, "\x00") // skip trailing null value
@@ -240,11 +250,11 @@ func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string)
 				case "BIT":
 					v, ok := value.([]uint8)
 					if !ok {
-						return fmt.Errorf("cloud not parse BIT type, error: %v", err)
+						return fmt.Errorf("cloud not parse BIT type, expect []uint8, got %T", value)
 					}
 
 					if len(v) > 1 {
-						return fmt.Errorf("failed to parse BIT type, expected length 1, but got %d", len(v))
+						return fmt.Errorf("failed to parse BIT type, expected length 1, got %d", len(v))
 					}
 
 					sb.WriteString(fmt.Sprintf("b'%d'", v[0]))
@@ -259,7 +269,7 @@ func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string)
 				case "JSON":
 					v, ok := value.([]uint8)
 					if !ok {
-						return fmt.Errorf("cloud not parse JSON type, expect []unint8 but got %T", value)
+						return fmt.Errorf("cloud not parse JSON type, expect []unint8, got %T", value)
 					}
 
 					json := string(v)
@@ -267,20 +277,34 @@ func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string)
 					json = strings.ReplaceAll(json, `"`, `\"`)
 					sb.WriteString(fmt.Sprintf("'%s'", json))
 				default:
-					return fmt.Errorf("unsupported type database type: %s", typeName)
+					return fmt.Errorf("unsupported database type: %s", typeName)
 				}
 			}
 
-			if i < len(row)-1 {
+			if colIndex < len(row)-1 {
 				sb.WriteString(",")
 			}
 		}
-		sb.WriteString(");\n")
 
-		_, err := buf.WriteString(sb.String())
-		if err != nil {
-			return fmt.Errorf("failed to write insert statement: %v", err)
+		sb.WriteString(")")
+
+		if rowIndex < len(rows)-1 {
+			sb.WriteString(",")
+		} else {
+			sb.WriteString(";")
 		}
+	}
+
+	sb.WriteString("\n/*!40000 ALTER TABLE `" + table + "` ENABLE KEYS */;\n")
+	if !mysql.options.isEnabled(skipAddLocks) {
+		sb.WriteString("UNLOCK TABLES;")
+	}
+
+	sb.WriteString("\n\n")
+
+	_, err = buf.WriteString(sb.String())
+	if err != nil {
+		return fmt.Errorf("failed to write insert statement: %s, error: %v", sb.String(), err)
 	}
 
 	return nil

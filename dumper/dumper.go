@@ -1,6 +1,8 @@
 package dumper
 
-import "io"
+import (
+	"io"
+)
 
 type DBConfig struct {
 	DBName   string
@@ -23,13 +25,26 @@ func NewDBConfig(dbName, user, password, host string, port int) *DBConfig {
 // Dump options
 type Options map[string]bool
 
+func newOptions(opts ...string) Options {
+	options := make(Options, len(opts))
+	options.enable(opts...)
+
+	return options
+}
+
 func (options Options) isEnabled(option string) bool {
-	ok, value := options[option]
+	val, ok := options[option]
 	if !ok {
 		return false
 	}
 
-	return value
+	return val
+}
+
+func (options Options) enable(opts ...string) {
+	for _, opt := range opts {
+		options[opt] = true
+	}
 }
 
 type Dumper interface {
