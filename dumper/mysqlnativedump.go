@@ -3,18 +3,19 @@ package dumper
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"database/sql"
 	"fmt"
 	"io"
 	"log"
 	"log/slog"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/liweiyi88/onedump/config"
+	"github.com/liweiyi88/onedump/dumper/dialer"
 )
 
 const (
@@ -23,13 +24,13 @@ const (
 )
 
 type MysqlNativeDump struct {
-	options Options
-	viaSsh  bool
-	sshHost string
-	sshUser string
-	sshKey  string
-	*DBConfig
-	db *sql.DB
+	options  Options
+	viaSsh   bool
+	sshHost  string
+	sshUser  string
+	sshKey   string
+	DBConfig *mysql.Config
+	db       *sql.DB
 }
 
 func NewMysqlNativeDump(job *config.Job) (*MysqlNativeDump, error) {
@@ -40,44 +41,21 @@ func NewMysqlNativeDump(job *config.Job) (*MysqlNativeDump, error) {
 		return nil, err
 	}
 
-	host, port, err := net.SplitHostPort(config.Addr)
-	if err != nil {
-		return nil, err
-	}
-
-	dbPort, err := strconv.Atoi(port)
-	if err != nil {
-		return nil, err
-	}
-
-	db, err := sql.Open("mysql", config.FormatDSN())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	pingErr := db.Ping()
-	if pingErr != nil {
-		return nil, pingErr
-	}
-
-	slog.Info("database connected.")
-
 	return &MysqlNativeDump{
 		options:  newOptions(job.DumpOptions...),
 		viaSsh:   job.ViaSsh(),
 		sshHost:  job.SshHost,
 		sshUser:  job.SshUser,
 		sshKey:   job.SshKey,
-		DBConfig: NewDBConfig(config.DBName, config.User, config.Passwd, host, dbPort),
-		db:       db,
+		DBConfig: config,
 	}, nil
 }
 
-func (mysql *MysqlNativeDump) getCharacterSet() (string, error) {
+func (m *MysqlNativeDump) getCharacterSet() (string, error) {
 	var variableName string
 	var characterSet string
 
-	row := mysql.db.QueryRow("SHOW VARIABLES LIKE 'character_set_database'")
+	row := m.db.QueryRow("SHOW VARIABLES LIKE 'character_set_database'")
 	err := row.Scan(&variableName, &characterSet)
 
 	if err != nil {
@@ -87,8 +65,8 @@ func (mysql *MysqlNativeDump) getCharacterSet() (string, error) {
 	return characterSet, nil
 }
 
-func (mysql *MysqlNativeDump) getTables() ([]string, error) {
-	rows, err := mysql.db.Query("SHOW TABLES")
+func (m *MysqlNativeDump) getTables() ([]string, error) {
+	rows, err := m.db.Query("SHOW TABLES")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query all tables, err: %v", err)
 	}
@@ -119,8 +97,8 @@ func (mysql *MysqlNativeDump) getTables() ([]string, error) {
 	return tables, nil
 }
 
-func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string) error {
-	results, err := mysql.db.Query(fmt.Sprintf("SELECT * FROM `%s`;", table))
+func (m *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string) error {
+	results, err := m.db.Query(fmt.Sprintf("SELECT * FROM `%s`;", table))
 
 	if err != nil {
 		return fmt.Errorf("failed to query table: %s, err: %v", table, err)
@@ -163,7 +141,7 @@ func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string)
 	var sb strings.Builder
 
 	if len(rows) > 0 {
-		if !mysql.options.isEnabled(skipAddLocks) {
+		if !m.options.isEnabled(skipAddLocks) {
 			sb.WriteString("LOCK TABLES `" + table + "` WRITE;\n")
 		}
 
@@ -190,7 +168,7 @@ func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string)
 				typeName := columnTypes[colIndex].DatabaseTypeName()
 
 				switch typeName {
-				case "TINYINT", "SMALLINT", "MEDIUMINT", "INT", "INTEGER", "BIGINT":
+				case "TINYINT", "SMALLINT", "MEDIUMINT", "INT", "INTEGER", "BIGINT", "UNSIGNED INT":
 					if v, ok := value.([]byte); ok {
 						sb.WriteString(string(v))
 					} else {
@@ -296,7 +274,7 @@ func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string)
 	}
 
 	sb.WriteString("\n/*!40000 ALTER TABLE `" + table + "` ENABLE KEYS */;\n")
-	if !mysql.options.isEnabled(skipAddLocks) {
+	if !m.options.isEnabled(skipAddLocks) {
 		sb.WriteString("UNLOCK TABLES;")
 	}
 
@@ -310,8 +288,8 @@ func (mysql *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string)
 	return nil
 }
 
-func (mysql *MysqlNativeDump) writeHeader(buf *bufio.Writer) error {
-	charSet, err := mysql.getCharacterSet()
+func (m *MysqlNativeDump) writeHeader(buf *bufio.Writer) error {
+	charSet, err := m.getCharacterSet()
 	if err != nil {
 		return err
 	}
@@ -323,7 +301,7 @@ func (mysql *MysqlNativeDump) writeHeader(buf *bufio.Writer) error {
 	sb.WriteString("--\n")
 	sb.WriteString("-- https://github.com/liweiyi88/onedump\n")
 	sb.WriteString("--\n")
-	sb.WriteString("-- Database: " + mysql.DBName + "\n")
+	sb.WriteString("-- Database: " + m.DBConfig.DBName + "\n")
 	sb.WriteString("\n\n")
 	sb.WriteString("/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;\n")
 	sb.WriteString("/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;\n")
@@ -339,7 +317,7 @@ func (mysql *MysqlNativeDump) writeHeader(buf *bufio.Writer) error {
 	return err
 }
 
-func (mysql *MysqlNativeDump) writeFooter(buf *bufio.Writer) error {
+func (m *MysqlNativeDump) writeFooter(buf *bufio.Writer) error {
 	var sb strings.Builder
 	sb.WriteString("\n\n")
 	sb.WriteString("/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;\n")
@@ -349,22 +327,23 @@ func (mysql *MysqlNativeDump) writeFooter(buf *bufio.Writer) error {
 	sb.WriteString("/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;\n")
 	sb.WriteString("/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;\n")
 	sb.WriteString("/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;")
+	sb.WriteString("\n\n")
 
 	_, err := buf.WriteString(sb.String())
 	return err
 }
 
-func (mysql *MysqlNativeDump) writeTableStructure(buf *bufio.Writer, table string) error {
+func (m *MysqlNativeDump) writeTableStructure(buf *bufio.Writer, table string) error {
 	var sb strings.Builder
 
-	if !mysql.options.isEnabled(skipAddDropTable) {
+	if !m.options.isEnabled(skipAddDropTable) {
 		sb.WriteString(fmt.Sprintf("DROP TABLE IF EXISTS `%s`;\n", table))
 	}
 
 	var name string
 	var createTable string
 
-	row := mysql.db.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", table))
+	row := m.db.QueryRow(fmt.Sprintf("SHOW CREATE TABLE `%s`", table))
 	err := row.Scan(&name, &createTable)
 
 	if err != nil {
@@ -378,15 +357,55 @@ func (mysql *MysqlNativeDump) writeTableStructure(buf *bufio.Writer, table strin
 	return err
 }
 
-func (mysql *MysqlNativeDump) Dump(storage io.Writer) error {
+func (m *MysqlNativeDump) Dump(storage io.Writer) error {
+	if m.viaSsh {
+		sshClient, err := dialer.NewSsh(m.sshHost, m.sshKey, m.sshUser).CreateSshClient()
+
+		if err != nil {
+			return fmt.Errorf("failed to create sshClient: %v", err)
+		}
+
+		defer func() {
+			err := sshClient.Close()
+
+			if err != nil {
+				slog.Error("failed to close SSH connection", slog.Any("error", err))
+			}
+
+			slog.Debug("SSH connection closed")
+		}()
+
+		mysql.RegisterDialContext("tcp", func(ctx context.Context, addr string) (net.Conn, error) {
+			if err != nil {
+				return nil, fmt.Errorf("failed to create ssh client, error: %v", err)
+			}
+
+			return sshClient.Dial("tcp", addr)
+		})
+	}
+
+	db, err := sql.Open("mysql", m.DBConfig.FormatDSN())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pingErr := db.Ping()
+
+	if pingErr != nil {
+		return pingErr
+	}
+
+	m.db = db
+	slog.Debug("database connected.")
+
 	defer func() {
-		err := mysql.db.Close()
+		err := m.db.Close()
 		if err != nil {
 			slog.Error("failed to close db", slog.Any("error", err))
 		}
 	}()
 
-	tables, err := mysql.getTables()
+	tables, err := m.getTables()
 	if err != nil {
 		return err
 	}
@@ -394,27 +413,27 @@ func (mysql *MysqlNativeDump) Dump(storage io.Writer) error {
 	buf := bufio.NewWriter(storage)
 	defer buf.Flush()
 
-	err = mysql.writeHeader(buf)
+	err = m.writeHeader(buf)
 	if err != nil {
 		return fmt.Errorf("failed to write dump header, error: %v", err)
 	}
 
 	for _, table := range tables {
-		err := mysql.writeTableStructure(buf, table)
+		err := m.writeTableStructure(buf, table)
 		if err != nil {
 			return fmt.Errorf("failed to write table structure, table: %s, error: %v", table, err)
 		}
 	}
 
 	for _, table := range tables {
-		err := mysql.writeTableContent(buf, table)
+		err := m.writeTableContent(buf, table)
 
 		if err != nil {
 			return fmt.Errorf("failed to write table content, table: %s, error: %v", table, err)
 		}
 	}
 
-	err = mysql.writeFooter(buf)
+	err = m.writeFooter(buf)
 	if err != nil {
 		return fmt.Errorf("failed to write dump footer, error: %v", err)
 	}

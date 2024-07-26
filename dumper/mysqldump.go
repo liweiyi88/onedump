@@ -173,8 +173,7 @@ func (mysql *MysqlDump) Dump(storage io.Writer) error {
 			return err
 		}
 
-		runner := runner.NewSshRunner(mysql.sshHost, mysql.sshKey, mysql.sshUser, command)
-		return runner.Run(storage)
+		return runner.NewSshRunner(mysql.sshHost, mysql.sshKey, mysql.sshUser, command).Run(storage)
 	}
 
 	command, args, err := mysql.getExecDumpCommand()
@@ -182,6 +181,5 @@ func (mysql *MysqlDump) Dump(storage io.Writer) error {
 		return err
 	}
 
-	runner := runner.NewExecRunner(command, args, nil)
-	return runner.Run(storage)
+	return runner.NewExecRunner(command, args, nil).Run(storage)
 }

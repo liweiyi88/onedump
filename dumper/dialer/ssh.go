@@ -33,7 +33,7 @@ func (s *Ssh) CreateSshClient() (*ssh.Client, error) {
 
 	signer, err := ssh.ParsePrivateKey([]byte(s.key))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create singer :%w", err)
+		return nil, fmt.Errorf("failed to create ssh singer :%w", err)
 	}
 
 	conf := &ssh.ClientConfig{

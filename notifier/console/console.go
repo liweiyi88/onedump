@@ -1,7 +1,7 @@
 package console
 
 import (
-	"fmt"
+	"log/slog"
 
 	"github.com/liweiyi88/onedump/jobresult"
 )
@@ -14,7 +14,7 @@ func New() *Console {
 
 func (console *Console) Notify(results []*jobresult.JobResult) error {
 	for _, result := range results {
-		fmt.Println(result.String())
+		slog.Info(result.String())
 	}
 	return nil
 }
