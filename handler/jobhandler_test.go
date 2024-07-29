@@ -1,12 +1,7 @@
 package handler
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"testing"
@@ -20,26 +15,11 @@ import (
 	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
 	"github.com/liweiyi88/onedump/storage/s3"
+	"github.com/liweiyi88/onedump/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
 var testDBDsn = "root@tcp(127.0.0.1:3306)/dump_test"
-
-func generateRSAPrivateKey() (string, error) {
-	key, err := rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		return "", fmt.Errorf("could not genereate rsa key pair %w", err)
-	}
-
-	keyPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(key),
-		},
-	)
-
-	return string(keyPEM), nil
-}
 
 func TestGenerateCacheFileName(t *testing.T) {
 	expectedLen := 5
@@ -51,7 +31,7 @@ func TestGenerateCacheFileName(t *testing.T) {
 
 func TestDo(t *testing.T) {
 	assert := assert.New(t)
-	privateKey, err := generateRSAPrivateKey()
+	privateKey, err := testutils.GenerateRSAPrivateKey()
 	assert.Nil(err)
 
 	jobs := make([]*config.Job, 0, 1)
@@ -97,8 +77,9 @@ func TestDo(t *testing.T) {
 	go func(onedump config.Dump) {
 		for _, job := range onedump.Jobs {
 			NewJobHandler(job).Do()
-			finishCh <- struct{}{}
 		}
+
+		finishCh <- struct{}{}
 	}(onedump)
 
 	nConn, err := listener.Accept()
