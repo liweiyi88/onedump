@@ -13,8 +13,8 @@ Onedump is a database dump and backup tool that can dump different databases to 
 
 ## Features
 * Database backup from different sources to different destinations.
-* MySQL dump with zero dependencies (built-in mysql native dumper). 
-* Supports dumpers with dependencies (`mysqldump` and `pg_dump`) when you need more advanced dump features.
+* MySQL dump with zero dependencies (with built-in mysql native dumper). 
+* Supports dumpers with dependencies (`mysqldump` and `pg_dump`).
 * Loads configuration from S3 bucket.
 * Compression (use `job.gzip: true` to enable compression).
 * Unique filename (use `job.unique: true` to enable unique filename).
@@ -50,15 +50,15 @@ $ onedump
 
 Docker images are also available in [Docker Hub](https://hub.docker.com/r/julianli/onedump/tags).
 
-#### When to use Docker image
+#### When to use the Docker image
 1. You want run `onedump` in Kubernetes, ECS, or any other container environment.
 
 2. Currently, `onedump` does not provide a native PostgreSQL dumper out of the box. Therefore, for PostgreSQL, you need to have `pg_dump` installed on the same machine. The Docker image includes `pg_dump`, making it easier to run `onedump` without additional manual installation.
 
-3. The current native MySQL dumper doesn't fit your needs and you need `mysqldump`.
+3. When the current native MySQL dumper doesn't fit your needs and you need `mysqldump`.
 
 #### Use a specific pg_dump version
-The docker image contains mysql client, postgresql15-client and postgresql16-client. By default it uses postgresql16-client. However, you can pass an environemnt `PG_VERSION` to swtich postgresql client version between `15` and `16`. For example, `docker run -e PG_VERSION=15 julianli/onedump:v1.2.0-arm64 -f config.yaml`.
+The docker image contains `mysql` client, `postgresql15-client` and `postgresql16-client`. By default it uses `postgresql16-client`. However, you can pass an environemnt `PG_VERSION` to swtich postgresql client version between `15` and `16`. For example, `docker run -e PG_VERSION=15 julianli/onedump:v1.2.0-arm64 -f config.yaml`.
 
 > Although we maintain both `ARM64` and `AMD64` Docker images, usually what you need is the `AMD64` image on your production Linux machine. For example: `julianli/onedump:v1.2.0-amd64`*
 
@@ -66,7 +66,7 @@ The docker image contains mysql client, postgresql15-client and postgresql16-cli
 
 `onedump` provides a native MySQL dumper, allowing you to use the `onedump` binary to dump your MySQL database contents without needing `mysqldump` be installed on your machine.
 
-If you need more advanced MySQL dump features or for PostgreSQL dump, you may want to use `mysqldump` or `pg_dump` dumper, which you need to install the below dependencies.
+If you need more advanced MySQL dump features or for PostgreSQL dump, you may want to use `mysqldump` or `pg_dump` dumper, which you need to install the below dependencies on the machine.
 
 MySQL: `mysql-client`  
 PostgreSQL: `postgresql-client`
