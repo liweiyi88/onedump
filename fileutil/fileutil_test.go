@@ -5,43 +5,33 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestEnsureFileName(t *testing.T) {
 	p := EnsureFileName("/Users/jack/Desktop/hello.sql", true, false)
-
-	if p != "/Users/jack/Desktop/hello.sql.gz" {
-		t.Errorf("unexpected filename: %s", p)
-	}
+	assert.Equal(t, "/Users/jack/Desktop/hello.sql.gz", p)
 }
 
 func TestEnsureFileSuffix(t *testing.T) {
+	assert := assert.New(t)
 	f := EnsureFileSuffix("test.sql", true)
-
-	if f != "test.sql.gz" {
-		t.Errorf("expected .gz extension but got: %s", f)
-	}
+	assert.Equal("test.sql.gz", f)
 
 	f = EnsureFileSuffix("test.sql.gz", true)
-
-	if f != "test.sql.gz" {
-		t.Errorf("expected .gz extension but got: %s", f)
-	}
+	assert.Equal("test.sql.gz", f)
 
 	f = EnsureFileSuffix("test.sql", false)
-
-	if f != "test.sql" {
-		t.Errorf("expected .sql extension but got: %s", f)
-	}
+	assert.Equal("test.sql", f)
 }
 
 func TestEnsureUniqueness(t *testing.T) {
+	assert := assert.New(t)
 	path := "/Users/jack/Desktop/hello.sql"
 
 	p := ensureUniqueness(path, false)
-	if path != p {
-		t.Errorf("expected same paths but got %s", p)
-	}
+	assert.Equal(p, path)
 
 	p = ensureUniqueness(path, true)
 
@@ -49,19 +39,11 @@ func TestEnsureUniqueness(t *testing.T) {
 
 	now := time.Now().UTC().Format("2006010215")
 
-	if !strings.HasPrefix(filename, now) {
-		t.Errorf("got incorrect filename prefix: %s", filename)
-	}
-
-	if !strings.HasSuffix(filename, "-hello.sql") {
-		t.Errorf("got incorrect filename suffix: %s", filename)
-	}
+	assert.True(strings.HasPrefix(filename, now))
+	assert.True(strings.HasSuffix(filename, "-hello.sql"))
 }
 
 func TestGenerateRandomName(t *testing.T) {
 	n := GenerateRandomName(10)
-
-	if len(n) != 10 {
-		t.Errorf("expect length 10: but got: %d", len(n))
-	}
+	assert.Len(t, n, 10)
 }

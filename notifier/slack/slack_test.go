@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/liweiyi88/onedump/jobresult"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNotify(t *testing.T) {
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "done")
@@ -33,9 +33,7 @@ func TestNotify(t *testing.T) {
 	results := make([]*jobresult.JobResult, 0, 2)
 
 	err := slack.Notify(results)
-	if err != nil {
-		t.Errorf("unexpected err: %v", err)
-	}
+	assert.Nil(t, err)
 
 	results = append(results, &jobresult.JobResult{
 		JobName: "success job",
@@ -49,14 +47,10 @@ func TestNotify(t *testing.T) {
 	})
 
 	err = slack.Notify(results)
-	if err != nil {
-		t.Errorf("unexpected err: %v", err)
-	}
+	assert.Nil(t, err)
 
 	slack.IncomingWebhook = svr.URL + "/failed"
 
 	err = slack.Notify(results)
-	if err == nil {
-		t.Error("expected error but got nil")
-	}
+	assert.NotNil(t, err)
 }

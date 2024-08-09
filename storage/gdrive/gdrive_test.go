@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/liweiyi88/onedump/storage"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSave(t *testing.T) {
@@ -18,7 +19,5 @@ func TestSave(t *testing.T) {
 	reader := strings.NewReader("hello gdrive")
 
 	err := gdrive.Save(reader, storage.PathGenerator(true, true))
-	if err == nil {
-		t.Errorf("expected googld drive api error")
-	}
+	assert.NotNil(t, err)
 }

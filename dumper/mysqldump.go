@@ -1,7 +1,8 @@
-package driver
+package dumper
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -11,20 +12,26 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
-
+	"github.com/liweiyi88/onedump/config"
+	"github.com/liweiyi88/onedump/dumper/runner"
 	"github.com/liweiyi88/onedump/fileutil"
 )
 
-type MysqlDriver struct {
-	credentialFiles     []string
-	MysqlDumpBinaryPath string
-	Options             []string
-	ViaSsh              bool
+type MysqlDump struct {
+	credentialFiles []string
+	path            string
+	options         []string
+	viaSsh          bool
+	sshHost         string
+	sshUser         string
+	sshKey          string
 	*DBConfig
 }
 
-// Create the mysql dump driver.
-func NewMysqlDriver(dsn string, options []string, viaSsh bool) (*MysqlDriver, error) {
+func NewMysqlDump(job *config.Job) (*MysqlDump, error) {
+	dsn := job.DBDsn
+	options := job.DumpOptions
+
 	config, err := mysql.ParseDSN(dsn)
 	if err != nil {
 		return nil, err
@@ -46,32 +53,35 @@ func NewMysqlDriver(dsn string, options []string, viaSsh bool) (*MysqlDriver, er
 		commandOptions = options
 	}
 
-	return &MysqlDriver{
-		MysqlDumpBinaryPath: "mysqldump",
-		Options:             commandOptions,
-		ViaSsh:              viaSsh,
-		DBConfig:            NewDBConfig(config.DBName, config.User, config.Passwd, host, dbPort),
+	return &MysqlDump{
+		path:     "mysqldump",
+		options:  commandOptions,
+		viaSsh:   job.ViaSsh(),
+		sshHost:  job.SshHost,
+		sshUser:  job.SshUser,
+		sshKey:   job.SshKey,
+		DBConfig: NewDBConfig(config.DBName, config.User, config.Passwd, host, dbPort),
 	}, nil
 }
 
 // Get the exec dump command.
-func (mysql *MysqlDriver) GetExecDumpCommand() (string, []string, error) {
+func (mysql *MysqlDump) getExecDumpCommand() (string, []string, error) {
 	args, err := mysql.getDumpCommandArgs()
 
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to get dump command args %w", err)
 	}
 
-	mysqldumpBinaryPath, err := exec.LookPath(mysql.MysqlDumpBinaryPath)
+	mysqldumpBinaryPath, err := exec.LookPath(mysql.path)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to find mysqldump executable %s %w", mysql.MysqlDumpBinaryPath, err)
+		return "", nil, fmt.Errorf("failed to find mysqldump executable %s %w", mysql.path, err)
 	}
 
 	return mysqldumpBinaryPath, args, nil
 }
 
 // Get dump command used by ssh dumper.
-func (mysql *MysqlDriver) GetSshDumpCommand() (string, error) {
+func (mysql *MysqlDump) getSshDumpCommand() (string, error) {
 	args, err := mysql.getDumpCommandArgs()
 	if err != nil {
 		return "", err
@@ -80,10 +90,10 @@ func (mysql *MysqlDriver) GetSshDumpCommand() (string, error) {
 	return fmt.Sprintf("mysqldump %s", strings.Join(args, " ")), nil
 }
 
-func (mysql *MysqlDriver) getDumpCommandArgs() ([]string, error) {
+func (mysql *MysqlDump) getDumpCommandArgs() ([]string, error) {
 	args := []string{}
 
-	if !mysql.ViaSsh {
+	if !mysql.viaSsh {
 		credentialsFileName, err := mysql.createCredentialFile()
 		if err != nil {
 			return nil, err
@@ -95,7 +105,7 @@ func (mysql *MysqlDriver) getDumpCommandArgs() ([]string, error) {
 		args = append(args, "-u "+mysql.Username+" -p"+mysql.Password)
 	}
 
-	args = append(args, mysql.Options...)
+	args = append(args, mysql.options...)
 	args = append(args, mysql.DBName)
 
 	return args, nil
@@ -103,7 +113,7 @@ func (mysql *MysqlDriver) getDumpCommandArgs() ([]string, error) {
 
 // Store the username password in a temp file, and use it with the mysqldump command.
 // It avoids to expoes credentials when you run the mysqldump command as user can view the whole command via ps aux.
-func (mysql *MysqlDriver) createCredentialFile() (string, error) {
+func (mysql *MysqlDump) createCredentialFile() (string, error) {
 	contents := `[client]
 user = %s
 password = %s
@@ -134,13 +144,8 @@ host = %s`
 	return file.Name(), nil
 }
 
-// Get the required environment variables for running exec dump.
-func (mysql *MysqlDriver) ExecDumpEnviron() ([]string, error) {
-	return nil, nil
-}
-
 // Cleanup the credentials file.
-func (mysql *MysqlDriver) Close() error {
+func (mysql *MysqlDump) close() error {
 	var err error
 	if len(mysql.credentialFiles) > 0 {
 		for _, filename := range mysql.credentialFiles {
@@ -153,4 +158,28 @@ func (mysql *MysqlDriver) Close() error {
 	}
 
 	return err
+}
+
+func (mysql *MysqlDump) Dump(storage io.Writer) error {
+	defer func() {
+		if err := mysql.close(); err != nil {
+			log.Printf("could not mysqldump credential files db driver: %v", err)
+		}
+	}()
+
+	if mysql.viaSsh {
+		command, err := mysql.getSshDumpCommand()
+		if err != nil {
+			return err
+		}
+
+		return runner.NewSshRunner(mysql.sshHost, mysql.sshKey, mysql.sshUser, command).Run(storage)
+	}
+
+	command, args, err := mysql.getExecDumpCommand()
+	if err != nil {
+		return err
+	}
+
+	return runner.NewExecRunner(command, args, nil).Run(storage)
 }

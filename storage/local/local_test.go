@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/liweiyi88/onedump/storage"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSave(t *testing.T) {
@@ -16,18 +17,11 @@ func TestSave(t *testing.T) {
 	reader := strings.NewReader(expected)
 
 	err := local.Save(reader, storage.PathGenerator(true, false))
-	if err != nil {
-		t.Errorf("failed to save file: %v", err)
-	}
+	assert.Nil(t, err)
 
 	data, err := os.ReadFile(filename)
-	if err != nil {
-		t.Errorf("can not read file %s", err)
-	}
+	assert.Nil(t, err)
 
-	if string(data) != expected {
-		t.Errorf("expected string: %s but actual got: %s", expected, data)
-	}
-
+	assert.Equal(t, expected, string(data))
 	defer os.Remove(filename)
 }

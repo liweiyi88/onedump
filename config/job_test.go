@@ -6,39 +6,34 @@ import (
 	"time"
 
 	"github.com/liweiyi88/onedump/jobresult"
+	"github.com/stretchr/testify/assert"
 )
 
 var testDBDsn = "root@tcp(127.0.0.1:3306)/dump_test"
 
 func TestWithSshHost(t *testing.T) {
 	job := NewJob("job", "mysql", testDBDsn, WithSshHost("localhost"))
-	if job.SshHost != "localhost" {
-		t.Errorf("expect ssh host: localhost but got: %s", job.SshHost)
-	}
+	assert.Equal(t, "localhost", job.SshHost)
 }
 
 func TestWithSshUser(t *testing.T) {
 	job := NewJob("job", "mysql", testDBDsn, WithSshUser("root"))
-	if job.SshUser != "root" {
-		t.Errorf("expect ssh user: root but got: %s", job.SshUser)
-	}
+	assert.Equal(t, "root", job.SshUser)
 }
 
 func TestWithGzip(t *testing.T) {
 	job := NewJob("job", "mysql", testDBDsn, WithGzip(true))
-	if !job.Gzip {
-		t.Error("expect gzip but got false")
-	}
+	assert.True(t, job.Gzip)
 }
 
 func TestWithSshKey(t *testing.T) {
 	job := NewJob("job", "mysql", testDBDsn, WithSshKey("ssh key"))
-	if job.SshKey != "ssh key" {
-		t.Errorf("expect ssh key: ssh key, but got: %s", job.SshKey)
-	}
+	assert.Equal(t, "ssh key", job.SshKey)
 }
 
 func TestValidateDump(t *testing.T) {
+	assert := assert.New(t)
+
 	jobs := make([]*Job, 0)
 	job1 := NewJob(
 		"job1",
@@ -55,48 +50,37 @@ func TestValidateDump(t *testing.T) {
 	dump := Dump{Jobs: jobs}
 
 	err := dump.Validate()
-	if err != nil {
-		t.Errorf("expected validate dump but got err :%v", err)
-	}
+	assert.Nil(err)
 
 	job2 := NewJob("", "mysql", "")
 	jobs = append(jobs, job2)
 	dump.Jobs = jobs
 	err = dump.Validate()
-
-	if !errors.Is(err, ErrMissingJobName) {
-		t.Errorf("expected err: %v, actual got: %v", ErrMissingJobName, err)
-	}
+	assert.ErrorIs(err, ErrMissingJobName)
 
 	job3 := NewJob("job3", "mysql", "")
 	jobs = append(jobs, job3)
 	dump.Jobs = jobs
 	err = dump.Validate()
-
-	if !errors.Is(err, ErrMissingDBDsn) {
-		t.Errorf("expected err: %v, actual got: %v", ErrMissingJobName, err)
-	}
+	assert.ErrorIs(err, ErrMissingDBDsn)
 
 	job4 := NewJob("job3", "", testDBDsn)
 	jobs = append(jobs, job4)
 	dump.Jobs = jobs
 	err = dump.Validate()
 
-	if !errors.Is(err, ErrMissingDBDriver) {
-		t.Errorf("expected err: %v, actual got: %v", ErrMissingJobName, err)
-	}
+	assert.ErrorIs(err, ErrMissingDBDriver)
 }
 
 func TestResultString(t *testing.T) {
+	assert := assert.New(t)
 	r1 := &jobresult.JobResult{
 		JobName: "job1",
 		Elapsed: time.Second,
 	}
 
 	s := r1.String()
-	if s != "job1 succeeded, it took 1s" {
-		t.Errorf("unexpected string result: %s", s)
-	}
+	assert.Equal("job1 succeeded, it took 1s", s)
 
 	r2 := &jobresult.JobResult{
 		Error:   errors.New("test err"),
@@ -105,23 +89,17 @@ func TestResultString(t *testing.T) {
 	}
 
 	s = r2.String()
-	if s != "job1 failed, it took 1s with error: test err" {
-		t.Errorf("unexpected string result: %s", s)
-	}
+	assert.Equal("job1 failed, it took 1s with error: test err", s)
 }
 
 func TestViaSsh(t *testing.T) {
+	assert := assert.New(t)
 	job := &Job{}
-
-	if job.ViaSsh() != false {
-		t.Error("expected false but got true")
-	}
+	assert.False(job.ViaSsh())
 
 	job.SshHost = "mydump.com"
 	job.SshUser = "admin"
 	job.SshKey = "my-ssh-key"
 
-	if job.ViaSsh() != true {
-		t.Error("expected via ssh but got false")
-	}
+	assert.True(job.ViaSsh())
 }

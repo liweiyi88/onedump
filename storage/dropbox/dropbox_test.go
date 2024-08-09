@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"github.com/liweiyi88/onedump/storage"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHasTokenExpired(t *testing.T) {
+	assert := assert.New(t)
 	d := &Dropbox{
 		RefreshToken: "refresh_token",
 		ClientId:     "clientid",
@@ -19,22 +21,17 @@ func TestHasTokenExpired(t *testing.T) {
 	}
 
 	expired := d.hasTokenExpired()
-	if expired != true {
-		t.Errorf("default expiredIn should indicate expired, but actual got not expired.")
-	}
+	assert.True(expired)
 
 	d.expiredAt = time.Now().Add((expiredGap + 1) * time.Second)
-	if d.hasTokenExpired() {
-		t.Errorf("expected not exipre token but got expired.")
-	}
+	assert.False(d.hasTokenExpired())
 
 	d.expiredAt = time.Now().Add(expiredGap * time.Second)
-	if !d.hasTokenExpired() {
-		t.Errorf("expected expired token but got not expired.")
-	}
+	assert.True(d.hasTokenExpired())
 }
 
 func TestGetAccessToken(t *testing.T) {
+	assert := assert.New(t)
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/oauth2/token", func(w http.ResponseWriter, r *http.Request) {
@@ -56,19 +53,12 @@ func TestGetAccessToken(t *testing.T) {
 	}()
 
 	dropbox := &Dropbox{}
-	if err := dropbox.getAccessToken(); err != nil {
-		t.Errorf("expect success but got err: %v", err)
-	}
 
-	if dropbox.accessToken != "sl.BYBntuwSqTes9FsYOrJ68Hi_UvEDH5cZzqt3QSJ3fvVAz" {
-		t.Errorf("got unexpcted token: %v", dropbox.accessToken)
-	}
+	assert.Nil(dropbox.getAccessToken())
+	assert.Equal("sl.BYBntuwSqTes9FsYOrJ68Hi_UvEDH5cZzqt3QSJ3fvVAz", dropbox.accessToken)
 
 	oauthTokenEndpoint = svr.URL + "/oauth2/token-wrongjson"
-
-	if err := dropbox.getAccessToken(); err == nil {
-		t.Error("expect unmarshal error but got no err")
-	}
+	assert.NotNil(dropbox.getAccessToken())
 }
 
 func TestSaveSuccess(t *testing.T) {
@@ -122,9 +112,8 @@ func TestSaveSuccess(t *testing.T) {
 
 	sr := strings.NewReader("file upload")
 	err := dropbox.Save(sr, storage.PathGenerator(true, true))
-	if err != nil {
-		t.Errorf("expected err to be nil got %v", err)
-	}
+
+	assert.Nil(t, err)
 }
 
 func TestUploadSessionFailure(t *testing.T) {
@@ -150,8 +139,5 @@ func TestUploadSessionFailure(t *testing.T) {
 	sr := strings.NewReader("file upload")
 
 	err := dropbox.Save(sr, storage.PathGenerator(true, true))
-
-	if err == nil {
-		t.Error("expected error but got nil error")
-	}
+	assert.NotNil(t, err)
 }

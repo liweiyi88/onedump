@@ -13,14 +13,16 @@ Onedump is a database dump and backup tool that can dump different databases to 
 
 ## Features
 * Database backup from different sources to different destinations.
-* Load configuration from S3 bucket.
+* MySQL dump with zero dependencies (built-in mysql native dumper). 
+* Supports dumpers with dependencies (`mysqldump` and `pg_dump`) when you need more advanced dump features.
+* Loads configuration from S3 bucket.
 * Compression (use `job.gzip: true` to enable compression).
 * Unique filename (use `job.unique: true` to enable unique filename).
 * Slack notification.
-* Maintained docker image.
+* Maintained docker image that contains all dependencies.
 
 ### Supported data sources
-| Driver | Status |
+| Databases | Status |
 | --- | --- |
 | MySQL | ✅ Suported |
 | PostgreSQL | ✅ Suported |
@@ -45,16 +47,31 @@ $ onedump
 ```
 
 ### Docker image
-If you want to run Onedump in Kubernetes, ECS, or any other container environment, Docker images are also available in [Docker Hub](https://hub.docker.com/r/julianli/onedump/tags).
+
+Docker images are also available in [Docker Hub](https://hub.docker.com/r/julianli/onedump/tags).
+
+#### When to use Docker image
+1. You want run `onedump` in Kubernetes, ECS, or any other container environment.
+
+2. Currently, `onedump` does not provide a native PostgreSQL dumper out of the box. Therefore, for PostgreSQL, you need to have `pg_dump` installed on the same machine. The Docker image includes `pg_dump`, making it easier to run `onedump` without additional manual installation.
+
+3. The current native MySQL dumper doesn't fit your needs and you need `mysqldump`.
 
 #### Use a specific pg_dump version
-The managed docker image contains mysql client, postgresql15-client and postgresql16-client. By default it uses postgresql16-client. However, you can pass an environemnt `PG_VERSION` to swtich postgresql client version between `15` and `16`. For example, `docker run -e PG_VERSION=15 julianli/onedump:v1.2.0-arm64 -f config.yaml`.
+The docker image contains mysql client, postgresql15-client and postgresql16-client. By default it uses postgresql16-client. However, you can pass an environemnt `PG_VERSION` to swtich postgresql client version between `15` and `16`. For example, `docker run -e PG_VERSION=15 julianli/onedump:v1.2.0-arm64 -f config.yaml`.
 
-*Note: Although we maintain both `ARM64` and `AMD64` Docker images, usually what you need is the `AMD64` image on your production Linux machine. For example: `julianli/onedump:v1.2.0-amd64`*
+> Although we maintain both `ARM64` and `AMD64` Docker images, usually what you need is the `AMD64` image on your production Linux machine. For example: `julianli/onedump:v1.2.0-amd64`*
 
 ## Prerequisites
 
-Behind the scenes, `onedump` uses `mysqldump` and `pg_dump` for database dump. If you use Onedump binary on a single machine, make sure you install `mysql-client` or `postgresql-client` as required. If you use the Docker image maintained by us, these tools are included by default. Besides, build the Docker image yourself if you need more customization.
+`onedump` provides a native MySQL dumper, allowing you to use the `onedump` binary to dump your MySQL database contents without needing `mysqldump` be installed on your machine.
+
+If you need more advanced MySQL dump features or for PostgreSQL dump, you may want to use `mysqldump` or `pg_dump` dumper, which you need to install the below dependencies.
+
+MySQL: `mysql-client`  
+PostgreSQL: `postgresql-client`
+
+> If you use the Docker image we maintain, these tools are included by default. Alternatively, you can extend or build the Docker image yourself if you need further customization.
 
 ## Run onedump
 
@@ -226,4 +243,19 @@ Run onedump with cron mode by passing cron experssions.
 
 ```
 $ onedump -f /path/to/config.yaml -c 21h
+```
+
+## The Native MySQL dumper
+
+The MySQL native dumper provides a user experience similar to `mysqldump`. However, it doesn't implement all the features of `mysqldump`. It is suitable for most basic use cases but has some limitations:
+
+1. It doesn't support MySQL Spatial Data Types. For example If you use spatial data types like `GEOMETRY`, `POINT` or `POLYGON`, use `mysqldump` as the dumper.
+
+1. It doesn't support all `mysqldump` options. Currently it supports `--skip-add-drop-table` and `--skip-add-locks`
+
+If the native MySQL dumper doesn't meet your needs, switching to mysqldump is easy. Just update `dbdriver` in the configuration file to `mysqldump`:
+```
+jobs:
+- dbdriver: mysqldump
+  ...
 ```
