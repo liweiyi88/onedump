@@ -112,6 +112,7 @@ func (m *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string) err
 	}()
 
 	columns, err := results.Columns()
+
 	if err != nil {
 		return fmt.Errorf("could not get columns: %v", err)
 	}
@@ -210,7 +211,7 @@ func (m *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string) err
 				case "YEAR":
 					v, ok := value.(int64)
 					if !ok {
-						return fmt.Errorf("cloud not parse YEAR type, expect int64, got %T", value)
+						return fmt.Errorf("could not parse YEAR type, expect int64, got %T", value)
 					}
 					sb.WriteString(fmt.Sprintf("'%d'", v))
 				case "CHAR", "VARCHAR", "TINYTEXT", "TEXT", "MEDIUMTEXT", "LONGTEXT":
@@ -218,7 +219,7 @@ func (m *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string) err
 				case "BINARY":
 					v, ok := value.([]uint8)
 					if !ok {
-						return fmt.Errorf("cloud not parse BINARY type, expect []uint8, got %T", value)
+						return fmt.Errorf("could not parse BINARY type, expect []uint8, got %T", value)
 					}
 
 					v = bytes.TrimRight(v, "\x00") // skip trailing null value

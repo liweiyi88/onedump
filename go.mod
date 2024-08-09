@@ -3,6 +3,7 @@ module github.com/liweiyi88/onedump
 go 1.22.4
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/aws/aws-sdk-go v1.53.18
 	github.com/go-co-op/gocron v1.37.0
 	github.com/go-sql-driver/mysql v1.8.1
