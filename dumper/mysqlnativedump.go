@@ -11,7 +11,6 @@ import (
 	"log/slog"
 	"net"
 	"strings"
-	"time"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/liweiyi88/onedump/config"
@@ -184,11 +183,13 @@ func (m *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string) err
 				case "DECIMAL", "DEC":
 					sb.WriteString(fmt.Sprintf("%s", value))
 				case "DATE":
-					v, ok := value.(time.Time)
+					v, ok := value.([]uint8)
+
 					if !ok {
-						return fmt.Errorf("could not parse DATE type, expect time.Time, got %T", value)
+						return fmt.Errorf("could not parse DATE type, expect []uint8, got %T", value)
 					}
-					sb.WriteString(fmt.Sprintf("'%s'", v.Format("2006-01-02")))
+
+					sb.WriteString(fmt.Sprintf("'%s'", v))
 				case "DATETIME":
 					v, ok := value.([]byte)
 					if !ok {

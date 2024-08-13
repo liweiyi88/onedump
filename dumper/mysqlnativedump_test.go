@@ -89,8 +89,8 @@ func TestWriteTableContentOK(t *testing.T) {
 
 	rows := mock.
 		NewRows([]string{"null", "tinyint", "tinyint_bytes", "float", "float_bytes", "decimal", "date", "datetime", "timestamp", "time", "year", "char", "binary", "varbinary", "bit", "tinyblob", "bool", "bool", "json"}).
-		AddRow(nil, 1, []byte("1"), 1.1, []byte("1.2"), 1.2, time.Now(), []byte("2024-08-09 00:00:00"), []byte("1723161093"), []byte("00:00:00"), 2024, "char", []uint8{1}, "1", []uint8{1}, "tinyblob", true, false, []uint8{1}).
-		AddRow(nil, 1, []byte("1"), 1.1, []byte("1.2"), 1.2, time.Now(), []byte("2024-08-09 00:00:00"), []byte("1723161093"), []byte("00:00:00"), 2024, "char", []uint8{1}, "1", []uint8{1}, "tinyblob", true, false, []uint8{1})
+		AddRow(nil, 1, []byte("1"), 1.1, []byte("1.2"), 1.2, []uint8{50, 48, 50, 52, 45, 48, 54, 45, 49, 55}, []byte("2024-08-09 00:00:00"), []byte("1723161093"), []byte("00:00:00"), 2024, "char", []uint8{1}, "1", []uint8{1}, "tinyblob", true, false, []uint8{1}).
+		AddRow(nil, 1, []byte("1"), 1.1, []byte("1.2"), 1.2, []uint8{50, 48, 50, 52, 45, 48, 54, 45, 49, 55}, []byte("2024-08-09 00:00:00"), []byte("1723161093"), []byte("00:00:00"), 2024, "char", []uint8{1}, "1", []uint8{1}, "tinyblob", true, false, []uint8{1})
 
 	val := reflect.ValueOf(rows).Elem()
 	field := val.FieldByName("def")
@@ -102,7 +102,7 @@ func TestWriteTableContentOK(t *testing.T) {
 		sqlmock.NewColumn("new").OfType("FLOAT", 1.1),
 		sqlmock.NewColumn("new").OfType("FLOAT", 1.1),
 		sqlmock.NewColumn("new").OfType("DECIMAL", 1.2),
-		sqlmock.NewColumn("new").OfType("DATE", time.Now()),
+		sqlmock.NewColumn("new").OfType("DATE", []uint8{50, 48, 50, 52, 45, 48, 54, 45, 49, 55}),
 		sqlmock.NewColumn("new").OfType("DATETIME", "2024-08-09 00:00:00"),
 		sqlmock.NewColumn("new").OfType("TIMESTAMP", "1723161093"),
 		sqlmock.NewColumn("new").OfType("TIME", "00:00:00"),
@@ -194,7 +194,7 @@ func TestWriteTableContentInvalidColumnType(t *testing.T) {
 		sqlmock.NewColumn("new").OfType("UNSUPPORT", "12"),
 	})
 
-	want := []string{"could not parse DATE type, expect time.Time, got string",
+	want := []string{"could not parse DATE type, expect []uint8, got string",
 		"could not parse DATETIME type, expect []byte, got string",
 		"could not parse TIMESTAMP type, expect []byte, got string",
 		"could not parse TIME type, expect []byte, got string",
