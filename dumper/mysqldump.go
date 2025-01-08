@@ -88,7 +88,7 @@ func (mysql *MysqlDump) getExecDumpCommand() (string, []string, error) {
 	wholeCmd := "sh"
 	wholeArgs := []string{
 		"-c",
-		fmt.Sprintf("%s %s | pynonymizer --input - --strategy %s --output - --db-type postgres --db-user %s --db-host %s --db-password %s",
+		fmt.Sprintf("%s %s | pynonymizer --input - --strategy %s --output - --db-type mysql --db-user %s --db-host %s --db-password %s",
 			mysqldumpBinaryPath,
 			args,
 			mysql.strategyFile,
@@ -113,7 +113,7 @@ func (mysql *MysqlDump) getSshDumpCommand() (string, error) {
 		return baseCmd, nil
 	}
 
-	wholeCmd := fmt.Sprintf("%s | pynonymizer --input - --strategy %s --output - --db-type postgres --db-user %s --db-host %s --db-password %s",
+	wholeCmd := fmt.Sprintf("%s | pynonymizer --input - --strategy %s --output - --db-type mysql --db-user %s --db-host %s --db-password %s",
 		baseCmd,
 		mysql.strategyFile,
 		mysql.Username,
