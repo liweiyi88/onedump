@@ -25,6 +25,8 @@ type MysqlDump struct {
 	sshHost         string
 	sshUser         string
 	sshKey          string
+	anonymize       bool
+	strategyFile    string
 	*DBConfig
 }
 
@@ -54,13 +56,15 @@ func NewMysqlDump(job *config.Job) (*MysqlDump, error) {
 	}
 
 	return &MysqlDump{
-		path:     "mysqldump",
-		options:  commandOptions,
-		viaSsh:   job.ViaSsh(),
-		sshHost:  job.SshHost,
-		sshUser:  job.SshUser,
-		sshKey:   job.SshKey,
-		DBConfig: NewDBConfig(config.DBName, config.User, config.Passwd, host, dbPort),
+		path:         "mysqldump",
+		options:      commandOptions,
+		viaSsh:       job.ViaSsh(),
+		sshHost:      job.SshHost,
+		sshUser:      job.SshUser,
+		sshKey:       job.SshKey,
+		anonymize:    job.Anonymize.Enabled,
+		strategyFile: job.Anonymize.StrategyFile,
+		DBConfig:     NewDBConfig(config.DBName, config.User, config.Passwd, host, dbPort),
 	}, nil
 }
 
@@ -77,7 +81,24 @@ func (mysql *MysqlDump) getExecDumpCommand() (string, []string, error) {
 		return "", nil, fmt.Errorf("failed to find mysqldump executable %s %w", mysql.path, err)
 	}
 
-	return mysqldumpBinaryPath, args, nil
+	if !mysql.anonymize {
+		return mysqldumpBinaryPath, args, nil
+	}
+
+	wholeCmd := "sh"
+	wholeArgs := []string{
+		"-c",
+		fmt.Sprintf("%s %s | pynonymizer --input - --strategy %s --output - --db-type postgres --db-user %s --db-host %s --db-password %s",
+			mysqldumpBinaryPath,
+			args,
+			mysql.strategyFile,
+			mysql.Username,
+			mysql.Host,
+			mysql.Password,
+		),
+	}
+
+	return wholeCmd, wholeArgs, nil
 }
 
 // Get dump command used by ssh dumper.
@@ -87,7 +108,19 @@ func (mysql *MysqlDump) getSshDumpCommand() (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("mysqldump %s", strings.Join(args, " ")), nil
+	baseCmd := fmt.Sprintf("mysqldump %s", strings.Join(args, " "))
+	if !mysql.anonymize {
+		return baseCmd, nil
+	}
+
+	wholeCmd := fmt.Sprintf("%s | pynonymizer --input - --strategy %s --output - --db-type postgres --db-user %s --db-host %s --db-password %s",
+		baseCmd,
+		mysql.strategyFile,
+		mysql.Username,
+		mysql.Host,
+		mysql.Password,
+	)
+	return wholeCmd, nil
 }
 
 func (mysql *MysqlDump) getDumpCommandArgs() ([]string, error) {

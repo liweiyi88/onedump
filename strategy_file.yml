@@ -1,0 +1,7 @@
+tables:
+  contact:  # table_name
+    columns:
+      email: email   # column_name
+  signup: truncate   # table_name
+      
+  

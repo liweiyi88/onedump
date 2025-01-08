@@ -1,0 +1,12 @@
+# Example of new config
+jobs:
+- name: local-dump
+  dbdriver: postgresql
+  dbdsn: postgres://postgres:9520024606@localhost:5432/BTECH
+  gzip: false
+  anonymize:
+    enabled: true
+    strategy_file: strategy_file.yml
+  storage:
+    local:
+      - path: anonymized_dump.sql

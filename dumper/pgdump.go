@@ -25,6 +25,8 @@ type PgDump struct {
 	sshHost         string
 	sshUser         string
 	sshKey          string
+	anonymize       bool
+	strategyFile    string
 	*DBConfig
 }
 
@@ -39,13 +41,15 @@ func NewPgDump(job *config.Job) (*PgDump, error) {
 	}
 
 	return &PgDump{
-		path:     "pg_dump",
-		options:  options,
-		viaSsh:   job.ViaSsh(),
-		sshHost:  job.SshHost,
-		sshUser:  job.SshUser,
-		sshKey:   job.SshKey,
-		DBConfig: NewDBConfig(config.Database, config.User, config.Password, config.Host, int(config.Port)),
+		path:         "pg_dump",
+		options:      options,
+		viaSsh:       job.ViaSsh(),
+		sshHost:      job.SshHost,
+		sshUser:      job.SshUser,
+		sshKey:       job.SshKey,
+		anonymize:    job.Anonymize.Enabled,
+		strategyFile: job.Anonymize.StrategyFile,
+		DBConfig:     NewDBConfig(config.Database, config.User, config.Password, config.Host, int(config.Port)),
 	}, nil
 }
 
@@ -68,7 +72,24 @@ func (psql *PgDump) getExecDumpCommand() (string, []string, error) {
 		return "", nil, fmt.Errorf("failed to find pg_dump executable %s %w", psql.path, err)
 	}
 
-	return pgDumpPath, psql.getDumpCommandArgs(), nil
+	if !psql.anonymize {
+		return pgDumpPath, psql.getDumpCommandArgs(), nil
+	}
+
+	wholeCmd := "sh"
+	wholeArgs := []string{
+		"-c",
+		fmt.Sprintf("%s %s | pynonymizer --input - --strategy %s --output - --db-type postgres --db-user %s --db-host %s --db-password %s",
+			pgDumpPath,
+			psql.getDumpCommandArgs(),
+			psql.strategyFile,
+			psql.Username,
+			psql.Host,
+			psql.Password,
+		),
+	}
+
+	return wholeCmd, wholeArgs, nil
 }
 
 // Get the required environment variables for running exec dump.
@@ -84,7 +105,21 @@ func (psql *PgDump) execDumpEnviron() ([]string, error) {
 
 // Get the ssh dump command.
 func (psql *PgDump) getSshDumpCommand() (string, error) {
-	return fmt.Sprintf("PGPASSWORD=%s pg_dump %s", psql.Password, strings.Join(psql.getDumpCommandArgs(), " ")), nil
+	baseCmd := fmt.Sprintf("PGPASSWORD=%s pg_dump %s", psql.Password, strings.Join(psql.getDumpCommandArgs(), " "))
+
+	if !psql.anonymize {
+		return baseCmd, nil
+	}
+
+	wholeCmd := fmt.Sprintf("%s | pynonymizer --input - --strategy %s --output - --db-type postgres --db-user %s --db-host %s --db-password %s --db-name %s",
+		baseCmd,
+		psql.strategyFile,
+		psql.Username,
+		psql.Host,
+		psql.Password,
+		psql.DBName,
+	)
+	return wholeCmd, nil
 }
 
 // Cleanup the credentials file.

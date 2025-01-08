@@ -39,16 +39,21 @@ func (dump *Dump) Validate() error {
 	return errs
 }
 
+type AnonymizeConfig struct {
+	Enabled      bool   `yaml:"enabled"`
+	StrategyFile string `yaml:"strategy_file"`
+}
 type Job struct {
-	Name        string   `yaml:"name"`
-	DBDriver    string   `yaml:"dbdriver"`
-	DBDsn       string   `yaml:"dbdsn"`
-	Gzip        bool     `yaml:"gzip"`
-	Unique      bool     `yaml:"unique"`
-	SshHost     string   `yaml:"sshhost"`
-	SshUser     string   `yaml:"sshuser"`
-	SshKey      string   `yaml:"sshkey"`
-	DumpOptions []string `yaml:"options"`
+	Name        string           `yaml:"name"`
+	DBDriver    string           `yaml:"dbdriver"`
+	DBDsn       string           `yaml:"dbdsn"`
+	Gzip        bool             `yaml:"gzip"`
+	Unique      bool             `yaml:"unique"`
+	SshHost     string           `yaml:"sshhost"`
+	SshUser     string           `yaml:"sshuser"`
+	SshKey      string           `yaml:"sshkey"`
+	DumpOptions []string         `yaml:"options"`
+	Anonymize   *AnonymizeConfig `yaml:"anonymize"`
 	Storage     struct {
 		Local   []*local.Local     `yaml:"local"`
 		S3      []*s3.S3           `yaml:"s3"`
