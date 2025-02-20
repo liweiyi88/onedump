@@ -14,6 +14,7 @@ import (
 
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/handler"
+	"github.com/liweiyi88/onedump/slow"
 	"github.com/liweiyi88/onedump/storage/s3"
 )
 
@@ -113,4 +114,9 @@ func init() {
 	rootCmd.Flags().StringVarP(&s3Region, "aws-region", "r", "", "the aws region to read the config file (optional)")
 	rootCmd.Flags().StringVarP(&s3AccessKeyId, "aws-key", "k", "", "aws access key id to overwrite the default one. (optional)")
 	rootCmd.Flags().StringVarP(&s3SecretAccessKey, "aws-secret", "s", "", "aws secret access key to overwrite the default one. (optional)")
+
+	slowCmd.Flags().StringVarP(&sloglog, "file", "f", "", "the file path of the slowlog, it also support folder (required)")
+	slowCmd.Flags().StringVarP(&database, "database", "d", string(slow.MySQL), "the database engine, defaults to mysql (optional)")
+	slowCmd.MarkFlagRequired("file")
+	rootCmd.AddCommand(slowCmd)
 }
