@@ -42,7 +42,7 @@ func TestRootCmdWithCron(t *testing.T) {
 
 	newFd.Close()
 	o := bytes.NewBufferString("")
-	cmd.SetOutput(o)
+	cmd.SetOut(o)
 	cmd.SetArgs([]string{"-f", filename, "-c", "1sec"})
 	err = cmd.Execute()
 	assert.NotNil(err)
@@ -107,7 +107,7 @@ func TestRootCmd(t *testing.T) {
 
 	newFd.Close()
 	o := bytes.NewBufferString("")
-	cmd.SetOutput(o)
+	cmd.SetOut(o)
 	err = cmd.Execute()
 	assert.NotNil(err)
 }

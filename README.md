@@ -15,6 +15,7 @@ Onedump is a database dump and backup tool that can dump different databases to 
 * Database backup from different sources to different destinations.
 * MySQL dump with zero dependencies (with built-in mysql native dumper). 
 * Supports dumpers with dependencies (`mysqldump` and `pg_dump`).
+* MySQL slow log parser.
 * Loads configuration from S3 bucket.
 * Compression (use `job.gzip: true` to enable compression).
 * Unique filename (use `job.unique: true` to enable unique filename).

@@ -115,8 +115,10 @@ func init() {
 	rootCmd.Flags().StringVarP(&s3AccessKeyId, "aws-key", "k", "", "aws access key id to overwrite the default one. (optional)")
 	rootCmd.Flags().StringVarP(&s3SecretAccessKey, "aws-secret", "s", "", "aws secret access key to overwrite the default one. (optional)")
 
-	slowCmd.Flags().StringVarP(&sloglog, "file", "f", "", "the file path of the slowlog, it also support folder (required)")
-	slowCmd.Flags().StringVarP(&database, "database", "d", string(slow.MySQL), "the database engine, defaults to mysql (optional)")
+	slowCmd.Flags().StringVarP(&sloglog, "file", "f", "", "path to the slow log file. a directory can also be specified. (required)")
+	slowCmd.Flags().StringVarP(&database, "database", "d", string(slow.MySQL), "specify the database engine (optional)")
+	slowCmd.Flags().IntVarP(&limit, "limit", "l", 0, "limit the number of results. no limit is set by default. (optional)")
+	slowCmd.Flags().BoolVarP(&mask, "mask", "m", true, "mask query values. enabled by default. (optional)")
 	slowCmd.MarkFlagRequired("file")
 	rootCmd.AddCommand(slowCmd)
 }

@@ -11,6 +11,8 @@ import (
 )
 
 var sloglog, database string
+var limit int
+var mask bool
 
 var slowCmd = &cobra.Command{
 	Use:   "slow",
@@ -18,17 +20,14 @@ var slowCmd = &cobra.Command{
 	Long:  "Database slow log parser, it formats the result in json",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		databaseType := slow.DatabaseType(database)
-		results, err := slow.Parse(sloglog, databaseType)
-		if err != nil {
-			return err
-		}
+		result := slow.Parse(sloglog, databaseType, limit, mask)
 
 		var buffer bytes.Buffer
 
 		encoder := json.NewEncoder(&buffer)
 		encoder.SetEscapeHTML(false)
 
-		err = encoder.Encode(results)
+		err := encoder.Encode(result)
 		fmt.Println(strings.TrimSpace(buffer.String()))
 		return err
 	},
