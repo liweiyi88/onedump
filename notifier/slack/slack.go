@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/liweiyi88/onedump/jobresult"
@@ -74,7 +74,7 @@ func (slack *Slack) Notify(results []*jobresult.JobResult) error {
 	defer func() {
 		err := res.Body.Close()
 		if err != nil {
-			log.Printf("failed to close slack notification response body: %v", err)
+			slog.Error("fail to close slack notification response body", slog.Any("error", err))
 		}
 	}()
 

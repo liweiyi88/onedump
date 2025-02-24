@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 
 	"github.com/liweiyi88/onedump/dumper/dialer"
 )
@@ -32,7 +32,7 @@ func (runner *SshRunner) Run(writer io.Writer) error {
 		// Do not need to call session.Close() here as it will only give EOF error.
 		err = client.Close()
 		if err != nil {
-			log.Printf("failed to close ssh client: %v", err)
+			slog.Error("fail to close ssh client", slog.Any("error", err))
 		}
 	}()
 

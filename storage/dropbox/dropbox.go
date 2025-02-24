@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
@@ -113,7 +113,7 @@ func (dropbox *Dropbox) Save(reader io.Reader, pathGenerator storage.PathGenerat
 					return err
 				}
 
-				log.Printf("started dropbox upload session %s", sessId)
+				slog.Info("started dropbox upload session", slog.Any("sessionId", sessId))
 				sessionId = sessId
 			}
 
@@ -123,7 +123,7 @@ func (dropbox *Dropbox) Save(reader io.Reader, pathGenerator storage.PathGenerat
 					return err
 				}
 
-				log.Printf("finish dropbox upload session with offset: %d", offset)
+				slog.Info("finish dropbox upload session with offset", slog.Any("offset", offset))
 
 				offset += n
 				continue
@@ -134,7 +134,7 @@ func (dropbox *Dropbox) Save(reader io.Reader, pathGenerator storage.PathGenerat
 				return err
 			}
 
-			log.Printf("append dropbox upload session with offset: %d", offset)
+			slog.Info("append dropbox upload session with offset", slog.Any("offset", offset))
 			offset += n
 		}
 	}
@@ -157,7 +157,7 @@ func (dropbox *Dropbox) getAccessToken() error {
 
 	defer func() {
 		if err := res.Body.Close(); err != nil {
-			log.Printf("could not close response body: %v", err)
+			slog.Error("could not close response body", slog.Any("error", err))
 		}
 	}()
 
@@ -273,7 +273,7 @@ func (dropbox *Dropbox) sendRequest(client *http.Client, method string, url stri
 	defer func() {
 		err := response.Body.Close()
 		if err != nil {
-			log.Printf("failed to close upload session response body: %v", err)
+			slog.Error("fail to close upload session response body", slog.Any("error", err))
 		}
 	}()
 

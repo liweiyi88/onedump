@@ -3,7 +3,7 @@ package dumper
 import (
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
@@ -130,7 +130,7 @@ host = %s`
 	defer func() {
 		err := file.Close()
 		if err != nil {
-			log.Printf("failed to close temp file for storing mysql credentials: %v", err)
+			slog.Error("fail to close temp file for storing mysql credentials", slog.Any("error", err))
 		}
 	}()
 
@@ -163,7 +163,7 @@ func (mysql *MysqlDump) close() error {
 func (mysql *MysqlDump) Dump(storage io.Writer) error {
 	defer func() {
 		if err := mysql.close(); err != nil {
-			log.Printf("could not mysqldump credential files db driver: %v", err)
+			slog.Error("could not mysqldump credential files db driver", slog.Any("error", err))
 		}
 	}()
 

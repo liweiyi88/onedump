@@ -3,7 +3,7 @@ package local
 import (
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/liweiyi88/onedump/storage"
@@ -24,7 +24,7 @@ func (local *Local) Save(reader io.Reader, pathGenerator storage.PathGeneratorFu
 	defer func() {
 		err := file.Close()
 		if err != nil {
-			log.Printf("failed to close local dump file %v", err)
+			slog.Error("fail to close local dump file", slog.Any("error", err))
 		}
 	}()
 

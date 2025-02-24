@@ -3,7 +3,7 @@ package dumper
 import (
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strconv"
@@ -113,7 +113,7 @@ func (psql *PgDump) createCredentialFile() (string, error) {
 
 	defer func() {
 		if err := file.Close(); err != nil {
-			log.Printf("could not close file: %s, err: %v", file.Name(), err)
+			slog.Error("could not close file", slog.Any("error", err), slog.Any("file", file.Name()))
 		}
 	}()
 
@@ -124,7 +124,7 @@ func (psql *PgDump) createCredentialFile() (string, error) {
 	}
 
 	if err = os.Chmod(file.Name(), 0600); err != nil {
-		log.Printf("could not change file permissoin, file: %s, error: %v", file.Name(), err)
+		slog.Error("could not change file permissoin", slog.Any("error", err), slog.Any("file", file.Name()))
 	}
 
 	psql.credentialFiles = append(psql.credentialFiles, file.Name())
@@ -135,7 +135,7 @@ func (psql *PgDump) createCredentialFile() (string, error) {
 func (psql *PgDump) Dump(storage io.Writer) error {
 	defer func() {
 		if err := psql.close(); err != nil {
-			log.Printf("could not pgdump credential files db driver: %v", err)
+			slog.Error("could not pgdump credential files db driver", slog.Any("error", err))
 		}
 	}()
 
