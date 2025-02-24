@@ -1,11 +1,11 @@
 # Time: 2023-10-15T12:36:05.987654Z
-# User@Host: admin[admin] @ 192.168.1.101 []
+# User@Host: admin[admin] @ [192.168.1.101]
 # Query_time: 7.890123  Lock_time: 0.003456 Rows_sent: 100  Rows_examined: 100000
 SET timestamp=1697373365;
 SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > 10;
 
 # Time: 2023-10-15T12:36:05.987654Z
-# User@Host: admin[admin] @ 192.168.1.101 []
+# User@Host: admin[admin] @ [192.168.1.101]
 # Query_time: 12.890323 Lock_time: 0.001456 Rows_sent: 100  Rows_examined: 100000
 SET timestamp=1697373365;
 SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > 10;

@@ -5,19 +5,19 @@ SET timestamp=1697373296;
 SELECT * FROM orders WHERE customer_id = 123 AND order_date > '2023-01-01' ORDER BY order_date DESC;
 
 # Time: 2023-10-15T12:35:10.654321Z
-# User@Host: app_user[app_user] @ 192.168.1.100 []
+# User@Host: app_user[app_user] @ [192.168.1.100]
 # Query_time: 3.456789  Lock_time: 0.002345 Rows_sent: 1  Rows_examined: 5000
 SET timestamp=1697373310;
 UPDATE products SET stock = stock - 1 WHERE product_id = 456;
 
 # Time: 2023-10-15T12:36:05.987654Z
-# User@Host: admin[admin] @ 192.168.1.101 []
+# User@Host: admin[admin] @ [192.168.1.101]
 # Query_time: 7.890123  Lock_time: 0.003456 Rows_sent: 100  Rows_examined: 100000
 SET timestamp=1697373365;
 SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > 10;
 
 # Time: 2023-10-15T12:36:05.987654Z
-# User@Host: admin[admin] @ 192.168.1.101 []
+# User@Host: admin[admin] @ [192.168.1.101]
 # Query_time: 0  Lock_time: 0.003456 Rows_sent: 100  Rows_examined: 100000
 SET timestamp=1697373365;
 SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > 10;

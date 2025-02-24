@@ -14,20 +14,41 @@ import (
 	"github.com/liweiyi88/onedump/fileutil"
 )
 
+type SlowResult struct {
+	Time                 string  `json:"time"`
+	User                 string  `json:"user"`
+	HostIP               string  `json:"host_ip"`
+	QueryTime            float64 `json:"query_time"`
+	LockTime             float64 `json:"lock_time"`
+	RowsSent             int     `json:"rows_sent"`
+	RowsExamined         int     `json:"rows_examined"`
+	ThreadId             int     `json:"thread_id"`
+	Errno                int     `json:"errno"`
+	Killed               int     `json:"killed"`
+	BytesReceived        int     `json:"bytes_received"`
+	BytesSent            int     `json:"bytes_sent"`
+	ReadFirst            int     `json:"read_first"`
+	ReadLast             int     `json:"read_last"`
+	ReadKey              int     `json:"read_key"`
+	ReadNext             int     `json:"read_next"`
+	ReadPrev             int     `json:"read_prev"`
+	ReadRnd              int     `json:"Read_rnd"`
+	ReadRndNext          int     `json:"read_rnd_next"`
+	SortMergePasses      int     `json:"sort_merge_passes"`
+	SortRangeCount       int     `json:"sort_range_count"`
+	SortRows             int     `json:"sort_rows"`
+	SortScanCount        int     `json:"sort_scan_count"`
+	CreatedTmpDiskTables int     `json:"created_tmp_disk_tables"`
+	CreatedTmpTables     int     `json:"created_tmp_tables"`
+	CountHitTmpTableSize int     `json:"count_hit_tmp_table_size"`
+	Start                string  `json:"start"`
+	End                  string  `json:"end"`
+	Query                string  `json:"query"`
+}
+
 type Parser interface {
 	parse(io.Reader) ([]SlowResult, error)
 	setMask(bool)
-}
-
-type SlowResult struct {
-	Time         string  `json:"time"`
-	User         string  `json:"user"`
-	Host         string  `json:"host"`
-	QueryTime    float64 `json:"query_time"`
-	LockTime     float64 `json:"lock_time"`
-	RowsSent     uint    `json:"rows_sent"`
-	RowsExamined uint    `json:"rows_examined"`
-	Query        string  `json:"query"`
 }
 
 type ParseResult struct {
