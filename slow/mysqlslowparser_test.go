@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -68,7 +69,10 @@ func TestMySQLParse(t *testing.T) {
 	}
 
 	// Test multiple parse calls should still return the expected result
-	file.Seek(0, 0)
+	if _, err := file.Seek(0, 0); err != nil {
+		t.Fatalf("Failed to seek file: %v", err)
+	}
+
 	results, err := parser.parse(file)
 	if err != nil {
 		t.Error(err)
@@ -90,21 +94,21 @@ func TestMySQLParse(t *testing.T) {
 	assert.Equal(t, expect, strings.TrimSpace(buffer.String()))
 }
 
-func TestDeduplicationParseWithoutMask(t *testing.T) {
+func testDeduplication(t *testing.T, mask bool, expectedQuery string) {
 	parser := NewMySQLSlowLogParser()
-
-	file, err := os.Open("../testutils/slowlogs/short/slowlog_mysql_duplicated.log")
-
-	if err != nil {
-		t.Error(err)
+	if mask {
+		parser.setMask(true)
 	}
 
+	file, err := os.Open("../testutils/slowlogs/short/slowlog_mysql_duplicated.log")
+	if err != nil {
+		t.Fatalf("Failed to open test file: %v", err)
+	}
 	defer file.Close()
 
 	results, err := parser.parse(file)
-
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("Failed to parse file: %v", err)
 	}
 
 	assert.Len(t, results, 1)
@@ -114,46 +118,20 @@ func TestDeduplicationParseWithoutMask(t *testing.T) {
 	encoder.SetEscapeHTML(false)
 
 	err = encoder.Encode(results)
-
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("Failed to encode results: %v", err)
 	}
 
-	expect := `[{"time":"2023-10-15T12:36:05.987654Z","user":"admin[admin]","host_ip":"[192.168.1.101]","query_time":12.890323,"lock_time":0.001456,"rows_sent":100,"rows_examined":100000,"thread_id":0,"errno":0,"killed":0,"bytes_received":0,"bytes_sent":0,"read_first":0,"read_last":0,"read_key":0,"read_next":0,"read_prev":0,"read_rnd":0,"read_rnd_next":0,"sort_merge_passes":0,"sort_range_count":0,"sort_rows":0,"sort_scan_count":0,"created_tmp_disk_tables":0,"created_tmp_tables":0,"count_hit_tmp_table_size":0,"start":"","end":"","query":"SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > 10"}]`
+	expect := fmt.Sprintf(`[{"time":"2023-10-15T12:36:05.987654Z","user":"admin[admin]","host_ip":"[192.168.1.101]","query_time":12.890323,"lock_time":0.001456,"rows_sent":100,"rows_examined":100000,"thread_id":0,"errno":0,"killed":0,"bytes_received":0,"bytes_sent":0,"read_first":0,"read_last":0,"read_key":0,"read_next":0,"read_prev":0,"read_rnd":0,"read_rnd_next":0,"sort_merge_passes":0,"sort_range_count":0,"sort_rows":0,"sort_scan_count":0,"created_tmp_disk_tables":0,"created_tmp_tables":0,"count_hit_tmp_table_size":0,"start":"","end":"","query":%q}]`, expectedQuery)
 	assert.Equal(t, expect, strings.TrimSpace(buffer.String()))
 }
 
+func TestDeduplicationParseWithoutMask(t *testing.T) {
+	testDeduplication(t, false, "SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > 10")
+}
+
 func TestDeduplicationParseWithMask(t *testing.T) {
-	parser := NewMySQLSlowLogParser()
-	parser.setMask(true)
-
-	file, err := os.Open("../testutils/slowlogs/short/slowlog_mysql_duplicated.log")
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	defer file.Close()
-
-	results, err := parser.parse(file)
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	assert.Len(t, results, 1)
-
-	var buffer bytes.Buffer
-	encoder := json.NewEncoder(&buffer)
-	encoder.SetEscapeHTML(false)
-	err = encoder.Encode(results)
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	expect := `[{"time":"2023-10-15T12:36:05.987654Z","user":"admin[admin]","host_ip":"[192.168.1.101]","query_time":12.890323,"lock_time":0.001456,"rows_sent":100,"rows_examined":100000,"thread_id":0,"errno":0,"killed":0,"bytes_received":0,"bytes_sent":0,"read_first":0,"read_last":0,"read_key":0,"read_next":0,"read_prev":0,"read_rnd":0,"read_rnd_next":0,"sort_merge_passes":0,"sort_range_count":0,"sort_rows":0,"sort_scan_count":0,"created_tmp_disk_tables":0,"created_tmp_tables":0,"count_hit_tmp_table_size":0,"start":"","end":"","query":"SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > ?"}]`
-	assert.Equal(t, expect, strings.TrimSpace(buffer.String()))
+	testDeduplication(t, true, "SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > ?")
 }
 
 type ErrorReader struct{}
