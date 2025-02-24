@@ -2,6 +2,7 @@ package slow
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -10,9 +11,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-var timeRegex = regexp.MustCompile(`(?i)^# Time: (\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+\d{2}:?\d{2})?)`)
-var userHostRegex = regexp.MustCompile(`(?i)^# User@Host: (\S+\[\S+\]) @ ([\w\.\-]*\s*\[.*?\])`)
 
 const (
 	QueryTime            = "Query_time"
@@ -42,6 +40,9 @@ const (
 	End                  = "End"
 )
 
+var timeRegex = regexp.MustCompile(`(?i)^# Time: (\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+\d{2}:?\d{2})?)`)
+var userHostRegex = regexp.MustCompile(`(?i)^# User@Host: (\S+\[\S+\]) @ ([\w\.\-]*\s*\[.*?\])`)
+
 type MySQLSlowLogParser struct {
 	result          *SlowResult
 	query           strings.Builder
@@ -55,11 +56,7 @@ func NewMySQLSlowLogParser() *MySQLSlowLogParser {
 }
 
 func (m *MySQLSlowLogParser) flush() {
-	if m.result == nil {
-		return
-	}
-
-	if m.result.QueryTime > 0 {
+	if m.result != nil && m.result.QueryTime > 0 {
 		rawQuery := strings.TrimSpace(m.query.String())
 		query := strings.ReplaceAll(rawQuery, ";", "")
 
@@ -68,7 +65,6 @@ func (m *MySQLSlowLogParser) flush() {
 		}
 
 		m.result.Query = query
-
 		savedResult, ok := m.queryResultsMap[query]
 
 		if len(query) > 0 && (!ok || savedResult.QueryTime < m.result.QueryTime) {
@@ -84,11 +80,47 @@ func (m *MySQLSlowLogParser) init() {
 	m.reset()
 }
 
-func (m *MySQLSlowLogParser) parsePerformanceDataIfReady(line string) error {
-	if m.result != nil && strings.HasPrefix(line, "# Query_time") {
+func (m *MySQLSlowLogParser) parseLineHasTimeData(line string) error {
+	if strings.HasPrefix(line, "# Time") {
+		m.flush()
 
+		m.result = &SlowResult{}
+		matches := timeRegex.FindStringSubmatch(line)
+
+		if len(matches) <= 1 {
+			return errors.New("fail to parse time")
+		}
+
+		m.result.Time = matches[1]
+	}
+
+	return nil
+}
+
+func (m *MySQLSlowLogParser) parseLineHasUserHostData(line string) error {
+	if m.result != nil && strings.HasPrefix(line, "# User") {
+		matches := userHostRegex.FindStringSubmatch(line)
+
+		if len(matches) <= 2 {
+			return fmt.Errorf("fail to parse user and host, line: %s", line)
+		}
+
+		userDb, hostIp := matches[1], matches[2]
+
+		m.result.User = userDb
+		m.result.HostIP = strings.TrimSpace(hostIp)
+	}
+
+	return nil
+}
+
+func (m *MySQLSlowLogParser) parseLineHasPerformanceData(line string) error {
+	if m.result != nil && strings.HasPrefix(line, "# Query_time") {
 		metricsToFloat := []string{QueryTime, LockTime}
-		metricsToUint := []string{RowsSent, RowsExamined, ThreadId, Errno, Killed, BytesReceived, BytesSent, ReadFirst, ReadLast, ReadKey, ReadNext, ReadPrev, ReadRnd, ReadRndNext, SortMergePasses, SortRangeCount, SortRows, SortScanCount, CreatedTmpDiskTables, CreatedTmpTables, CountHitTmpTableSize}
+		metricsToInt := []string{RowsSent, RowsExamined, ThreadId, Errno,
+			Killed, BytesReceived, BytesSent, ReadFirst, ReadLast, ReadKey,
+			ReadNext, ReadPrev, ReadRnd, ReadRndNext, SortMergePasses, SortRangeCount,
+			SortRows, SortScanCount, CreatedTmpDiskTables, CreatedTmpTables, CountHitTmpTableSize}
 
 		// Get rid of # and split the line into different chunks by space.
 		chunks := strings.Fields(line[2:])
@@ -110,7 +142,7 @@ func (m *MySQLSlowLogParser) parsePerformanceDataIfReady(line string) error {
 					case LockTime:
 						m.result.LockTime = value
 					}
-				} else if slices.Contains(metricsToUint, metric) {
+				} else if slices.Contains(metricsToInt, metric) {
 					value, err := strconv.Atoi(value)
 					if err != nil {
 						return fmt.Errorf("fail to convert %s to int", metric)
@@ -200,17 +232,9 @@ func (m *MySQLSlowLogParser) parse(file io.Reader) ([]SlowResult, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if strings.HasPrefix(line, "# Time") {
-			m.flush()
-
-			m.result = &SlowResult{}
-			matches := timeRegex.FindStringSubmatch(line)
-
-			if len(matches) <= 1 {
-				return nil, fmt.Errorf("fail to parse time")
-			}
-
-			m.result.Time = matches[1]
+		err := m.parseLineHasTimeData(line)
+		if err != nil {
+			return nil, err
 		}
 
 		if m.shouldCaptureQuery(line) {
@@ -218,20 +242,12 @@ func (m *MySQLSlowLogParser) parse(file io.Reader) ([]SlowResult, error) {
 			continue
 		}
 
-		if m.result != nil && strings.HasPrefix(line, "# User") {
-			matches := userHostRegex.FindStringSubmatch(line)
-
-			if len(matches) <= 2 {
-				return nil, fmt.Errorf("fail to parse user and host, line: %s", line)
-			}
-
-			userDb, hostIp := matches[1], matches[2]
-
-			m.result.User = userDb
-			m.result.HostIP = strings.TrimSpace(hostIp)
+		err = m.parseLineHasUserHostData(line)
+		if err != nil {
+			return nil, err
 		}
 
-		err := m.parsePerformanceDataIfReady(line)
+		err = m.parseLineHasPerformanceData(line)
 		if err != nil {
 			return nil, err
 		}
