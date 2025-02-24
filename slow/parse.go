@@ -165,10 +165,19 @@ func Parse(filePath string, database DatabaseType, limit int, mask bool) ParseRe
 
 	results, errorsList := make([]SlowResult, 0), make([]error, 0)
 
+	// Process maximum 10 files at a time
+	semaphore := make(chan struct{}, 10)
+
 	for _, filename := range files {
 		wg.Add(1)
+		semaphore <- struct{}{}
+
 		go func(name string) {
-			defer wg.Done()
+			defer func() {
+				<-semaphore
+				wg.Done()
+			}()
+
 			r, err := parseFile(name, database, mask)
 
 			mu.Lock()
