@@ -1,10 +1,9 @@
 package cmd
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
+	"os"
 
 	"github.com/liweiyi88/onedump/slow"
 	"github.com/spf13/cobra"
@@ -24,16 +23,11 @@ var slowCmd = &cobra.Command{
 		}
 
 		databaseType := slow.DatabaseType(database)
-
 		result := slow.Parse(sloglog, databaseType, limit, mask)
 
-		var buffer bytes.Buffer
-
-		encoder := json.NewEncoder(&buffer)
+		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetEscapeHTML(false)
 
-		err := encoder.Encode(result)
-		fmt.Println(strings.TrimSpace(buffer.String()))
-		return err
+		return encoder.Encode(result)
 	},
 }
