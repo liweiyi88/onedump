@@ -32,7 +32,7 @@ type SlowResult struct {
 	ReadKey              int     `json:"read_key"`
 	ReadNext             int     `json:"read_next"`
 	ReadPrev             int     `json:"read_prev"`
-	ReadRnd              int     `json:"Read_rnd"`
+	ReadRnd              int     `json:"read_rnd"`
 	ReadRndNext          int     `json:"read_rnd_next"`
 	SortMergePasses      int     `json:"sort_merge_passes"`
 	SortRangeCount       int     `json:"sort_range_count"`
