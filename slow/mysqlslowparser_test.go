@@ -51,13 +51,45 @@ func TestMySQLParseFailure(t *testing.T) {
 	}
 }
 
+func TestMySQLParseWithExtraMetrics(t *testing.T) {
+	parser := NewMySQLSlowLogParser()
+	file, err := os.Open("../testutils/slowlogs/long/slowlog_single_mysql.log")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	results, err := parser.parse(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert := assert.New(t)
+	assert.Len(results, 1)
+	expected := SlowResult{
+		Query:         "INSERT INTO time_zone_name (Name, Time_zone_id) VALUES ('right/Poland', @time_zone_id)",
+		Time:          "2025-02-24T00:49:18.398703Z",
+		User:          "root[root]",
+		HostIP:        "localhost []",
+		QueryTime:     0.000193,
+		LockTime:      0.000000,
+		ThreadId:      8,
+		BytesReceived: 93,
+		BytesSent:     11,
+		Start:         "2025-02-24T00:49:18.398510Z",
+		End:           "2025-02-24T00:49:18.398703Z",
+	}
+
+	assert.Equal(expected, results[0])
+}
+
 func TestMySQLParse(t *testing.T) {
 	parser := NewMySQLSlowLogParser()
 
 	file, err := os.Open("../testutils/slowlogs/short/slowlog_mysql.log")
 
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	defer file.Close()

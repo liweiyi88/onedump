@@ -1,0 +1,5 @@
+# Time: 2025-02-24T00:49:18.398703Z
+# User@Host: root[root] @ localhost []  Id:     8
+# Query_time: 0.000193  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0 Thread_id: 8 Errno: 0 Killed: 0 Bytes_received: 93 Bytes_sent: 11 Read_first: 0 Read_last: 0 Read_key: 0 Read_next: 0 Read_prev: 0 Read_rnd: 0 Read_rnd_next: 0 Sort_merge_passes: 0 Sort_range_count: 0 Sort_rows: 0 Sort_scan_count: 0 Created_tmp_disk_tables: 0 Created_tmp_tables: 0 Count_hit_tmp_table_size: 0  Start: 2025-02-24T00:49:18.398510Z End: 2025-02-24T00:49:18.398703Z
+SET timestamp=1740358158;
+INSERT INTO time_zone_name (Name, Time_zone_id) VALUES ('right/Poland', @time_zone_id);
