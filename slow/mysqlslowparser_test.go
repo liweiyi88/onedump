@@ -74,7 +74,7 @@ func TestMySQLParse(t *testing.T) {
 		t.Error(err)
 	}
 
-	// assert.Len(t, results, 3)
+	assert.Len(t, results, 3)
 
 	var buffer bytes.Buffer
 	encoder := json.NewEncoder(&buffer)
@@ -127,7 +127,11 @@ func TestDeduplicationParseWithMask(t *testing.T) {
 	parser := NewMySQLSlowLogParser()
 	parser.setMask(true)
 
-	file, _ := os.Open("../testutils/slowlog_mysql_duplicated.log")
+	file, err := os.Open("../testutils/slowlog_mysql_duplicated.log")
+
+	if err != nil {
+		t.Error(err)
+	}
 
 	defer file.Close()
 
