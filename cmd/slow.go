@@ -23,7 +23,7 @@ var slowCmd = &cobra.Command{
 		}
 
 		databaseType := slow.DatabaseType(database)
-		result := slow.Parse(sloglog, databaseType, limit, mask)
+		result := slow.Parse(sloglog, databaseType, slow.ParseOptions{Limit: limit, Mask: mask, Pattern: pattern})
 
 		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetEscapeHTML(false)

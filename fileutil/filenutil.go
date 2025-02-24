@@ -2,6 +2,7 @@ package fileutil
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log/slog"
 	"math/rand"
@@ -68,7 +69,7 @@ func IsGzipped(filename string) bool {
 	return bytes.Equal(buf, []byte{0x1f, 0x8b})
 }
 
-func ListFiles(dir string) ([]string, error) {
+func ListFiles(dir, pattern string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -79,6 +80,17 @@ func ListFiles(dir string) ([]string, error) {
 	for _, v := range entries {
 		if v.IsDir() {
 			continue
+		}
+
+		if pattern != "" {
+			matched, err := filepath.Match(pattern, v.Name())
+			if err != nil {
+				return nil, fmt.Errorf("invalid pattern: %w", err)
+			}
+
+			if !matched {
+				continue
+			}
 		}
 
 		files = append(files, filepath.Join(dir, v.Name()))

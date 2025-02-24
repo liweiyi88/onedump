@@ -127,7 +127,13 @@ func parseFile(filePath string, database DatabaseType, mask bool) ([]SlowResult,
 	return parser.parse(gzipReader)
 }
 
-func Parse(filePath string, database DatabaseType, limit int, mask bool) ParseResult {
+type ParseOptions struct {
+	Limit   int
+	Mask    bool
+	Pattern string
+}
+
+func Parse(filePath string, database DatabaseType, options ParseOptions) ParseResult {
 	parseResult := ParseResult{}
 
 	fileInfo, err := os.Stat(filePath)
@@ -137,14 +143,14 @@ func Parse(filePath string, database DatabaseType, limit int, mask bool) ParseRe
 	}
 
 	if !fileInfo.IsDir() {
-		results, err := parseFile(filePath, database, mask)
+		results, err := parseFile(filePath, database, options.Mask)
 		if err != nil {
 			parseResult.Error = err.Error()
 			return parseResult
 		}
 
-		if limit > 0 && len(results) > limit {
-			results = results[:limit]
+		if options.Limit > 0 && len(results) > options.Limit {
+			results = results[:options.Limit]
 		}
 
 		// Already sorted by query time in the parseFile function
@@ -153,7 +159,7 @@ func Parse(filePath string, database DatabaseType, limit int, mask bool) ParseRe
 		return parseResult
 	}
 
-	files, err := fileutil.ListFiles(filePath)
+	files, err := fileutil.ListFiles(filePath, options.Pattern)
 
 	if err != nil {
 		parseResult.Error = err.Error()
@@ -178,7 +184,7 @@ func Parse(filePath string, database DatabaseType, limit int, mask bool) ParseRe
 				wg.Done()
 			}()
 
-			r, err := parseFile(name, database, mask)
+			r, err := parseFile(name, database, options.Mask)
 
 			mu.Lock()
 			if err != nil {
@@ -203,8 +209,8 @@ func Parse(filePath string, database DatabaseType, limit int, mask bool) ParseRe
 		return results[i].QueryTime > results[j].QueryTime
 	})
 
-	if limit > 0 && len(results) > limit {
-		results = results[:limit]
+	if options.Limit > 0 && len(results) > options.Limit {
+		results = results[:options.Limit]
 	}
 
 	parseResult.Results = results

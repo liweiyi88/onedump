@@ -19,7 +19,7 @@ import (
 )
 
 var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey, cron string
-var sloglog, database string
+var sloglog, database, pattern string
 var limit int
 var mask bool
 
@@ -120,6 +120,7 @@ func init() {
 
 	slowCmd.Flags().StringVarP(&sloglog, "file", "f", "", "path to the slow log file. a directory can also be specified. (required)")
 	slowCmd.Flags().StringVarP(&database, "database", "d", string(slow.MySQL), "specify the database engine (optional)")
+	slowCmd.Flags().StringVarP(&pattern, "pattern", "p", "", "only read files that follow the same pattern, for example *slow.log . (optional)")
 	slowCmd.Flags().IntVarP(&limit, "limit", "l", 0, "limit the number of results. no limit is set by default. (optional)")
 	slowCmd.Flags().BoolVarP(&mask, "mask", "m", true, "mask query values. enabled by default. (optional)")
 	slowCmd.MarkFlagRequired("file")

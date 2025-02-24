@@ -10,7 +10,7 @@ import (
 )
 
 func TestParser(t *testing.T) {
-	Parse("testutils/slowlog_mysql.log", MySQL, 0, true)
+	Parse("testutils/slowlog_mysql.log", MySQL, ParseOptions{Limit: 0, Mask: true, Pattern: ""})
 }
 
 func TestGetParser(t *testing.T) {
@@ -24,7 +24,7 @@ func TestGetParser(t *testing.T) {
 
 func TestParseOneFile(t *testing.T) {
 	assert := assert.New(t)
-	result := Parse("../testutils/slowlogs/short/slowlog_mysql.log", MySQL, 0, false)
+	result := Parse("../testutils/slowlogs/short/slowlog_mysql.log", MySQL, ParseOptions{Limit: 0, Mask: false, Pattern: ""})
 	assert.True(result.OK)
 	assert.Equal(result.Error, "")
 	assert.Len(result.Results, 3)
@@ -32,7 +32,7 @@ func TestParseOneFile(t *testing.T) {
 
 func TestParseOneGzippedFile(t *testing.T) {
 	assert := assert.New(t)
-	result := Parse("../testutils/slowlogs/short/slowlog_mysql.log.gz", MySQL, 0, false)
+	result := Parse("../testutils/slowlogs/short/slowlog_mysql.log.gz", MySQL, ParseOptions{Limit: 0, Mask: false, Pattern: ""})
 	assert.True(result.OK)
 	assert.Equal(result.Error, "")
 	assert.Len(result.Results, 3)
@@ -40,7 +40,7 @@ func TestParseOneGzippedFile(t *testing.T) {
 
 func TestParseDirectory(t *testing.T) {
 	assert := assert.New(t)
-	result := Parse("../testutils/slowlogs/short", MySQL, 0, false)
+	result := Parse("../testutils/slowlogs/short", MySQL, ParseOptions{Limit: 0, Mask: false, Pattern: ""})
 
 	assert.True(result.OK)
 	assert.Equal(result.Error, "")
@@ -62,7 +62,7 @@ func TestParseDirectory(t *testing.T) {
 
 func TestParseDirectoryWithLimit(t *testing.T) {
 	assert := assert.New(t)
-	result := Parse("../testutils/slowlogs/short", MySQL, 2, false)
+	result := Parse("../testutils/slowlogs/short", MySQL, ParseOptions{Limit: 2, Mask: false, Pattern: ""})
 
 	assert.True(result.OK)
 	assert.Equal(result.Error, "")
@@ -84,7 +84,7 @@ func TestParseDirectoryWithLimit(t *testing.T) {
 
 func TestParseDirectoryWithLimitMask(t *testing.T) {
 	assert := assert.New(t)
-	result := Parse("../testutils/slowlogs/short", MySQL, 2, true)
+	result := Parse("../testutils/slowlogs/short", MySQL, ParseOptions{Limit: 2, Mask: true, Pattern: ""})
 
 	assert.True(result.OK)
 	assert.Equal(result.Error, "")
@@ -106,7 +106,7 @@ func TestParseDirectoryWithLimitMask(t *testing.T) {
 
 func TestParseInvalidFile(t *testing.T) {
 	assert := assert.New(t)
-	result := Parse("nonexistent.log", MySQL, 0, false)
+	result := Parse("nonexistent.log", MySQL, ParseOptions{Limit: 0, Mask: false, Pattern: ""})
 	assert.False(result.OK)
 	assert.NotNil(result.Error)
 	assert.Empty(result.Results)
@@ -114,7 +114,7 @@ func TestParseInvalidFile(t *testing.T) {
 
 func TestParseCorruptedGzip(t *testing.T) {
 	assert := assert.New(t)
-	result := Parse("../testutils/corrupted.log.gz", MySQL, 0, false)
+	result := Parse("../testutils/corrupted.log.gz", MySQL, ParseOptions{Limit: 0, Mask: false, Pattern: ""})
 	assert.False(result.OK)
 	assert.NotNil(result.Error)
 	assert.Empty(result.Results)
