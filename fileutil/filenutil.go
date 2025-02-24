@@ -3,7 +3,6 @@ package fileutil
 import (
 	"bytes"
 	"io"
-	"log"
 	"log/slog"
 	"math/rand"
 	"os"
@@ -54,7 +53,7 @@ func IsGzipped(filename string) bool {
 	defer func() {
 		err := file.Close()
 		if err != nil {
-			slog.Error("faile to close file", slog.Any("error", err), slog.String("filename", file.Name()))
+			slog.Error("fail to close file", slog.Any("error", err), slog.String("filename", file.Name()))
 		}
 	}()
 
@@ -101,10 +100,10 @@ func GenerateRandomName(n int) string {
 func WorkDir() string {
 	dir, err := os.Getwd()
 	if err != nil {
-		log.Printf("Cannot get the current directory: %v, using $HOME directory!", err)
+		slog.Error("can not get the current directory, use $HOME instead", slog.Any("error", err))
 		dir, err = os.UserHomeDir()
 		if err != nil {
-			log.Printf("Cannot get the user home directory: %v, using /tmp directory!", err)
+			slog.Error("can not get the user home directory, use /tmp instead", slog.Any("error", err))
 			dir = os.TempDir()
 		}
 	}

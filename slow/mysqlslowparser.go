@@ -10,16 +10,16 @@ import (
 	"strings"
 )
 
-var timeRegex = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)`)
-var userHostRegex = regexp.MustCompile(`(\S+\[\S+\])\s*@\s*(\S+(\s*\[\d+\.\d+\.\d+\.\d+\])?)`)
-var performanceRegex = regexp.MustCompile(`Query_time:\s*([\d.]+)\s*Lock_time:\s*([\d.]+)\s*Rows_sent:\s*(\d+)\s*Rows_examined:\s*(\d+)`)
+var timeRegex = regexp.MustCompile(`(?i)^# Time: (\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+\d{2}:?\d{2})?)`)
+var userHostRegex = regexp.MustCompile(`(?i)^# User@Host: (\S+\[\S+\]) @ ([\w\.\-]+)(?: \[(\d{1,3}(?:\.\d{1,3}){3}|[a-fA-F0-9:]+(?::\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})?)?\])?`)
+var performanceRegex = regexp.MustCompile(`(?i)^# Query_time:\s+([\d.]+)\s+Lock_time:\s+([\d.]+)\s+Rows_sent:\s+(\d+)\s+Rows_examined:\s+(\d+)`)
 
 type MySQLSlowLogParser struct {
-	results      []SlowResult
-	result       *SlowResult
-	query        strings.Builder
-	mask         bool
-	captureQuery bool
+	result          *SlowResult
+	query           strings.Builder
+	queryResultsMap map[string]SlowResult
+	mask            bool
+	captureQuery    bool
 }
 
 func NewMySQLSlowLogParser() *MySQLSlowLogParser {
@@ -31,29 +31,32 @@ func (m *MySQLSlowLogParser) flush() {
 		return
 	}
 
-	if m.captureQuery {
+	if m.result.QueryTime > 0 {
 		rawQuery := strings.TrimSpace(m.query.String())
 		query := strings.ReplaceAll(rawQuery, ";", "")
 
 		if m.mask {
-			m.result.Query = maskQuery(query)
-		} else {
-			m.result.Query = query
+			query = maskQuery(query)
 		}
 
-		m.captureQuery = false
-		m.query.Reset()
+		m.result.Query = query
+
+		savedResult, ok := m.queryResultsMap[query]
+
+		if !ok || savedResult.QueryTime < m.result.QueryTime {
+			m.queryResultsMap[query] = *m.result
+		}
 	}
 
-	if m.result.QueryTime != 0 {
-		m.results = append(m.results, *m.result)
-	}
-
-	m.result = nil
+	m.reset()
 }
 
 func (m *MySQLSlowLogParser) init() {
-	m.results = nil
+	m.queryResultsMap = make(map[string]SlowResult)
+	m.reset()
+}
+
+func (m *MySQLSlowLogParser) reset() {
 	m.result = nil
 	m.query.Reset()
 	m.captureQuery = false
@@ -70,6 +73,8 @@ func (m *MySQLSlowLogParser) setResultPerformance(queryTime, lockTime float64, r
 	m.result.RowsExamined = rowsExamined
 }
 
+// setMask enables or disables query masking.
+// When enabled, sensitive data in queries will be replaced with ?.
 func (m *MySQLSlowLogParser) setMask(mask bool) {
 	m.mask = mask
 }
@@ -96,6 +101,7 @@ func (m *MySQLSlowLogParser) parse(file io.Reader) ([]SlowResult, error) {
 
 		if m.captureQuery {
 			m.query.WriteString(line)
+			continue
 		}
 
 		if m.result != nil && strings.HasPrefix(line, "# User") {
@@ -153,9 +159,15 @@ func (m *MySQLSlowLogParser) parse(file io.Reader) ([]SlowResult, error) {
 		return nil, err
 	}
 
-	sort.Slice(m.results, func(i, j int) bool {
-		return m.results[i].QueryTime > m.results[j].QueryTime
+	results := make([]SlowResult, 0, len(m.queryResultsMap))
+
+	for _, result := range m.queryResultsMap {
+		results = append(results, result)
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].QueryTime > results[j].QueryTime
 	})
 
-	return m.results, nil
+	return results, nil
 }

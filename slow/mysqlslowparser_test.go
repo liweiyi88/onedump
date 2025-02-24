@@ -23,11 +23,6 @@ func TestMySQLParseFailure(t *testing.T) {
 			expectedErr: "fail to parse time",
 		},
 		{
-			name:        "Partial time match",
-			input:       "# Time: 2023-10-15T12:35:10", // Missing fractional seconds and 'Z'
-			expectedErr: "fail to parse time",
-		},
-		{
 			name:        "No user match",
 			input:       "# Time: 2023-10-15T12:34:56.123456Z\n# User@Host: [app_user] @ 192.168.1.100 []",
 			expectedErr: "fail to parse user and host",
@@ -79,6 +74,8 @@ func TestMySQLParse(t *testing.T) {
 		t.Error(err)
 	}
 
+	// assert.Len(t, results, 3)
+
 	var buffer bytes.Buffer
 	encoder := json.NewEncoder(&buffer)
 	encoder.SetEscapeHTML(false)
@@ -90,6 +87,68 @@ func TestMySQLParse(t *testing.T) {
 	}
 
 	expect := `[{"time":"2023-10-15T12:34:56.123456Z","user":"root[root]","host":"localhost","query_time":9.123456,"lock_time":0.001234,"rows_sent":10,"rows_examined":10000,"query":"SELECT * FROM orders WHERE customer_id = 123 AND order_date > '2023-01-01' ORDER BY order_date DESC"},{"time":"2023-10-15T12:36:05.987654Z","user":"admin[admin]","host":"192.168.1.101","query_time":7.890123,"lock_time":0.003456,"rows_sent":100,"rows_examined":100000,"query":"SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > 10"},{"time":"2023-10-15T12:35:10.654321Z","user":"app_user[app_user]","host":"192.168.1.100","query_time":3.456789,"lock_time":0.002345,"rows_sent":1,"rows_examined":5000,"query":"UPDATE products SET stock = stock - 1 WHERE product_id = 456"}]`
+	assert.Equal(t, expect, strings.TrimSpace(buffer.String()))
+}
+
+func TestDeduplicationParseWithoutMask(t *testing.T) {
+	parser := NewMySQLSlowLogParser()
+
+	file, err := os.Open("../testutils/slowlog_mysql_duplicated.log")
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	defer file.Close()
+
+	results, err := parser.parse(file)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.Len(t, results, 1)
+
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+
+	err = encoder.Encode(results)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	expect := `[{"time":"2023-10-15T12:36:05.987654Z","user":"admin[admin]","host":"192.168.1.101","query_time":12.890323,"lock_time":0.001456,"rows_sent":100,"rows_examined":100000,"query":"SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > 10"}]`
+	assert.Equal(t, expect, strings.TrimSpace(buffer.String()))
+}
+
+func TestDeduplicationParseWithMask(t *testing.T) {
+	parser := NewMySQLSlowLogParser()
+	parser.setMask(true)
+
+	file, _ := os.Open("../testutils/slowlog_mysql_duplicated.log")
+
+	defer file.Close()
+
+	results, err := parser.parse(file)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.Len(t, results, 1)
+
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+	err = encoder.Encode(results)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	expect := `[{"time":"2023-10-15T12:36:05.987654Z","user":"admin[admin]","host":"192.168.1.101","query_time":12.890323,"lock_time":0.001456,"rows_sent":100,"rows_examined":100000,"query":"SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > ?"}]`
 	assert.Equal(t, expect, strings.TrimSpace(buffer.String()))
 }
 

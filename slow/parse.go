@@ -32,7 +32,7 @@ type SlowResult struct {
 
 type ParseResult struct {
 	OK      bool         `json:"ok"`
-	Error   error        `json:"error"`
+	Error   string       `json:"error"`
 	Results []SlowResult `json:"results"`
 }
 
@@ -111,14 +111,14 @@ func Parse(filePath string, database DatabaseType, limit int, mask bool) ParseRe
 
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
-		parseResult.Error = err
+		parseResult.Error = err.Error()
 		return parseResult
 	}
 
 	if !fileInfo.IsDir() {
 		results, err := parseFile(filePath, database, mask)
 		if err != nil {
-			parseResult.Error = err
+			parseResult.Error = err.Error()
 			return parseResult
 		}
 
@@ -135,7 +135,7 @@ func Parse(filePath string, database DatabaseType, limit int, mask bool) ParseRe
 	files, err := fileutil.ListFiles(filePath)
 
 	if err != nil {
-		parseResult.Error = err
+		parseResult.Error = err.Error()
 		return parseResult
 	}
 
@@ -163,7 +163,7 @@ func Parse(filePath string, database DatabaseType, limit int, mask bool) ParseRe
 	wg.Wait()
 
 	if len(errorsList) > 0 {
-		parseResult.Error = errors.Join(errorsList...)
+		parseResult.Error = errors.Join(errorsList...).Error()
 	} else {
 		parseResult.OK = true
 	}

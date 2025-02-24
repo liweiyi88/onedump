@@ -19,6 +19,9 @@ import (
 )
 
 var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey, cron string
+var sloglog, database string
+var limit int
+var mask bool
 
 var rootCmd = &cobra.Command{
 	Use:   "onedump",

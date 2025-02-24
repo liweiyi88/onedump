@@ -4,7 +4,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"reflect"
 	"sync"
 	"time"
@@ -80,7 +80,7 @@ func (handler *JobHandler) save() error {
 
 			closeErr := closer.Close()
 			if closeErr != nil {
-				log.Printf("Cannot close pipe readers and writers: %v", closeErr)
+				slog.Error("can not close pipe readers and writers", slog.Any("error", closeErr))
 			}
 		}()
 
