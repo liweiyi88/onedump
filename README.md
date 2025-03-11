@@ -287,11 +287,15 @@ For example
 
 ### Usage
 ```
-$onedump slow -f /path/to/file/slow.log // parse a single file
+// parse a single file
+$onedump slow -f /path/to/file/slow.log
 
-$onedump slow -f /path/to/folder // parse a folder
+// parse a folder
+$onedump slow -f /path/to/folder 
 
-$onedump slow -f /path/to/folder-or-file -p="*slow.log" // Parse a folder or file by searching for filenames that match the pattern
+// Parse a folder or file by searching for filenames that match the pattern
+$onedump slow -f /path/to/folder-or-file -p="*slow.log"
 
-$onedump slow -f /path/to/file -m="true" // Mask query values with ?
+// Mask query values with ?
+$onedump slow -f /path/to/file -m="true"
 ```
