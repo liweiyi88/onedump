@@ -3,7 +3,6 @@ package slow
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -166,19 +165,34 @@ func TestDeduplicationParseWithMask(t *testing.T) {
 	testDeduplication(t, true, "SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > ?")
 }
 
-type ErrorReader struct{}
-
-func (e *ErrorReader) Read(p []byte) (n int, err error) {
-	return 0, errors.New("simulated read error")
-}
-
-func TestScannerErr(t *testing.T) {
+// This test verifies that the parser gracefully handles invalid slow query log content
+// The invalid_query_log.log file contains malformed log entries that shouldn't crash the parser
+func TestParseInvalidContent(t *testing.T) {
 	parser := NewMySQLSlowLogParser()
-	reader := &ErrorReader{} // use the error-producing reader
 
-	_, err := parser.parse(reader)
+	file, err := os.Open("../testutils/slowlogs/invalid_query_log.log")
 
-	if err == nil || !strings.Contains(err.Error(), "simulated read error") {
-		t.Errorf("expected error containing 'simulated read error', got %v", err)
+	if err != nil {
+		t.Fatal(err)
 	}
+
+	defer file.Close()
+
+	_, err = parser.parse(file)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Test multiple parse calls should still return the expected result
+	if _, err := file.Seek(0, 0); err != nil {
+		t.Fatalf("Failed to seek file: %v", err)
+	}
+
+	results, err := parser.parse(file)
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.Len(t, results, 0)
 }

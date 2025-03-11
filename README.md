@@ -22,6 +22,17 @@ Onedump is a database dump and backup tool that can dump different databases to 
 * Slack notification.
 * Maintained docker image that contains all dependencies.
 
+## Table of Contents
+
+* [Installation](#installation)
+  - [Binary](#binary)
+  - [Docker image](#docker-image)
+* [Prerequisites](#prerequisites)
+* [Run Onedump](#run-onedump)
+* [How it works](#how-it-works)
+* [The native MySQL dumper](#the-native-mysql-dumper) 
+* [The slow log parser](#the-slow-log-parser)
+
 ### Supported data sources
 | Databases | Status |
 | --- | --- |
@@ -38,7 +49,7 @@ Onedump is a database dump and backup tool that can dump different databases to 
 
 
 ## Installation
-Onedump provides both binaries and Docker images via the release process.
+`onedump` provides both binaries and Docker images via the release process.
 
 ### Binary
 `onedump` binaries are available at https://github.com/liweiyi88/onedump/releases. Use the latest version of the binary that is suitable for your OS.
@@ -246,7 +257,7 @@ Run onedump with cron mode by passing cron experssions.
 $ onedump -f /path/to/config.yaml -c 21h
 ```
 
-## The Native MySQL dumper
+## The native MySQL dumper
 
 The MySQL native dumper provides a user experience similar to `mysqldump`. However, it doesn't implement all the features of `mysqldump`. It is suitable for most basic use cases but has some limitations:
 
@@ -259,4 +270,32 @@ If the native MySQL dumper doesn't meet your needs, switching to mysqldump is ea
 jobs:
 - dbdriver: mysqldump
   ...
+```
+
+## The slow log parser
+`onedump` also has a built-in feature (run with `onedump slow [flags]`) to parse MySQL slow logs and print JSON in the following structure.
+
+```
+{ok: bool, error: string, results: []SlowResult}
+```
+
+For example
+```json
+{"ok":true,"error":"","results":[{"time":"2023-10-15T12:36:05.987654Z","user":"admin[admin]","host_ip":"[192.168.1.101]","query_time":12.890323,"lock_time":0.001456,"rows_sent":100,"rows_examined":100000,"thread_id":0,"errno":0,"killed":0,"bytes_received":0,"bytes_sent":0,"read_first":0,"read_last":0,"read_key":0,"read_next":0,"read_prev":0,"read_rnd":0,"read_rnd_next":0,"sort_merge_passes":0,"sort_range_count":0,"sort_rows":0,"sort_scan_count":0,"created_tmp_disk_tables":0,"created_tmp_tables":0,"count_hit_tmp_table_size":0,"start":"","end":"","query":"SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > ?"}]}
+```
+
+
+### Usage
+```bash
+// parse a single file
+$onedump slow -f /path/to/file/slow.log
+
+// parse a folder
+$onedump slow -f /path/to/folder 
+
+// Parse a folder or file by searching for filenames that match the pattern
+$onedump slow -f /path/to/folder-or-file -p="*slow.log"
+
+// Mask query values with ?
+$onedump slow -f /path/to/file -m="true"
 ```
