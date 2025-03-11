@@ -3,7 +3,6 @@ package slow
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -166,12 +165,8 @@ func TestDeduplicationParseWithMask(t *testing.T) {
 	testDeduplication(t, true, "SELECT customer_id, COUNT(*) as order_count FROM orders GROUP BY customer_id HAVING order_count > ?")
 }
 
-type ErrorReader struct{}
-
-func (e *ErrorReader) Read(p []byte) (n int, err error) {
-	return 0, errors.New("simulated read error")
-}
-
+// This test verifies that the parser gracefully handles invalid slow query log content
+// The invalid_query_log.log file contains malformed log entries that shouldn't crash the parser
 func TestParseInvalidContent(t *testing.T) {
 	parser := NewMySQLSlowLogParser()
 

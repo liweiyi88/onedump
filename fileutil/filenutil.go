@@ -102,7 +102,7 @@ func ListFiles(dir, pattern string) ([]string, error) {
 	return files, nil
 }
 
-// Generate a random string
+// Generate a random string of the specified length using alphabetic characters
 func GenerateRandomName(n int) string {
 	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
