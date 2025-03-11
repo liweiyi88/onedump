@@ -227,18 +227,37 @@ func (m *MySQLSlowLogParser) shouldCaptureQuery(line string) bool {
 
 func (m *MySQLSlowLogParser) parse(file io.Reader) ([]SlowResult, error) {
 	m.init()
-	scanner := bufio.NewScanner(file)
 
-	for scanner.Scan() {
-		line := scanner.Text()
+	// Use reader.ReaderString('\n') to read long lines.
+	// Scaner will return error if line is too long as it has fixed buffer size, default is 64KB.
+	// Although we can adjust the buffer size of Scanner, we just keep it simple here.
+	reader := bufio.NewReader(file)
 
-		err := m.parseLineHasTimeData(line)
+	var eof bool
+
+	for {
+		line, err := reader.ReadString('\n')
+
+		if err != nil {
+			if err != io.EOF {
+				return nil, err
+			}
+
+			eof = true
+		}
+
+		err = m.parseLineHasTimeData(line)
 		if err != nil {
 			return nil, err
 		}
 
 		if m.shouldCaptureQuery(line) {
 			m.query.WriteString(line)
+
+			if eof {
+				break
+			}
+
 			continue
 		}
 
@@ -255,13 +274,14 @@ func (m *MySQLSlowLogParser) parse(file io.Reader) ([]SlowResult, error) {
 		if m.result != nil && strings.HasPrefix(line, "SET") {
 			m.startQuery = true
 		}
+
+		// Make sure we break the loop when reading invalid slow query log file
+		if eof {
+			break
+		}
 	}
 
 	m.flush()
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
 
 	results := make([]SlowResult, 0, len(m.queryResultsMap))
 

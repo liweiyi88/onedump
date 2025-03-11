@@ -44,6 +44,7 @@ func EnsureFileName(path string, shouldGzip, unique bool) string {
 	return ensureUniqueness(p, unique)
 }
 
+// Check if file content is gzipped
 func IsGzipped(filename string) bool {
 	file, err := os.Open(filename)
 
@@ -69,6 +70,8 @@ func IsGzipped(filename string) bool {
 	return bytes.Equal(buf, []byte{0x1f, 0x8b})
 }
 
+// List all files under a directory, support passing a pattern
+// It does not support reading nested files.
 func ListFiles(dir, pattern string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -99,6 +102,7 @@ func ListFiles(dir, pattern string) ([]string, error) {
 	return files, nil
 }
 
+// Generate a random string
 func GenerateRandomName(n int) string {
 	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -109,8 +113,10 @@ func GenerateRandomName(n int) string {
 	return string(b)
 }
 
+// Get the working directory, fall back to user home or the temp dir
 func WorkDir() string {
 	dir, err := os.Getwd()
+
 	if err != nil {
 		slog.Error("can not get the current directory, use $HOME instead", slog.Any("error", err))
 		dir, err = os.UserHomeDir()
