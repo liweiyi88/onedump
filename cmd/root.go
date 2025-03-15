@@ -124,5 +124,7 @@ func init() {
 	slowCmd.Flags().IntVarP(&limit, "limit", "l", 0, "limit the number of results. no limit is set by default. (optional)")
 	slowCmd.Flags().BoolVarP(&mask, "mask", "m", true, "mask query values. enabled by default. (optional)")
 	slowCmd.MarkFlagRequired("file")
+
 	rootCmd.AddCommand(slowCmd)
+	rootCmd.AddCommand(binlogCmd)
 }
