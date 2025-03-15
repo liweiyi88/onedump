@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/liweiyi88/onedump/slow"
+	"github.com/liweiyi88/onedump/slowlog"
 	"github.com/spf13/cobra"
 )
 
 func isValidDatabase(db string) bool {
-	return db == string(slow.MySQL) || db == string(slow.PostgreSQL)
+	return db == string(slowlog.MySQL) || db == string(slowlog.PostgreSQL)
 }
 
 var slowCmd = &cobra.Command{
@@ -22,8 +22,8 @@ var slowCmd = &cobra.Command{
 			return fmt.Errorf("unsupported database type: %s, support [mysql]", database)
 		}
 
-		databaseType := slow.DatabaseType(database)
-		result := slow.Parse(sloglog, databaseType, slow.ParseOptions{Limit: limit, Mask: mask, Pattern: pattern})
+		databaseType := slowlog.DatabaseType(database)
+		result := slowlog.Parse(file, databaseType, slowlog.ParseOptions{Limit: limit, Mask: mask, Pattern: pattern})
 
 		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetEscapeHTML(false)

@@ -1,4 +1,4 @@
-package slow
+package slowlog
 
 import (
 	"bufio"

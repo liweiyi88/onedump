@@ -14,12 +14,12 @@ import (
 
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/handler"
-	"github.com/liweiyi88/onedump/slow"
+	"github.com/liweiyi88/onedump/slowlog"
 	"github.com/liweiyi88/onedump/storage/s3"
 )
 
 var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey, cron string
-var sloglog, database, pattern string
+var database, pattern string
 var limit int
 var mask bool
 
@@ -118,8 +118,8 @@ func init() {
 	rootCmd.Flags().StringVarP(&s3AccessKeyId, "aws-key", "k", "", "aws access key id to overwrite the default one. (optional)")
 	rootCmd.Flags().StringVarP(&s3SecretAccessKey, "aws-secret", "s", "", "aws secret access key to overwrite the default one. (optional)")
 
-	slowCmd.Flags().StringVarP(&sloglog, "file", "f", "", "path to the slow log file. a directory can also be specified. (required)")
-	slowCmd.Flags().StringVarP(&database, "database", "d", string(slow.MySQL), "specify the database engine (optional)")
+	slowCmd.Flags().StringVarP(&file, "file", "f", "", "path to the slow log file. a directory can also be specified. (required)")
+	slowCmd.Flags().StringVarP(&database, "database", "d", string(slowlog.MySQL), "specify the database engine (optional)")
 	slowCmd.Flags().StringVarP(&pattern, "pattern", "p", "", "only read files that follow the same pattern, for example *slow.log . (optional)")
 	slowCmd.Flags().IntVarP(&limit, "limit", "l", 0, "limit the number of results. no limit is set by default. (optional)")
 	slowCmd.Flags().BoolVarP(&mask, "mask", "m", true, "mask query values. enabled by default. (optional)")
