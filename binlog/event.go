@@ -3,8 +3,7 @@ package binlog
 import (
 	"encoding/binary"
 	"fmt"
-	"regexp"
-	"strconv"
+	"io"
 )
 
 // https://github.com/mysql/mysql-server/blob/6b6d3ed3d5c6591b446276184642d7d0504ecc86/libs/mysql/binlog/event/binlog_event.cpp#L34
@@ -14,7 +13,9 @@ var mysqlChecksumVersionProduct = (mysqlChecksumVersionSplit[0]*256+mysqlChecksu
 type eventType byte
 
 type event interface {
-	parse(h *eventHeader, body []byte) error
+	resolve(h *EventHeader, body []byte) error
+	getHeader() *EventHeader
+	print(io.Writer)
 }
 
 const (
@@ -70,85 +71,40 @@ const (
 	GTID_TAGGED_LOG_EVENT
 )
 
-type eventHeader struct {
-	timestamp   uint32 // 4 bytes
-	eventType   byte   // 1 byte
-	serverId    uint32 // 4 bytes
-	eventSize   uint32 // 4 bytes
-	logPosition uint32 // 4 bytes
-	flag        uint16 // 2 bytes
+type EventHeader struct {
+	Timestamp   uint32 `json:"timestamp"`    // 4 bytes
+	EventType   byte   `json:"event_type"`   // 1 byte
+	ServerId    uint32 `json:"server_id"`    // 4 bytes
+	EventSize   uint32 `json:"event_size"`   // 4 bytes
+	LogPosition uint32 `json:"log_position"` // 4 bytes
+	Flag        uint16 `json:"flag"`         // 2 bytes
 }
 
-func parseEvent(h *eventHeader, body []byte) event {
-	switch h.eventType {
-	case byte(FORMAT_DESCRIPTION_EVENT):
-		event := newFormatDescriptionEvent()
-		event.parse(h, body)
-		return event
-
-	case byte(START_EVENT_V3):
-		event := newStartEvetV3()
-		event.parse(h, body)
-		return event
-	default:
-		return nil
-	}
-}
-
-func parseEventHeader(data []byte) (*eventHeader, error) {
+func parseEventHeader(data []byte) (*EventHeader, error) {
 	if len(data) != EventHeaderSize {
 		return nil, fmt.Errorf("invalid binlog header length, expected: %d, got: %d", EventHeaderSize, len(data))
 	}
 
-	eventHeader := &eventHeader{}
+	eventHeader := &EventHeader{}
 
 	pos := 0
-	eventHeader.timestamp = binary.LittleEndian.Uint32(data[pos:])
+	eventHeader.Timestamp = binary.LittleEndian.Uint32(data[pos:])
 	pos += 4
 
-	eventHeader.eventType = data[pos]
+	eventHeader.EventType = data[pos]
 	pos++
 
-	eventHeader.serverId = binary.LittleEndian.Uint32(data[pos : pos+4])
+	eventHeader.ServerId = binary.LittleEndian.Uint32(data[pos : pos+4])
 	pos += 4
 
-	eventHeader.eventSize = binary.LittleEndian.Uint32(data[pos : pos+4])
+	eventHeader.EventSize = binary.LittleEndian.Uint32(data[pos : pos+4])
 
 	pos += 4
 
-	eventHeader.logPosition = binary.LittleEndian.Uint32(data[pos : pos+4])
+	eventHeader.LogPosition = binary.LittleEndian.Uint32(data[pos : pos+4])
 	pos += 4
 
-	eventHeader.flag = binary.LittleEndian.Uint16(data[pos:])
+	eventHeader.Flag = binary.LittleEndian.Uint16(data[pos:])
 
 	return eventHeader, nil
-}
-
-// see https://github.com/mysql/mysql-server/blob/6b6d3ed3d5c6591b446276184642d7d0504ecc86/libs/mysql/binlog/event/binlog_event.cpp#L34
-func calculateVersionProduct(version string) int {
-	major, minor, patch := splitServerVersion(version)
-
-	return (major*256+minor)*256 + patch
-}
-
-// It parses a MySQL version string (e.g., "8.0.34") into major, minor, and patch numbers.
-// It is a rewrite of https://github.com/mysql/mysql-server/blob/6b6d3ed3d5c6591b446276184642d7d0504ecc86/libs/mysql/binlog/event/binlog_event.h#L184
-func splitServerVersion(version string) (major, minor, patch int) {
-	regex := regexp.MustCompile(`^(\d+)\.(\d+)\.(\d+)`)
-	matches := regex.FindStringSubmatch(version)
-
-	if len(matches) < 4 {
-		return 0, 0, 0
-	}
-
-	var numbers [3]int
-	for i := range 3 {
-		num, err := strconv.Atoi(matches[i+1])
-		if err != nil || num > 255 {
-			return 0, 0, 0
-		}
-		numbers[i] = num
-	}
-
-	return numbers[0], numbers[1], numbers[2]
 }

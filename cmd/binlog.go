@@ -10,7 +10,8 @@ var binlogCmd = &cobra.Command{
 	Short: "Database transaction log parser",
 	Long:  "Database transaction log parser, it supports MySQL binlog",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := binlog.ParseFile("/Users/julian.li/Downloads/binlog.002937")
+		parser := binlog.NewBinlogParser()
+		err := parser.ParseFile("/opt/homebrew/var/mysql/binlog.000295")
 
 		return err
 	},
