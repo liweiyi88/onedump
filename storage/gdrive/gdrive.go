@@ -8,6 +8,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
 	drive "google.golang.org/api/drive/v3"
+	"google.golang.org/api/option"
 
 	"github.com/liweiyi88/onedump/storage"
 )
@@ -33,7 +34,7 @@ func (gdrive *GDrive) Save(reader io.Reader, pathGenerator storage.PathGenerator
 
 	client := conf.Client(context.Background())
 
-	driveClient, err := drive.New(client)
+	driveClient, err := drive.NewService(context.Background(), option.WithHTTPClient(client))
 	if err != nil {
 		return fmt.Errorf("could not create drive client error: %v", err)
 	}

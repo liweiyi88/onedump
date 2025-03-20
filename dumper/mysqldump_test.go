@@ -29,22 +29,39 @@ func TestDefaultGetDumpCommand(t *testing.T) {
 }
 
 func TestGetDumpCommandWithOptions(t *testing.T) {
-	assert := assert.New(t)
-	job := config.NewJob("test", "mysql", testDBDsn, config.WithDumpOptions("--skip-comments", "--extended-insert", "--no-create-info", "--default-character-set=utf-8", "--single-transaction", "--skip-lock-tables", "--quick", "--set-gtid-purged=ON"))
-	mysql, _ := NewMysqlDump(job)
-	defer mysql.close()
+	t.Run("it should remove db from args when --all-databases option is passed", func(t *testing.T) {
+		assert := assert.New(t)
+		job := config.NewJob("test", "mysql", testDBDsn, config.WithDumpOptions("--all-databases"))
+		mysql, _ := NewMysqlDump(job)
+		defer mysql.close()
 
-	args, err := mysql.getDumpCommandArgs()
-	assert.Nil(err)
+		args, err := mysql.getDumpCommandArgs()
+		assert.Nil(err)
 
-	assert.True(slices.Contains(args, "--no-create-info"))
-	assert.True(slices.Contains(args, "--extended-insert"))
-	assert.True(slices.Contains(args, "--skip-comments"))
-	assert.True(slices.Contains(args, "--default-character-set=utf-8"))
-	assert.True(slices.Contains(args, "--single-transaction"))
-	assert.True(slices.Contains(args, "--skip-lock-tables"))
-	assert.True(slices.Contains(args, "--quick"))
-	assert.True(slices.Contains(args, "--set-gtid-purged=ON"))
+		assert.False(slices.Contains(args, "dump_test"))
+		assert.True(slices.Contains(args, "--all-databases"))
+	})
+
+	t.Run("it should include db in the args when --all-databases option is not used", func(t *testing.T) {
+		assert := assert.New(t)
+		job := config.NewJob("test", "mysql", testDBDsn, config.WithDumpOptions("--skip-comments", "--extended-insert", "--no-create-info", "--default-character-set=utf-8", "--single-transaction", "--skip-lock-tables", "--quick", "--set-gtid-purged=ON"))
+		mysql, _ := NewMysqlDump(job)
+		defer mysql.close()
+
+		args, err := mysql.getDumpCommandArgs()
+		assert.Nil(err)
+
+		assert.True(slices.Contains(args, "--no-create-info"))
+		assert.True(slices.Contains(args, "dump_test"))
+		assert.True(slices.Contains(args, "--extended-insert"))
+		assert.True(slices.Contains(args, "--skip-comments"))
+		assert.True(slices.Contains(args, "--default-character-set=utf-8"))
+		assert.True(slices.Contains(args, "--single-transaction"))
+		assert.True(slices.Contains(args, "--skip-lock-tables"))
+		assert.True(slices.Contains(args, "--quick"))
+		assert.True(slices.Contains(args, "--set-gtid-purged=ON"))
+	})
+
 }
 
 func TestCreateCredentialFileMysql(t *testing.T) {
