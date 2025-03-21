@@ -1,8 +1,10 @@
 package dialer
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net"
+	"os"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -31,7 +33,13 @@ func ensureHaveSSHPort(addr string) string {
 func (s *Ssh) CreateSshClient() (*ssh.Client, error) {
 	host := ensureHaveSSHPort(s.host)
 
-	signer, err := ssh.ParsePrivateKey([]byte(s.key))
+	privateKey, err := parseSSHKey(s.key)
+
+	if err != nil {
+		return nil, fmt.Errorf("fail to parse SSH key, error: %v", err)
+	}
+
+	signer, err := ssh.ParsePrivateKey(privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ssh singer :%w", err)
 	}
@@ -45,4 +53,22 @@ func (s *Ssh) CreateSshClient() (*ssh.Client, error) {
 	}
 
 	return ssh.Dial("tcp", host, conf)
+}
+
+func parseSSHKey(key string) ([]byte, error) {
+	_, err := os.Stat(key)
+
+	if err == nil {
+		return os.ReadFile(key)
+	}
+
+	// Try to decode by base64 encoding
+	decoded, err := base64.StdEncoding.DecodeString(key)
+
+	// If it is not base64 encoded, then we jsut return the original key.
+	if err != nil {
+		return []byte(key), nil
+	}
+
+	return decoded, nil
 }

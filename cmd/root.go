@@ -19,9 +19,11 @@ import (
 )
 
 var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey, cron string
-var sloglog, database, pattern string
+var syncHost, syncUser, syncKey string
+var syncMaxAttempts int
+var sloglog, database, pattern, source, destination string
 var limit int
-var mask bool
+var mask, append bool
 
 var rootCmd = &cobra.Command{
 	Use:   "onedump",
@@ -124,5 +126,24 @@ func init() {
 	slowCmd.Flags().IntVarP(&limit, "limit", "l", 0, "limit the number of results. no limit is set by default. (optional)")
 	slowCmd.Flags().BoolVarP(&mask, "mask", "m", true, "mask query values. enabled by default. (optional)")
 	slowCmd.MarkFlagRequired("file")
+
+	syncCmd.Flags().StringVarP(&source, "source", "s", "", "source file to be transfer to the destination. (required)")
+	syncCmd.Flags().StringVarP(&destination, "destination", "d", "", "the destination file that we want to write to. (required)")
+	syncCmd.Flags().BoolVar(&append, "append", false, "if true, re-run the command will try to append content to file instead of creating a new file. (optional)")
+	syncCmd.Flags().StringVar(&syncHost, "ssh-host", "", "SSH host (required)")
+	syncCmd.Flags().StringVar(&syncUser, "ssh-user", "", "SSH user (required)")
+
+	// Pass encoded private key content via base64. e.g. MacOS: base64 < ~/.ssh/id_rsa
+	// Or just pass the private key filename.
+	syncCmd.Flags().StringVar(&syncKey, "ssh-key", "", "the base64 encoded ssh private key content or the ssh private key filename (required)")
+	syncCmd.Flags().IntVar(&syncMaxAttempts, "max-attempts", 0, "the maximum number of retries if an error is encountered; by default, retries are infinite. (optional)")
+
+	syncCmd.MarkFlagRequired("source")
+	syncCmd.MarkFlagRequired("destination")
+	syncCmd.MarkFlagRequired("ssh-host")
+	syncCmd.MarkFlagRequired("ssh-user")
+	syncCmd.MarkFlagRequired("ssh-key")
+
 	rootCmd.AddCommand(slowCmd)
+	rootCmd.AddCommand(syncCmd)
 }

@@ -23,8 +23,6 @@ func NewExecRunner(command string, args []string, envs []string) *ExecRunner {
 func (runner *ExecRunner) Run(writer io.Writer) error {
 	cmd := exec.Command(runner.command, runner.args...)
 
-	fmt.Print(runner.command, runner.args)
-
 	if len(runner.envs) > 0 {
 		cmd.Env = append(os.Environ(), runner.envs...)
 	}
