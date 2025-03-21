@@ -67,7 +67,7 @@ func (sf *Sftp) attempt() {
 	sf.attempts++
 }
 
-func createProgressBar(maxBytes, offset int64) *progressbar.ProgressBar {
+func createProgressBar(maxBytes int64) *progressbar.ProgressBar {
 	bar := progressbar.NewOptions64(maxBytes,
 		progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
 		progressbar.OptionEnableColorCodes(true),
@@ -82,13 +82,22 @@ func createProgressBar(maxBytes, offset int64) *progressbar.ProgressBar {
 			BarEnd:        "]",
 		}))
 
-	bar.Add64(offset)
-
 	return bar
 }
 
 func (sf *Sftp) write(reader io.Reader, pathGenerator storage.PathGeneratorFunc, offset int64) error {
-	// Try to resume the file transfer if reader is a read seeker and offset is greater than 0
+	maxBytes := int64(-1)
+
+	// Checking if reader is a file so we can set the size of progress bar
+	if file, ok := reader.(*os.File); ok {
+		if info, err := file.Stat(); err == nil {
+			maxBytes = info.Size()
+		}
+	}
+
+	bar := createProgressBar(maxBytes)
+
+	// Try to resume the file transfer if reader is also a seeker and offset is greater than 0
 	if seeker, ok := reader.(io.ReadSeeker); ok && offset > 0 {
 		// File-based readers will maintain the read pointer.
 		// So for those readers calling Read func after a failure will resume the read rather than read from 0.
@@ -98,6 +107,9 @@ func (sf *Sftp) write(reader io.Reader, pathGenerator storage.PathGeneratorFunc,
 		if err != nil {
 			return fmt.Errorf("failed to seek to offset %d: %v, %w", offset, err, ErrNotRetryable)
 		}
+
+		// move progress bar to offset as well
+		bar.Add64(offset)
 	}
 
 	conn, err := dialer.NewSsh(sf.SshHost, sf.SshKey, sf.SshUser).CreateSshClient()
@@ -143,16 +155,6 @@ func (sf *Sftp) write(reader io.Reader, pathGenerator storage.PathGeneratorFunc,
 		}
 	}()
 
-	maxBytes := int64(-1)
-
-	if file, ok := reader.(*os.File); ok {
-		info, err := file.Stat()
-		if err == nil {
-			maxBytes = info.Size()
-		}
-	}
-
-	bar := createProgressBar(maxBytes, offset)
 	n, err := io.Copy(io.MultiWriter(file, bar), reader)
 
 	sf.mu.Lock()
