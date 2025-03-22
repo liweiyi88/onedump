@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"slices"
+
 	"github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/config"
@@ -106,7 +108,10 @@ func (mysql *MysqlDump) getDumpCommandArgs() ([]string, error) {
 	}
 
 	args = append(args, mysql.options...)
-	args = append(args, mysql.DBName)
+
+	if !slices.Contains(mysql.options, "--all-databases") {
+		args = append(args, mysql.DBName)
+	}
 
 	return args, nil
 }
