@@ -39,7 +39,6 @@ type Sftp struct {
 	SshHost     string `yaml:"sshhost"`
 	SshUser     string `yaml:"sshuser"`
 	SshKey      string `yaml:"sshkey"`
-	Result      Result
 }
 
 func NewSftp(maxAttempts int, path, sshHost, sshUser, sshKey string) *Sftp {
@@ -56,7 +55,6 @@ func (sf *Sftp) reset() {
 	sf.mu.Lock()
 	defer sf.mu.Unlock()
 
-	sf.Result = Result{}
 	sf.attempts = 0
 	sf.written = 0
 }
@@ -109,7 +107,9 @@ func (sf *Sftp) write(reader io.Reader, pathGenerator storage.PathGeneratorFunc,
 		}
 
 		// move progress bar to offset as well
-		bar.Add64(offset)
+		if err = bar.Add64(offset); err != nil {
+			return fmt.Errorf("fail to add offset to progress bar, error: %v", err)
+		}
 	}
 
 	conn, err := dialer.NewSsh(sf.SshHost, sf.SshKey, sf.SshUser).CreateSshClient()
@@ -172,23 +172,14 @@ func (sf *Sftp) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) 
 
 		// Contents have been saved properly, just return
 		if err == nil {
-			sf.Result.OK = true
-			sf.Result.Written = sf.written
-			sf.Result.Error = ""
 			return nil
 		}
 
 		if errors.Is(err, ErrNotRetryable) {
-			sf.Result.OK = false
-			sf.Result.Written = sf.written
-			sf.Result.Error = err.Error()
 			return err
 		}
 
 		if sf.MaxAttempts > 0 && sf.attempts >= sf.MaxAttempts {
-			sf.Result.OK = false
-			sf.Result.Written = sf.written
-			sf.Result.Error = "reached max retries"
 			return fmt.Errorf("failed after %d attempts: %v", sf.MaxAttempts, err)
 		}
 
@@ -197,10 +188,10 @@ func (sf *Sftp) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) 
 			float64(1*time.Minute),
 		))
 
-		slog.Info(fmt.Sprintf("retry after %0.f seconds", delay.Seconds()))
+		slog.Debug(fmt.Sprintf("retry after %0.f seconds", delay.Seconds()))
 
 		time.Sleep(delay)
 		sf.attempt()
-		slog.Info("retrying upload", slog.Int("attempt", sf.attempts), slog.Any("error", err))
+		slog.Debug("retrying upload", slog.Int("attempt", sf.attempts), slog.Any("error", err))
 	}
 }

@@ -45,12 +45,13 @@ jobs:
         path: /home/mydump.sql
     sftp:
       - path: /var/lib/mysql/dbbackup.sql
-      - sshhost: remote.com
-      - sshuser: root
-      - sshkey: |-
-        -----BEGIN OPENSSH PRIVATE KEY-----
-        b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAACFwAAAAdzc2gtcn...
-        -----END OPENSSH PRIVATE KEY-----
+        sshhost: remote.com
+        sshuser: root
+        # sshkey supports base64 encoded string, a file name or the raw content.
+        sshkey: |-
+          -----BEGIN OPENSSH PRIVATE KEY-----
+          b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAACFwAAAAdzc2gtcn...
+          -----END OPENSSH PRIVATE KEY-----
 ```
 
 # How to get storage credentials
