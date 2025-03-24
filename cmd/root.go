@@ -24,6 +24,7 @@ var limit int
 var mask, append, verbose bool
 
 var sftpHost, sftpUser, sftpKey string
+var checksum bool
 var sftpMaxAttempts int
 
 var rootCmd = &cobra.Command{
@@ -139,6 +140,7 @@ func init() {
 	syncSftpCmd.Flags().StringVar(&sftpKey, "ssh-key", "", "the base64 encoded ssh private key content or the ssh private key filename or the raw private content (required)")
 	syncSftpCmd.Flags().IntVar(&sftpMaxAttempts, "max-attempts", 0, "the maximum number of retries if an error is encountered; by default, retries are infinite. (optional)")
 	syncSftpCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints more debug information (optional)")
+	syncSftpCmd.Flags().BoolVar(&checksum, "checksum", false, "whether to save the checksum to avoid repeating file transfers, default false (optional)")
 
 	syncSftpCmd.MarkFlagRequired("source")
 	syncSftpCmd.MarkFlagRequired("destination")

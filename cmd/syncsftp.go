@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/liweiyi88/onedump/fileutil"
 	"github.com/liweiyi88/onedump/storage/sftp"
 	"github.com/spf13/cobra"
 )
@@ -14,13 +15,14 @@ var syncSftpCmd = &cobra.Command{
 	Short: "Sync files to a remote server via SSH with resumable transfer and retries.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sourceFile, err := os.Open(source)
+
 		if err != nil {
-			return fmt.Errorf("fail to open source file %s: %w", source, err)
+			return fmt.Errorf("fail to open source file: %s, error: %v", source, err)
 		}
 
 		defer func() {
 			if err := sourceFile.Close(); err != nil {
-				slog.Error("fail to close the source file", slog.Any("error", err))
+				slog.Error("fail to close source file", slog.Any("error", err))
 			}
 		}()
 
@@ -28,12 +30,35 @@ var syncSftpCmd = &cobra.Command{
 			slog.SetLogLoggerLevel(slog.LevelDebug)
 		}
 
-		sftp := sftp.NewSftp(sftpMaxAttempts, destination, sftpHost, sftpUser, sftpKey)
+		fileChecksum := fileutil.NewChecksum(sourceFile)
 
-		pathGenerator := func(filename string) string {
-			return filename
+		if checksum {
+			transfered, err := fileChecksum.IsFileTransferred()
+			if err != nil {
+				return err
+			}
+
+			if transfered {
+				slog.Debug("the file has already been transfered", slog.Any("filename", source))
+				return nil
+			}
 		}
 
-		return sftp.Save(sourceFile, pathGenerator)
+		err = sftp.
+			NewSftp(sftpMaxAttempts, destination, sftpHost, sftpUser, sftpKey).
+			Save(sourceFile, nil)
+
+		if err != nil {
+			return fmt.Errorf("fail to sync file %s to destination %s, error: %v", source, destination, err)
+		}
+
+		if checksum {
+			err := fileChecksum.SaveState()
+			if err != nil {
+				return fmt.Errorf("fail to save checksum state file for %s, error: %v", source, err)
+			}
+		}
+
+		return nil
 	},
 }

@@ -135,7 +135,10 @@ func (sf *Sftp) write(reader io.Reader, pathGenerator storage.PathGeneratorFunc,
 		}
 	}()
 
-	path := pathGenerator(sf.Path)
+	path := sf.Path
+	if pathGenerator != nil {
+		path = pathGenerator(sf.Path)
+	}
 
 	var file *sftpdialer.File
 
