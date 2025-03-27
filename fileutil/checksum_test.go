@@ -38,15 +38,7 @@ func TestComputeChecksum(t *testing.T) {
 		}
 	}()
 
-	file, err := os.Open(filename)
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	defer file.Close()
-
-	f := NewChecksum(file)
+	f := NewChecksum(filename)
 
 	checksum, err := f.computeChecksum()
 	if err != nil {
@@ -66,14 +58,7 @@ func TestComputeChecksum(t *testing.T) {
 		}
 	}()
 
-	file2, err := os.Open(filename2)
-	if err != nil {
-		t.Error(err)
-	}
-
-	defer file2.Close()
-
-	f.File = file2
+	f.filePath = filename2
 	checksum2, err := f.computeChecksum()
 	if err != nil {
 		t.Error(err)

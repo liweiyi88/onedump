@@ -30,7 +30,7 @@ var syncSftpCmd = &cobra.Command{
 			slog.SetLogLoggerLevel(slog.LevelDebug)
 		}
 
-		fileChecksum := fileutil.NewChecksum(sourceFile)
+		fileChecksum := fileutil.NewChecksum(source)
 
 		if checksum {
 			transfered, err := fileChecksum.IsFileTransferred()

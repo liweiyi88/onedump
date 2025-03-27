@@ -2,6 +2,7 @@ package handler
 
 import (
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -9,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/dumper"
 	"github.com/liweiyi88/onedump/fileutil"
@@ -56,7 +56,12 @@ func storageReadWriteCloser(count int, compress bool) ([]io.Reader, io.Writer, i
 
 // Save database dump to different storages.
 func (handler *JobHandler) save() error {
-	var err error
+	job := handler.Job
+	storages := handler.getStorages()
+
+	numberOfStorages := len(storages)
+
+	errCh := make(chan error, numberOfStorages+1)
 
 	dumper, err := handler.getDumper()
 
@@ -64,22 +69,22 @@ func (handler *JobHandler) save() error {
 		return fmt.Errorf("could not get dumper: %v", err)
 	}
 
-	job := handler.Job
-	storages := handler.getStorages()
-	numberOfStorages := len(storages)
-
 	if numberOfStorages > 0 {
 		// Use pipe to pass content from the database dump to different writer.
 		readers, writer, closer := storageReadWriteCloser(numberOfStorages, job.Gzip)
 
+		// Do not need to wait for this go routine, the writer is connected to readers via pipe
+		// If we use WaitGroup to wait the dumper then the readers will just block.
 		go func() {
-			e := dumper.Dump(writer)
-			if e != nil {
-				err = multierror.Append(err, e)
+			err := dumper.Dump(writer)
+			if err != nil {
+				// Do not send err to the error channel as it will be closed already.
+				// Just log the error, readers should return the same error that will be captured by the channel
+				slog.Error("fail to dump", slog.Any("error", err))
 			}
 
-			closeErr := closer.Close()
-			if closeErr != nil {
+			// We must call closer.Close() after the dump call. Then it will signal all readers with proper EOF.
+			if closeErr := closer.Close(); closeErr != nil {
 				slog.Error("can not close pipe readers and writers", slog.Any("error", closeErr))
 			}
 		}()
@@ -97,15 +102,28 @@ func (handler *JobHandler) save() error {
 
 				e := storage.Save(readers[i], pathGenerator)
 				if e != nil {
-					err = multierror.Append(err, e)
+					errCh <- e
 				}
 			}(i)
 		}
 
-		wg.Wait()
+		go func() {
+			wg.Wait()
+			close(errCh)
+		}()
+
+		var allErrors []error
+
+		for err := range errCh {
+			allErrors = append(allErrors, err)
+		}
+
+		if len(allErrors) > 0 {
+			return errors.Join(allErrors...)
+		}
 	}
 
-	return err
+	return nil
 }
 
 // Get all storage structs based on job configuration.

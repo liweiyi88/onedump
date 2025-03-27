@@ -15,26 +15,38 @@ import (
 const checksumStateFile = "checksum.onedump"
 
 type Checksum struct {
-	File     *os.File
+	filePath string
 	checksum string
 }
 
-func NewChecksum(file *os.File) *Checksum {
-	return &Checksum{File: file}
+func NewChecksum(filePath string) *Checksum {
+	return &Checksum{filePath: filePath}
 }
 
 func (c *Checksum) computeChecksum() (string, error) {
 	hasher := sha256.New()
 
-	if _, err := io.Copy(hasher, c.File); err != nil {
+	file, err := os.Open(c.filePath)
+
+	if err != nil {
+		return "", fmt.Errorf("fail to open file %s to compute checksum, error: %v", c.filePath, err)
+	}
+
+	defer func() {
+		if err = file.Close(); err != nil {
+			slog.Error("fail to close file", slog.Any("filename", file.Name()), slog.Any("error", err))
+		}
+	}()
+
+	if _, err := io.Copy(hasher, file); err != nil {
 		return "", fmt.Errorf("fail to copy content to hasher, error: %v", err)
 	}
 
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-func (fc *Checksum) getStateFilePath() string {
-	return filepath.Join(filepath.Dir(fc.File.Name()), checksumStateFile)
+func (c *Checksum) getStateFilePath() string {
+	return filepath.Join(filepath.Dir(c.filePath), checksumStateFile)
 }
 
 // We store the checksum state file in the same directory as the file
@@ -46,7 +58,7 @@ func (c *Checksum) getChecksum() (string, error) {
 	checksum, err := c.computeChecksum()
 
 	if err != nil {
-		return "", fmt.Errorf("fail to compute checksum for file %s, error: %v", c.File.Name(), err)
+		return "", fmt.Errorf("fail to compute checksum for file %s, error: %v", c.filePath, err)
 	}
 
 	c.checksum = checksum
@@ -61,7 +73,7 @@ func (c *Checksum) IsFileTransferred() (bool, error) {
 	}
 
 	// We store the checksum state file in the same directory as the file
-	stateFile, err := os.Open(c.getStateFilePath())
+	stateFile, err := os.OpenFile(c.getStateFilePath(), os.O_RDWR|os.O_CREATE, 0644)
 
 	if err != nil {
 		return false, fmt.Errorf("failed to open checksum file: %v", err)

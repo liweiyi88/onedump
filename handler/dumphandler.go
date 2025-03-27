@@ -17,6 +17,7 @@ type Notifier interface {
 
 type DumpHandler struct {
 	Dump *config.Dump
+	mu   sync.Mutex
 }
 
 func NewDumpHandler(dump *config.Dump) *DumpHandler {
@@ -34,14 +35,19 @@ func (d *DumpHandler) Do() error {
 	for _, job := range d.Dump.Jobs {
 		wg.Add(1)
 		go func(job *config.Job) {
+			defer wg.Done()
+
 			jobHandler := NewJobHandler(job)
 			result := jobHandler.Do()
+
+			d.mu.Lock()
 			if result.Error != nil {
 				dumpErr = multierror.Append(dumpErr, result.Error)
 			}
 
 			results = append(results, result)
-			wg.Done()
+			d.mu.Unlock()
+
 		}(job)
 	}
 
@@ -64,7 +70,9 @@ func (d *DumpHandler) notify(results []*jobresult.JobResult) error {
 		go func(notifier Notifier) {
 			notifErr := notifier.Notify(results)
 			if notifErr != nil {
+				d.mu.Lock()
 				err = multierror.Append(err, notifErr)
+				d.mu.Unlock()
 			}
 			wg.Done()
 		}(notifier)

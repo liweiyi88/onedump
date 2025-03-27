@@ -43,7 +43,7 @@ func TestRootCmdWithCron(t *testing.T) {
 	newFd.Close()
 	o := bytes.NewBufferString("")
 	cmd.SetOut(o)
-	cmd.SetArgs([]string{"-f", filename, "-c", "1sec"})
+	cmd.SetArgs([]string{"-f", filename, "-c", "1s"})
 	err = cmd.Execute()
 	assert.NotNil(err)
 
@@ -54,60 +54,68 @@ func TestRootCmdWithCron(t *testing.T) {
 }
 
 func TestRootCmd(t *testing.T) {
+
 	assert := assert.New(t)
-	cmd := rootCmd
-	cmd.SetArgs([]string{"-f", "/Users/jobs.yaml"})
-	b := bytes.NewBufferString("")
-	cmd.SetErr(b)
-	cmd.Execute()
 
-	out, err := io.ReadAll(b)
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Run("it should return error when job file can not be opened", func(t *testing.T) {
+		cmd := rootCmd
+		cmd.SetArgs([]string{"-f", "/Users/jobs.yaml"})
+		b := bytes.NewBufferString("")
+		cmd.SetErr(b)
+		cmd.Execute()
 
-	expect := "Error: failed to read job file from /Users/jobs.yaml, error: open /Users/jobs.yaml:"
-	actual := string(out)
-	assert.True(strings.HasPrefix(strings.TrimSpace(actual), expect))
+		out, err := io.ReadAll(b)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	workDir, _ := os.Getwd()
-	filename := workDir + "/test.sql"
-	file, err := os.Create(filename)
-	assert.Nil(err)
+		expect := "Error: failed to read job file from /Users/jobs.yaml, error: open /Users/jobs.yaml:"
+		actual := string(out)
+		assert.True(strings.HasPrefix(strings.TrimSpace(actual), expect))
+	})
 
-	defer os.Remove(filename)
-	file.Close()
+	t.Run("it should return error when no job is defined in the job config file", func(t *testing.T) {
+		workDir, _ := os.Getwd()
+		filename := workDir + "/test.sql"
+		file, err := os.Create(filename)
+		assert.Nil(err)
 
-	cmd.SetArgs([]string{"-f", filename})
-	cmd.Execute()
+		defer os.Remove(filename)
+		file.Close()
 
-	out, err = io.ReadAll(b)
-	assert.Nil(err)
+		cmd := rootCmd
+		cmd.SetArgs([]string{"-f", filename})
+		b := bytes.NewBufferString("")
+		cmd.SetErr(b)
+		cmd.Execute()
 
-	expect = "Error: no job is defined in the file " + filename
-	actual = string(out)
+		out, err := io.ReadAll(b)
+		assert.Nil(err)
 
-	assert.Equal(expect, strings.TrimSpace(actual))
+		expect := "Error: no job is defined in the file " + filename
+		actual := string(out)
 
-	newFd, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, os.ModePerm)
-	assert.Nil(err)
+		assert.Equal(expect, strings.TrimSpace(actual))
 
-	config := `jobs:
+		newFd, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, os.ModePerm)
+		assert.Nil(err)
+
+		config := `jobs:
 - name: local-dump
   dbdriver: mysql
   dbdsn: root@tcp(127.0.0.1)/unknow
   gzip: true
   storage:
     local:
-    - path: /Users/julianli/Desktop/test-local.sql
-`
+    - path: /Users/julianli/Desktop/test-local.sql`
 
-	err = os.WriteFile(filename, []byte(config), 0644)
-	assert.Nil(err)
+		err = os.WriteFile(filename, []byte(config), 0644)
+		assert.Nil(err)
 
-	newFd.Close()
-	o := bytes.NewBufferString("")
-	cmd.SetOut(o)
-	err = cmd.Execute()
-	assert.NotNil(err)
+		newFd.Close()
+		o := bytes.NewBufferString("")
+		cmd.SetOut(o)
+		err = cmd.Execute()
+		assert.NotNil(err)
+	})
 }
