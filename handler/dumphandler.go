@@ -1,14 +1,13 @@
 package handler
 
 import (
+	"errors"
 	"reflect"
 	"sync"
 
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/jobresult"
 	"github.com/liweiyi88/onedump/notifier/console"
-
-	"github.com/hashicorp/go-multierror"
 )
 
 type Notifier interface {
@@ -42,7 +41,7 @@ func (d *DumpHandler) Do() error {
 
 			d.mu.Lock()
 			if result.Error != nil {
-				dumpErr = multierror.Append(dumpErr, result.Error)
+				dumpErr = errors.Join(dumpErr, result.Error)
 			}
 
 			results = append(results, result)
@@ -56,14 +55,14 @@ func (d *DumpHandler) Do() error {
 	err := d.notify(results)
 
 	if err != nil {
-		dumpErr = multierror.Append(dumpErr, err)
+		dumpErr = errors.Join(dumpErr, err)
 	}
 
 	return dumpErr
 }
 
 func (d *DumpHandler) notify(results []*jobresult.JobResult) error {
-	var err error
+	var errs error
 	var wg sync.WaitGroup
 	for _, notifier := range d.getNotifiers() {
 		wg.Add(1)
@@ -71,7 +70,7 @@ func (d *DumpHandler) notify(results []*jobresult.JobResult) error {
 			notifErr := notifier.Notify(results)
 			if notifErr != nil {
 				d.mu.Lock()
-				err = multierror.Append(err, notifErr)
+				errs = errors.Join(errs, notifErr)
 				d.mu.Unlock()
 			}
 			wg.Done()
@@ -79,7 +78,7 @@ func (d *DumpHandler) notify(results []*jobresult.JobResult) error {
 	}
 
 	wg.Wait()
-	return err
+	return errs
 }
 
 func (d *DumpHandler) getNotifiers() []Notifier {

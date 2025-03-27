@@ -4,8 +4,6 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
-
 	"github.com/liweiyi88/onedump/notifier/slack"
 	"github.com/liweiyi88/onedump/storage/dropbox"
 	"github.com/liweiyi88/onedump/storage/gdrive"
@@ -33,7 +31,7 @@ func (dump *Dump) Validate() error {
 	for _, job := range dump.Jobs {
 		err := job.validate()
 		if err != nil {
-			errs = multierror.Append(errs, err)
+			errs = errors.Join(errs, err)
 		}
 	}
 

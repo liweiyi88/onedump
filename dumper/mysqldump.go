@@ -1,6 +1,7 @@
 package dumper
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,7 +14,6 @@ import (
 	"slices"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/hashicorp/go-multierror"
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/dumper/runner"
 	"github.com/liweiyi88/onedump/fileutil"
@@ -151,18 +151,18 @@ host = %s`
 
 // Cleanup the credentials file.
 func (mysql *MysqlDump) close() error {
-	var err error
+	var errs error
 	if len(mysql.credentialFiles) > 0 {
 		for _, filename := range mysql.credentialFiles {
 			if e := os.Remove(filename); e != nil {
-				err = multierror.Append(err, e)
+				errs = errors.Join(errs, e)
 			}
 		}
 
 		mysql.credentialFiles = nil
 	}
 
-	return err
+	return errs
 }
 
 func (mysql *MysqlDump) Dump(storage io.Writer) error {

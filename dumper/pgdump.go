@@ -1,6 +1,7 @@
 package dumper
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -9,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/liweiyi88/onedump/config"
@@ -89,18 +89,18 @@ func (psql *PgDump) getSshDumpCommand() (string, error) {
 
 // Cleanup the credentials file.
 func (psql *PgDump) close() error {
-	var err error
+	var errs error
 	if len(psql.credentialFiles) > 0 {
 		for _, filename := range psql.credentialFiles {
 			if e := os.Remove(filename); e != nil {
-				err = multierror.Append(err, e)
+				errs = errors.Join(errs, e)
 			}
 		}
 
 		psql.credentialFiles = nil
 	}
 
-	return err
+	return errs
 }
 
 // Store the username password in a temp file, and use it with the pg_dump command.
