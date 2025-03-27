@@ -73,15 +73,18 @@ func (handler *JobHandler) save() error {
 		// Use pipe to pass content from the database dump to different writer.
 		readers, writer, closer := storageReadWriteCloser(numberOfStorages, job.Gzip)
 
-		// Do not need to wait for this go routine, the writer is connected to readers via pipe
-		// If we use WaitGroup to wait the dumper then the readers will just block.
+		var dumpWg sync.WaitGroup
+		dumpWg.Add(1)
 		go func() {
 			err := dumper.Dump(writer)
 			if err != nil {
-				// Do not send err to the error channel as it will be closed already.
-				// Just log the error, readers should return the same error that will be captured by the channel
-				slog.Error("fail to dump", slog.Any("error", err))
+				errCh <- err
 			}
+
+			// We must call .Done before the closer.Close method
+			// writer and readers are connected via pipe and readers wait for the closer.Close to signal EOF so they can finish reading.
+			// If we call .Done after close then it will block as dumpWg has not finished yet while readers wait for the EOF signal.
+			dumpWg.Done()
 
 			// We must call closer.Close() after the dump call. Then it will signal all readers with proper EOF.
 			if closeErr := closer.Close(); closeErr != nil {
@@ -89,12 +92,12 @@ func (handler *JobHandler) save() error {
 			}
 		}()
 
-		var wg sync.WaitGroup
-		wg.Add(numberOfStorages)
+		var readWg sync.WaitGroup
+		readWg.Add(numberOfStorages)
 		for i, s := range storages {
 			storage := s
 			go func(i int) {
-				defer wg.Done()
+				defer readWg.Done()
 
 				pathGenerator := func(filename string) string {
 					return fileutil.EnsureFileName(filename, job.Gzip, job.Unique)
@@ -108,7 +111,8 @@ func (handler *JobHandler) save() error {
 		}
 
 		go func() {
-			wg.Wait()
+			dumpWg.Wait()
+			readWg.Wait()
 			close(errCh)
 		}()
 
