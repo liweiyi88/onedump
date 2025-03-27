@@ -37,6 +37,7 @@ func (runner *SshRunner) Run(writer io.Writer) error {
 	}()
 
 	sshSession, err := client.NewSession()
+
 	if err != nil {
 		return fmt.Errorf("failed to start ssh session: %w", err)
 	}

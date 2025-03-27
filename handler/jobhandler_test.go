@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"testing"
@@ -35,7 +36,7 @@ func TestDo(t *testing.T) {
 	assert.Nil(err)
 
 	jobs := make([]*config.Job, 0, 1)
-	sshJob := config.NewJob("ssh", "mysqldump", testDBDsn, config.WithSshHost("127.0.0.1:20001"), config.WithSshUser("root"), config.WithSshKey(privateKey))
+	sshJob := config.NewJob("ssh", "mysqldump", testDBDsn, config.WithSshHost("127.0.0.1:20002"), config.WithSshUser("root"), config.WithSshKey(privateKey))
 	localStorages := make([]*local.Local, 0)
 
 	dir, _ := os.Getwd()
@@ -70,13 +71,15 @@ func TestDo(t *testing.T) {
 
 	// Once a ServerConfig has been configured, connections can be
 	// accepted.
-	listener, err := net.Listen("tcp", "0.0.0.0:20001")
+	listener, err := net.Listen("tcp", "0.0.0.0:20002")
 	assert.Nil(err)
 
-	finishCh := make(chan struct{})
+	finishCh := make(chan struct{}, len(onedump.Jobs))
 	go func(onedump config.Dump) {
 		for _, job := range onedump.Jobs {
+			fmt.Print("start doing job")
 			NewJobHandler(job).Do()
+			fmt.Print("Finished")
 		}
 
 		finishCh <- struct{}{}
@@ -109,10 +112,23 @@ func TestDo(t *testing.T) {
 	assert.Nil(err)
 
 	req := <-requests
-	req.Reply(true, []byte("ssh dump"))
-	channel.SendRequest("exit-status", false, []byte{0, 0, 0, 0})
+	req.Reply(true, nil)
 
-	channel.Close()
+	_, err = channel.Write([]byte("ssh dump"))
+	if err != nil {
+		t.Logf("Failed to write to channel: %v", err)
+		return
+	}
+
+	_, err = channel.SendRequest("exit-status", false, []byte{0, 0, 0, 0})
+
+	if err != nil {
+		t.Logf("Failed to send exit status: %v", err)
+	}
+
+	if err = channel.Close(); err != nil {
+		t.Logf("Failed to close channel: %v", err)
+	}
 
 	<-finishCh
 	if _, err := os.Stat(dumpFile); errors.Is(err, os.ErrNotExist) {

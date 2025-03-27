@@ -11,6 +11,7 @@ import (
 	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
 	"github.com/liweiyi88/onedump/storage/s3"
+	"github.com/liweiyi88/onedump/storage/sftp"
 )
 
 var (
@@ -54,6 +55,7 @@ type Job struct {
 		S3      []*s3.S3           `yaml:"s3"`
 		GDrive  []*gdrive.GDrive   `yaml:"gdrive"`
 		Dropbox []*dropbox.Dropbox `yaml:"dropbox"`
+		Sftp    []*sftp.Sftp       `yaml:"sftp"`
 	} `yaml:"storage"`
 }
 

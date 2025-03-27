@@ -7,10 +7,10 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"log"
 	"log/slog"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/liweiyi88/onedump/config"
@@ -349,7 +349,7 @@ func (m *MysqlNativeDump) writeTableStructure(buf *bufio.Writer, table string) e
 	err := row.Scan(&name, &createTable)
 
 	if err != nil {
-		return fmt.Errorf("faile to scan create table structure for table: %s, error: %v", table, err)
+		return fmt.Errorf("fail to scan create table structure for table: %s, error: %v", table, err)
 	}
 
 	sb.WriteString(createTable + ";")
@@ -388,10 +388,12 @@ func (m *MysqlNativeDump) Dump(storage io.Writer) error {
 
 	db, err := sql.Open("mysql", m.DBConfig.FormatDSN())
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("fail to open database, error: %v", err)
 	}
 
-	pingErr := db.Ping()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	pingErr := db.PingContext(ctx)
 
 	if pingErr != nil {
 		return pingErr
