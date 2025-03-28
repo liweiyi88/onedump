@@ -101,6 +101,20 @@ func (c *Checksum) IsFileTransferred() (bool, error) {
 	return false, nil
 }
 
+func (c *Checksum) DeleteState() error {
+	err := os.Remove(c.getStateFilePath())
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	return nil
+}
+
 func (c *Checksum) SaveState() error {
 	file, err := os.OpenFile(c.getStateFilePath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 

@@ -30,6 +30,11 @@ type Result struct {
 	Written int64  `json:"written"`
 }
 
+type SftpConifg struct {
+	Host, User, Key string
+	MaxAttempts     int
+}
+
 type Sftp struct {
 	mu          sync.Mutex
 	written     int64 // number of bytes that have been written to the remote file
@@ -41,13 +46,12 @@ type Sftp struct {
 	SshKey      string `yaml:"sshkey"`
 }
 
-func NewSftp(maxAttempts int, path, sshHost, sshUser, sshKey string) *Sftp {
+func NewSftp(config *SftpConifg) *Sftp {
 	return &Sftp{
-		MaxAttempts: maxAttempts,
-		Path:        path,
-		SshHost:     sshHost,
-		SshUser:     sshUser,
-		SshKey:      sshKey,
+		SshHost:     config.Host,
+		SshUser:     config.User,
+		SshKey:      config.Key,
+		MaxAttempts: config.MaxAttempts,
 	}
 }
 
@@ -142,12 +146,14 @@ func (sf *Sftp) write(reader io.Reader, pathGenerator storage.PathGeneratorFunc,
 
 	var file *sftpdialer.File
 
+	slog.Debug("creating file via SFTP", slog.Any("path", path))
+
 	if offset > 0 {
 		if file, err = client.OpenFile(path, os.O_WRONLY|os.O_APPEND); err != nil {
 			return fmt.Errorf("fail to open remote file via SFTP, error: %v", err)
 		}
 	} else {
-		if file, err = client.Create(path); err != nil {
+		if file, err = client.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC); err != nil {
 			return fmt.Errorf("fail to create remote file via SFTP, error: %v", err)
 		}
 	}
@@ -197,4 +203,40 @@ func (sf *Sftp) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) 
 		sf.attempt()
 		slog.Debug("retrying upload", slog.Int("attempt", sf.attempts), slog.Any("error", err))
 	}
+}
+
+func (sf *Sftp) IsPathDir(path string) (bool, error) {
+	conn, err := dialer.NewSsh(sf.SshHost, sf.SshKey, sf.SshUser).CreateSshClient()
+
+	if err != nil {
+		return false, fmt.Errorf("fail to create ssh connection, error: %v", err)
+	}
+
+	defer func() {
+		if err := conn.Close(); err != nil {
+			slog.Error("fail to close ssh connection", slog.Any("error", err))
+		}
+	}()
+
+	client, err := sftpdialer.NewClient(conn)
+	if err != nil {
+		return false, err
+	}
+
+	defer func() {
+		if err := client.Close(); err != nil {
+			slog.Error("fail to close sftp connection", slog.Any("error", err))
+		}
+	}()
+
+	destInfo, err := client.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("fail to get destination file info, error: %v", err)
+	}
+
+	return destInfo.IsDir(), nil
 }
