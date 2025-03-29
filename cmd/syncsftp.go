@@ -1,15 +1,53 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/liweiyi88/onedump/fileutil"
 	"github.com/liweiyi88/onedump/storage/sftp"
 	"github.com/spf13/cobra"
 )
+
+func syncFiles(sources []string, destination string, checksum bool, isDestinationDir bool, config *sftp.SftpConifg) error {
+	errCh := make(chan error, len(sources))
+
+	// Process maximum 10 files at a time
+	semaphore := make(chan struct{}, 10)
+
+	var wg sync.WaitGroup
+	for _, file := range sources {
+		wg.Add(1)
+		semaphore <- struct{}{}
+		go func() {
+			defer func() {
+				<-semaphore
+				wg.Done()
+			}()
+
+			err := syncFile(file, destination, checksum, isDestinationDir, config)
+			if err != nil {
+				errCh <- err
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(errCh)
+	}()
+
+	var allErrors []error
+	for err := range errCh {
+		allErrors = append(allErrors, err)
+	}
+
+	return errors.Join(allErrors...)
+}
 
 func syncFile(source, destination string, checksum bool, isDestinationDir bool, config *sftp.SftpConifg) error {
 	fileChecksum := fileutil.NewChecksum(source)
@@ -87,6 +125,28 @@ var syncSftpCmd = &cobra.Command{
 		isDestinationDir, err := sftp.NewSftp(config).IsPathDir(destination)
 		if err != nil {
 			return fmt.Errorf("fail to check if destination is directory, error: %v", err)
+		}
+
+		sourceInfo, err := os.Stat(source)
+		if err != nil {
+			return fmt.Errorf("fail to get source info")
+		}
+
+		if sourceInfo.IsDir() && !isDestinationDir {
+			return errors.New("detination should not be a file when transfer multiple files from the source")
+		}
+
+		if sourceInfo.IsDir() {
+			files, err := fileutil.ListFiles(source, pattern)
+			if err != nil {
+				return fmt.Errorf("fail to list all files for source dir, error: %v", err)
+			}
+
+			if len(files) == 0 {
+				return errors.New("no file found for syncing")
+			}
+
+			return syncFiles(files, destination, checksum, isDestinationDir, config)
 		}
 
 		return syncFile(source, destination, checksum, isDestinationDir, config)

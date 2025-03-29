@@ -21,7 +21,7 @@ import (
 var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey, cron string
 var sloglog, database, pattern, source, destination string
 var limit int
-var mask, append, verbose bool
+var mask, attach, verbose bool
 
 var sftpHost, sftpUser, sftpKey string
 var checksum bool
@@ -131,7 +131,7 @@ func init() {
 
 	syncSftpCmd.Flags().StringVarP(&source, "source", "s", "", "the source full file path to be transfer to the destination. (required)")
 	syncSftpCmd.Flags().StringVarP(&destination, "destination", "d", "", "the destination full file path that we want to write to. (required)")
-	syncSftpCmd.Flags().BoolVar(&append, "append", false, "if true, re-run the command will try to append content to file instead of creating a new file. (optional)")
+	syncSftpCmd.Flags().BoolVar(&attach, "append", false, "if true, re-run the command will try to append content to file instead of creating a new file. (optional)")
 	syncSftpCmd.Flags().StringVar(&sftpHost, "ssh-host", "", "the remote SSH host (required)")
 	syncSftpCmd.Flags().StringVar(&sftpUser, "ssh-user", "", "the remote SSH user (required)")
 
@@ -141,6 +141,7 @@ func init() {
 	syncSftpCmd.Flags().IntVar(&sftpMaxAttempts, "max-attempts", 0, "the maximum number of retries if an error is encountered; by default, retries are infinite. (optional)")
 	syncSftpCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints more debug information (optional)")
 	syncSftpCmd.Flags().BoolVar(&checksum, "checksum", false, "whether to save the checksum to avoid repeating file transfers, default false (optional)")
+	syncSftpCmd.Flags().StringVarP(&pattern, "pattern", "p", "", "only read files that follow the same pattern, for example binlog.* (optional)")
 
 	syncSftpCmd.MarkFlagRequired("source")
 	syncSftpCmd.MarkFlagRequired("destination")
