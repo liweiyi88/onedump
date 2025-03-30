@@ -1,4 +1,6 @@
 coverage:
+  ignore:
+    - "testutils/*"
   status:
     patch:
       default:
