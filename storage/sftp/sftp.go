@@ -150,11 +150,11 @@ func (sf *Sftp) write(reader io.Reader, pathGenerator storage.PathGeneratorFunc,
 
 	if offset > 0 {
 		if file, err = client.OpenFile(path, os.O_WRONLY|os.O_APPEND); err != nil {
-			return fmt.Errorf("fail to open remote file via SFTP, error: %v", err)
+			return fmt.Errorf("fail to open remote file %s, via SFTP, error: %v", path, err)
 		}
 	} else {
 		if file, err = client.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC); err != nil {
-			return fmt.Errorf("fail to create remote file via SFTP, error: %v", err)
+			return fmt.Errorf("fail to create remote file %s, via SFTP, error: %v", path, err)
 		}
 	}
 

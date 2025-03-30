@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"testing"
@@ -77,9 +76,7 @@ func TestDo(t *testing.T) {
 	finishCh := make(chan struct{}, len(onedump.Jobs))
 	go func(onedump config.Dump) {
 		for _, job := range onedump.Jobs {
-			fmt.Print("start doing job")
 			NewJobHandler(job).Do()
-			fmt.Print("Finished")
 		}
 
 		finishCh <- struct{}{}
