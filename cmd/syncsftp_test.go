@@ -22,10 +22,13 @@ func TestSyncSftpCmd(t *testing.T) {
 
 		finishCh := make(chan struct{}, 1)
 
+		sourcePath := filepath.ToSlash(currentDir)
+		destPath := filepath.ToSlash(filepath.Join(currentDir, "dest.txt"))
+
 		onClient := func(privateKey string) {
 			cmd.SetArgs([]string{
 				"sync", "sftp",
-				"--source=" + currentDir, "--destination=" + currentDir + "/dest.txt",
+				"--source=" + sourcePath, "--destination=" + destPath,
 				"--ssh-host=127.0.0.1:20005",
 				"--ssh-user=root",
 				"--ssh-key=" + privateKey,
@@ -63,7 +66,7 @@ func TestSyncSftpCmd(t *testing.T) {
 		finishCh := make(chan struct{}, 1)
 
 		onClient := func(privateKey string) {
-			destPath := currentDir + "/dest.txt"
+			destPath := filepath.ToSlash(filepath.Join(currentDir, "dest.txt"))
 			defer os.Remove(destPath)
 
 			cmd.SetArgs([]string{
@@ -111,7 +114,7 @@ func TestSyncSftpCmd(t *testing.T) {
 		assert.Nil(err)
 
 		finishCh := make(chan struct{}, 1)
-		destDir := currentDir + "/dest"
+		destDir := filepath.ToSlash(filepath.Join(currentDir, "/dest"))
 
 		if err = os.MkdirAll(destDir, 0755); err != nil {
 			t.Error(err)
@@ -124,9 +127,12 @@ func TestSyncSftpCmd(t *testing.T) {
 		}()
 
 		onClient := func(privateKey string) {
+
+			sourcePath := filepath.ToSlash(currentDir)
+
 			cmd.SetArgs([]string{
 				"sync", "sftp",
-				"--source=" + currentDir, "--destination=" + destDir,
+				"--source=" + sourcePath, "--destination=" + destDir,
 				"--ssh-host=127.0.0.1:20005",
 				"--ssh-user=root",
 				"--ssh-key=" + privateKey,
