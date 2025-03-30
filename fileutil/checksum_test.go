@@ -101,8 +101,8 @@ func TestIsFileTransferred(t *testing.T) {
 		}
 	}()
 
-	assert.Nil(err)
 	transferred, err = checksum.IsFileTransferred()
+	assert.Nil(err)
 	assert.True(transferred)
 }
 

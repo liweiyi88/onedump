@@ -33,8 +33,8 @@ func (c *Checksum) computeChecksum() (string, error) {
 	}
 
 	defer func() {
-		if err = file.Close(); err != nil {
-			slog.Error("fail to close file", slog.Any("filename", file.Name()), slog.Any("error", err))
+		if closeErr := file.Close(); closeErr != nil {
+			slog.Error("fail to close file", slog.Any("filename", file.Name()), slog.Any("error", closeErr))
 		}
 	}()
 
@@ -63,8 +63,8 @@ func (c *Checksum) IsFileTransferred() (bool, error) {
 	}
 
 	defer func() {
-		if err := stateFile.Close(); err != nil {
-			slog.Error("fail to close the checksum state file while checking if file has been transfered", slog.Any("error", err))
+		if closeErr := stateFile.Close(); closeErr != nil {
+			slog.Error("fail to close the checksum state file while checking if file has been transfered", slog.Any("error", closeErr))
 		}
 	}()
 
