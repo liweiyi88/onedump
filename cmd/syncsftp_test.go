@@ -3,8 +3,11 @@ package cmd
 import (
 	"bytes"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/liweiyi88/onedump/fileutil"
 	"github.com/liweiyi88/onedump/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,12 +20,9 @@ func TestSyncSftpCmd(t *testing.T) {
 		currentDir, err := os.Getwd()
 		assert.Nil(err)
 
-		privateKey, err := testutils.GenerateRSAPrivateKey()
-		assert.Nil(err)
-
 		finishCh := make(chan struct{}, 1)
 
-		onClient := func() {
+		onClient := func(privateKey string) {
 			cmd.SetArgs([]string{
 				"sync", "sftp",
 				"--source=" + currentDir, "--destination=" + currentDir + "/dest.txt",
@@ -42,7 +42,7 @@ func TestSyncSftpCmd(t *testing.T) {
 			finishCh <- struct{}{}
 		}
 
-		testutils.StartSftpServer("0.0.0.0:20005", privateKey, 1, onClient)
+		testutils.StartSftpServer("0.0.0.0:20005", 1, onClient)
 		<-finishCh
 	})
 
@@ -60,12 +60,9 @@ func TestSyncSftpCmd(t *testing.T) {
 		currentDir, err := os.Getwd()
 		assert.Nil(err)
 
-		privateKey, err := testutils.GenerateRSAPrivateKey()
-		assert.Nil(err)
-
 		finishCh := make(chan struct{}, 1)
 
-		onClient := func() {
+		onClient := func(privateKey string) {
 			destPath := currentDir + "/dest.txt"
 			defer os.Remove(destPath)
 
@@ -85,11 +82,11 @@ func TestSyncSftpCmd(t *testing.T) {
 			cmd.SetErr(readWriter)
 			cmd.Execute()
 
-			assert.Contains(readWriter.String(), "")
+			assert.Equal(strings.ReplaceAll(readWriter.String(), "\x00", ""), "")
 			finishCh <- struct{}{}
 		}
 
-		testutils.StartSftpServer("0.0.0.0:20005", privateKey, 2, onClient)
+		testutils.StartSftpServer("0.0.0.0:20005", 2, onClient)
 		<-finishCh
 	})
 
@@ -113,9 +110,6 @@ func TestSyncSftpCmd(t *testing.T) {
 		currentDir, err := os.Getwd()
 		assert.Nil(err)
 
-		privateKey, err := testutils.GenerateRSAPrivateKey()
-		assert.Nil(err)
-
 		finishCh := make(chan struct{}, 1)
 		destDir := currentDir + "/dest"
 
@@ -129,7 +123,7 @@ func TestSyncSftpCmd(t *testing.T) {
 			}
 		}()
 
-		onClient := func() {
+		onClient := func(privateKey string) {
 			cmd.SetArgs([]string{
 				"sync", "sftp",
 				"--source=" + currentDir, "--destination=" + destDir,
@@ -147,11 +141,125 @@ func TestSyncSftpCmd(t *testing.T) {
 			cmd.SetErr(readWriter)
 			cmd.Execute()
 
-			assert.Contains(readWriter.String(), "")
+			assert.Equal(strings.ReplaceAll(readWriter.String(), "\x00", ""), "")
 			finishCh <- struct{}{}
 		}
 
-		testutils.StartSftpServer("0.0.0.0:20005", privateKey, 3, onClient)
+		testutils.StartSftpServer("0.0.0.0:20005", 3, onClient)
+		<-finishCh
+	})
+
+	t.Run("it should save checksum state file when --checksum=true option is passed", func(t *testing.T) {
+		source, err := os.Create("single_source.txt")
+		assert.Nil(err)
+
+		defer func() {
+			source.Close()
+			os.Remove("single_source.txt")
+		}()
+
+		source.WriteString("source content")
+
+		currentDir, err := os.Getwd()
+		assert.Nil(err)
+
+		finishCh := make(chan struct{}, 1)
+
+		onClient := func(privateKey string) {
+			destPath := currentDir + "/dest.txt"
+			defer os.Remove(destPath)
+
+			cmd.SetArgs([]string{
+				"sync", "sftp",
+				"--source=" + source.Name(), "--destination=" + destPath,
+				"--ssh-host=127.0.0.1:20005",
+				"--ssh-user=root",
+				"--ssh-key=" + privateKey,
+				"--checksum=true",
+				"-v",
+			})
+
+			buf := make([]byte, 1024)
+			readWriter := bytes.NewBuffer(buf)
+
+			cmd.SetOut(readWriter)
+			cmd.SetErr(readWriter)
+			cmd.Execute()
+
+			assert.Equal(strings.ReplaceAll(readWriter.String(), "\x00", ""), "")
+
+			finishCh <- struct{}{}
+
+			wd, err := os.Getwd()
+			assert.Nil(err)
+
+			checksumState, err := os.Stat(filepath.Join(wd, fileutil.ChecksumStateFile))
+			assert.Nil(err)
+			assert.Equal(checksumState.Size(), int64(64))
+
+			defer func() {
+				if err = os.Remove(fileutil.ChecksumStateFile); err != nil {
+					t.Error(err)
+				}
+			}()
+		}
+
+		testutils.StartSftpServer("0.0.0.0:20005", 2, onClient)
+		<-finishCh
+	})
+
+	t.Run("it should not transfer file that has already been transfered when --checksum=true option is passed", func(t *testing.T) {
+		source, err := os.Create("single_source.txt")
+		assert.Nil(err)
+
+		defer func() {
+			source.Close()
+			os.Remove("single_source.txt")
+		}()
+
+		source.WriteString("source content")
+
+		checksum := fileutil.NewChecksum(source.Name())
+		err = checksum.SaveState()
+		assert.Nil(err)
+
+		defer func() {
+			if err := checksum.DeleteState(); err != nil {
+				t.Error(err)
+			}
+		}()
+
+		currentDir, err := os.Getwd()
+		assert.Nil(err)
+
+		finishCh := make(chan struct{}, 1)
+
+		onClient := func(privateKey string) {
+			destPath := currentDir + "/dest.txt"
+			defer os.Remove(destPath)
+
+			cmd.SetArgs([]string{
+				"sync", "sftp",
+				"--source=" + source.Name(), "--destination=" + destPath,
+				"--ssh-host=127.0.0.1:20005",
+				"--ssh-user=root",
+				"--ssh-key=" + privateKey,
+				"--checksum=true",
+				"-v",
+			})
+
+			buf := make([]byte, 1024)
+			readWriter := bytes.NewBuffer(buf)
+
+			cmd.SetOut(readWriter)
+			cmd.SetErr(readWriter)
+			cmd.Execute()
+
+			assert.Equal(strings.ReplaceAll(readWriter.String(), "\x00", ""), "")
+			finishCh <- struct{}{}
+		}
+
+		testutils.StartSftpServer("0.0.0.0:20005", 1, onClient)
 		<-finishCh
 	})
 }

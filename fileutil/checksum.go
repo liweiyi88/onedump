@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-const checksumStateFile = "checksum.onedump"
+const ChecksumStateFile = "checksum.onedump"
 
 type Checksum struct {
 	filePath string
@@ -46,28 +46,11 @@ func (c *Checksum) computeChecksum() (string, error) {
 }
 
 func (c *Checksum) getStateFilePath() string {
-	return filepath.Join(filepath.Dir(c.filePath), checksumStateFile)
-}
-
-// We store the checksum state file in the same directory as the file
-func (c *Checksum) getChecksum() (string, error) {
-	if len(c.checksum) == 64 {
-		return c.checksum, nil
-	}
-
-	checksum, err := c.computeChecksum()
-
-	if err != nil {
-		return "", fmt.Errorf("fail to compute checksum for file %s, error: %v", c.filePath, err)
-	}
-
-	c.checksum = checksum
-
-	return checksum, nil
+	return filepath.Join(filepath.Dir(c.filePath), ChecksumStateFile)
 }
 
 func (c *Checksum) IsFileTransferred() (bool, error) {
-	checksum, err := c.getChecksum()
+	checksum, err := c.computeChecksum()
 	if err != nil {
 		return false, err
 	}
@@ -133,7 +116,7 @@ func (c *Checksum) SaveState() error {
 		return fmt.Errorf("fail to get file info while saving, error: %v", err)
 	}
 
-	checksum, err := c.getChecksum()
+	checksum, err := c.computeChecksum()
 	if err != nil {
 		return fmt.Errorf("fail to get checksum while saving, error: %v", err)
 	}

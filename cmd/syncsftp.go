@@ -122,6 +122,10 @@ var syncSftpCmd = &cobra.Command{
 			MaxAttempts: sftpMaxAttempts,
 		}
 
+		if config.Host == "" || config.User == "" || config.Key == "" {
+			return errors.New("ssh host, user, and key are required for SFTP connection")
+		}
+
 		isDestinationDir, err := sftp.NewSftp(config).IsPathDir(destination)
 		if err != nil {
 			return fmt.Errorf("fail to check if destination is directory, error: %v", err)
@@ -129,7 +133,7 @@ var syncSftpCmd = &cobra.Command{
 
 		sourceInfo, err := os.Stat(source)
 		if err != nil {
-			return fmt.Errorf("fail to get source info")
+			return fmt.Errorf("fail to get source info %v", err)
 		}
 
 		if sourceInfo.IsDir() && !isDestinationDir {

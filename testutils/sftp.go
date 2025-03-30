@@ -99,7 +99,12 @@ func (sh *SftpHanlder) Fileread(req *sftp.Request) (io.ReaderAt, error) {
 	return file, nil
 }
 
-func StartSftpServer(address string, privateKey string, numberOfRequests int, onClient func()) error {
+func StartSftpServer(address string, numberOfRequests int, onClient func(privateKey string)) error {
+	privateKey, err := GenerateRSAPrivateKey()
+	if err != nil {
+		return err
+	}
+
 	sshConfig := &ssh.ServerConfig{
 		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
 			return &ssh.Permissions{
@@ -130,7 +135,7 @@ func StartSftpServer(address string, privateKey string, numberOfRequests int, on
 	}()
 
 	go func() {
-		onClient()
+		onClient(privateKey)
 	}()
 
 	for range numberOfRequests {
@@ -150,7 +155,10 @@ func StartSftpServer(address string, privateKey string, numberOfRequests int, on
 
 		for newChannel := range chans {
 			if newChannel.ChannelType() != "session" {
-				newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
+				if err := newChannel.Reject(ssh.UnknownChannelType, "unknown channel type"); err != nil {
+					slog.Error("fail to reject new channel", slog.Any("error", err))
+				}
+
 				continue
 			}
 
@@ -177,12 +185,13 @@ func StartSftpServer(address string, privateKey string, numberOfRequests int, on
 func HandleSftpRequests(requests <-chan *ssh.Request, channel ssh.Channel) {
 	for req := range requests {
 		if req.Type == "subsystem" && string(req.Payload[4:]) == "sftp" {
-			req.Reply(true, nil)
+			if err := req.Reply(true, nil); err != nil {
+				slog.Error("failed to reply to subsystem request", slog.Any("error", err))
+			}
 
 			server := sftp.NewRequestServer(channel, sftp.Handlers{
-				FileGet: &SftpHanlder{},
-				FilePut: &SftpHanlder{},
-				// FileCmd:  FileCmder,
+				FileGet:  &SftpHanlder{},
+				FilePut:  &SftpHanlder{},
 				FileList: &SftpHanlder{},
 			})
 
@@ -193,6 +202,8 @@ func HandleSftpRequests(requests <-chan *ssh.Request, channel ssh.Channel) {
 			return
 		}
 
-		req.Reply(false, nil)
+		if err := req.Reply(false, nil); err != nil {
+			slog.Error("failed to reply with false", slog.Any("error", err))
+		}
 	}
 }
