@@ -8,6 +8,9 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -36,9 +39,26 @@ func (fl *fileLister) ListAt(list []os.FileInfo, offset int64) (int, error) {
 
 type SftpHanlder struct{}
 
+func fromSftpPath(sftpPath string) string {
+	if runtime.GOOS == "windows" {
+		if len(sftpPath) > 3 && sftpPath[0] == '/' && sftpPath[2] == ':' && sftpPath[3] == '/' {
+			// Extract drive letter and remaining path
+			drive := strings.ToUpper(string(sftpPath[1]))
+			remainingPath := sftpPath[3:]
+
+			// Convert forward slashes to backslashes
+			windowsPath := drive + ":" + filepath.FromSlash(remainingPath)
+			return windowsPath
+		}
+	}
+	return filepath.FromSlash(sftpPath)
+}
+
 func (sh *SftpHanlder) Filelist(req *sftp.Request) (sftp.ListerAt, error) {
-	path := req.Filepath
-	slog.Info("[sftp] listing directory", slog.Any("path", path))
+	requestPath := req.Filepath
+	path := fromSftpPath(requestPath)
+
+	slog.Info("[sftp] listing directory", slog.Any("request path", requestPath), slog.Any("path", path))
 
 	fileInfo, err := os.Stat(path)
 	if err != nil {
@@ -76,10 +96,11 @@ func (sh *SftpHanlder) Filelist(req *sftp.Request) (sftp.ListerAt, error) {
 
 func (sh *SftpHanlder) Filewrite(req *sftp.Request) (io.WriterAt, error) {
 	filePath := req.Filepath
+	path := fromSftpPath(filePath)
 
-	slog.Info("[sftp] writing file", slog.Any("file", filePath))
+	slog.Info("[sftp] writing file", slog.Any("request path", filePath), slog.Any("path", path))
 
-	file, err := os.Create(filePath)
+	file, err := os.Create(path)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +110,9 @@ func (sh *SftpHanlder) Filewrite(req *sftp.Request) (io.WriterAt, error) {
 
 func (sh *SftpHanlder) Fileread(req *sftp.Request) (io.ReaderAt, error) {
 	filePath := req.Filepath
-	slog.Info("[sftp] reading file", slog.Any("file", filePath))
+	path := fromSftpPath(filePath)
+
+	slog.Info("[sftp] reading file", slog.Any("request path", filePath), slog.Any("path", path))
 
 	file, err := os.Open(filePath)
 	if err != nil {
