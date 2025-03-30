@@ -47,7 +47,7 @@ func TestComputeChecksum(t *testing.T) {
 
 	assert.Len(t, checksum, 64)
 
-	filename2 := "another_chcksum.txt"
+	filename2 := "another_checksum.txt"
 	if err := createTestFile(filename2, "test content"); err != nil {
 		t.Error(err)
 	}

@@ -16,7 +16,6 @@ const ChecksumStateFile = "checksum.onedump"
 
 type Checksum struct {
 	filePath string
-	checksum string
 }
 
 func NewChecksum(filePath string) *Checksum {
@@ -64,11 +63,11 @@ func (c *Checksum) IsFileTransferred() (bool, error) {
 
 	defer func() {
 		if closeErr := stateFile.Close(); closeErr != nil {
-			slog.Error("fail to close the checksum state file while checking if file has been transfered", slog.Any("error", closeErr))
+			slog.Error("fail to close the checksum state file while checking if file has been transferred", slog.Any("error", closeErr))
 		}
 	}()
 
-	// Checksum is always 64 bits, so use bufio scanner is simple and safe for this case.
+	// SHA-256 checksum is always 64 characters in hex format, so using bufio scanner is simple and safe for this case.
 	scanner := bufio.NewScanner(stateFile)
 
 	for scanner.Scan() {
@@ -87,11 +86,7 @@ func (c *Checksum) IsFileTransferred() (bool, error) {
 func (c *Checksum) DeleteState() error {
 	err := os.Remove(c.getStateFilePath())
 
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-
+	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 

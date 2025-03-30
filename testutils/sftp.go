@@ -37,7 +37,7 @@ func (fl *fileLister) ListAt(list []os.FileInfo, offset int64) (int, error) {
 	return int(end - start), nil
 }
 
-type SftpHanlder struct{}
+type SftpHandler struct{}
 
 func fromSftpPath(sftpPath string) string {
 	if runtime.GOOS == "windows" {
@@ -54,7 +54,7 @@ func fromSftpPath(sftpPath string) string {
 	return filepath.FromSlash(sftpPath)
 }
 
-func (sh *SftpHanlder) Filelist(req *sftp.Request) (sftp.ListerAt, error) {
+func (sh *SftpHandler) Filelist(req *sftp.Request) (sftp.ListerAt, error) {
 	requestPath := req.Filepath
 	path := fromSftpPath(requestPath)
 
@@ -94,7 +94,7 @@ func (sh *SftpHanlder) Filelist(req *sftp.Request) (sftp.ListerAt, error) {
 	return &fileLister{files: fileInfoList}, nil
 }
 
-func (sh *SftpHanlder) Filewrite(req *sftp.Request) (io.WriterAt, error) {
+func (sh *SftpHandler) Filewrite(req *sftp.Request) (io.WriterAt, error) {
 	filePath := req.Filepath
 	path := fromSftpPath(filePath)
 
@@ -108,13 +108,13 @@ func (sh *SftpHanlder) Filewrite(req *sftp.Request) (io.WriterAt, error) {
 	return file, nil
 }
 
-func (sh *SftpHanlder) Fileread(req *sftp.Request) (io.ReaderAt, error) {
+func (sh *SftpHandler) Fileread(req *sftp.Request) (io.ReaderAt, error) {
 	filePath := req.Filepath
 	path := fromSftpPath(filePath)
 
 	slog.Info("[sftp] reading file", slog.Any("request path", filePath), slog.Any("path", path))
 
-	file, err := os.Open(filePath)
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -213,9 +213,9 @@ func HandleSftpRequests(requests <-chan *ssh.Request, channel ssh.Channel) {
 			}
 
 			server := sftp.NewRequestServer(channel, sftp.Handlers{
-				FileGet:  &SftpHanlder{},
-				FilePut:  &SftpHanlder{},
-				FileList: &SftpHanlder{},
+				FileGet:  &SftpHandler{},
+				FilePut:  &SftpHandler{},
+				FileList: &SftpHandler{},
 			})
 
 			if err := server.Serve(); err != nil && err != io.EOF {
