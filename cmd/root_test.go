@@ -54,7 +54,6 @@ func TestRootCmdWithCron(t *testing.T) {
 }
 
 func TestRootCmd(t *testing.T) {
-
 	assert := assert.New(t)
 
 	t.Run("it should return error when job file can not be opened", func(t *testing.T) {
@@ -62,7 +61,7 @@ func TestRootCmd(t *testing.T) {
 		cmd.SetArgs([]string{"-f", "/Users/jobs.yaml"})
 		b := bytes.NewBufferString("")
 		cmd.SetErr(b)
-		cmd.Execute()
+		err := cmd.Execute()
 
 		out, err := io.ReadAll(b)
 		if err != nil {

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -54,11 +55,21 @@ func (c *Checksum) IsFileTransferred() (bool, error) {
 		return false, err
 	}
 
+	_, err = os.Stat(c.getStateFilePath())
+
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("fail to inspect checksum file stat, error: %v", err)
+	}
+
 	// We store the checksum state file in the same directory as the file
 	stateFile, err := os.OpenFile(c.getStateFilePath(), os.O_RDWR|os.O_CREATE, 0644)
 
 	if err != nil {
-		return false, fmt.Errorf("failed to open checksum file: %v", err)
+		return false, fmt.Errorf("fail to open checksum file: %v", err)
 	}
 
 	defer func() {

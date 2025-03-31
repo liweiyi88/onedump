@@ -21,19 +21,15 @@ type fileLister struct {
 }
 
 func (fl *fileLister) ListAt(list []os.FileInfo, offset int64) (int, error) {
-	// Calculate the starting index based on the offset
 	start := offset
 	if start >= int64(len(fl.files)) {
-		return 0, nil // No more files to list
+		return 0, nil
 	}
 
-	// List files starting from the offset
 	end := min(start+int64(len(list)), int64(len(fl.files)))
 
-	// Copy files into the provided list
 	copy(list, fl.files[start:end])
 
-	// Return the number of files copied
 	return int(end - start), nil
 }
 
@@ -58,7 +54,7 @@ func (sh *SftpHandler) Filelist(req *sftp.Request) (sftp.ListerAt, error) {
 	requestPath := req.Filepath
 	path := fromSftpPath(requestPath)
 
-	slog.Info("[sftp] listing directory", slog.Any("request path", requestPath), slog.Any("path", path))
+	slog.Debug("[sftp] listing directory", slog.Any("request path", requestPath), slog.Any("path", path))
 
 	fileInfo, err := os.Stat(path)
 	if err != nil {
@@ -66,7 +62,7 @@ func (sh *SftpHandler) Filelist(req *sftp.Request) (sftp.ListerAt, error) {
 	}
 
 	if fileInfo.IsDir() {
-		slog.Info("[sftp] path is a directory return its info", slog.Any("path", path))
+		slog.Debug("[sftp] path is a directory return its info", slog.Any("path", path))
 		return &fileLister{files: []os.FileInfo{fileInfo}}, nil
 	}
 
@@ -98,7 +94,7 @@ func (sh *SftpHandler) Filewrite(req *sftp.Request) (io.WriterAt, error) {
 	filePath := req.Filepath
 	path := fromSftpPath(filePath)
 
-	slog.Info("[sftp] writing file", slog.Any("request path", filePath), slog.Any("path", path))
+	slog.Debug("[sftp] writing file", slog.Any("request path", filePath), slog.Any("path", path))
 
 	file, err := os.Create(path)
 	if err != nil {
@@ -112,7 +108,7 @@ func (sh *SftpHandler) Fileread(req *sftp.Request) (io.ReaderAt, error) {
 	filePath := req.Filepath
 	path := fromSftpPath(filePath)
 
-	slog.Info("[sftp] reading file", slog.Any("request path", filePath), slog.Any("path", path))
+	slog.Debug("[sftp] reading file", slog.Any("request path", filePath), slog.Any("path", path))
 
 	file, err := os.Open(path)
 	if err != nil {
@@ -122,7 +118,7 @@ func (sh *SftpHandler) Fileread(req *sftp.Request) (io.ReaderAt, error) {
 	return file, nil
 }
 
-func StartSftpServer(address string, numberOfRequests int, onClient func(privateKey string)) error {
+func StartSftpServer(address string, numberOfRequests int, onServerReady func(privateKey string)) error {
 	privateKey, err := GenerateRSAPrivateKey()
 	if err != nil {
 		return err
@@ -158,7 +154,7 @@ func StartSftpServer(address string, numberOfRequests int, onClient func(private
 	}()
 
 	go func() {
-		onClient(privateKey)
+		onServerReady(privateKey)
 	}()
 
 	for range numberOfRequests {
@@ -172,7 +168,7 @@ func StartSftpServer(address string, numberOfRequests int, onClient func(private
 			return err
 		}
 
-		slog.Info("SSH logged in", slog.Any("key", conn.Permissions.Extensions["pubkey-fp"]))
+		slog.Debug("[ssh] SSH logged in", slog.Any("key", conn.Permissions.Extensions["pubkey-fp"]))
 
 		go ssh.DiscardRequests(reqs)
 

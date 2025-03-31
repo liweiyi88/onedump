@@ -112,20 +112,13 @@ func TestDo(t *testing.T) {
 	req.Reply(true, nil)
 
 	_, err = channel.Write([]byte("ssh dump"))
-	if err != nil {
-		t.Logf("Failed to write to channel: %v", err)
-		return
-	}
+	assert.Nil(err)
 
 	_, err = channel.SendRequest("exit-status", false, []byte{0, 0, 0, 0})
+	assert.Nil(err)
 
-	if err != nil {
-		t.Logf("Failed to send exit status: %v", err)
-	}
-
-	if err = channel.Close(); err != nil {
-		t.Logf("Failed to close channel: %v", err)
-	}
+	err = channel.Close()
+	assert.Nil(err)
 
 	<-finishCh
 	if _, err := os.Stat(dumpFile); errors.Is(err, os.ErrNotExist) {

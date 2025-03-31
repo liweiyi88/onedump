@@ -129,17 +129,16 @@ func init() {
 	slowCmd.Flags().BoolVarP(&mask, "mask", "m", true, "mask query values. enabled by default. (optional)")
 	slowCmd.MarkFlagRequired("file")
 
-	syncSftpCmd.Flags().StringVarP(&source, "source", "s", "", "the source full file path to be transfer to the destination. (required)")
-	syncSftpCmd.Flags().StringVarP(&destination, "destination", "d", "", "the destination full file path that we want to write to. (required)")
+	syncSftpCmd.Flags().StringVarP(&source, "source", "s", "", "the source file path to be transferred to the destination, supports folder as well (required)")
+	syncSftpCmd.Flags().StringVarP(&destination, "destination", "d", "", "the destination file path that we want to write to, supports folder as well (required)")
 	syncSftpCmd.Flags().BoolVar(&attach, "append", false, "if true, re-run the command will try to append content to file instead of creating a new file. (optional)")
 	syncSftpCmd.Flags().StringVar(&sftpHost, "ssh-host", "", "the remote SSH host (required)")
 	syncSftpCmd.Flags().StringVar(&sftpUser, "ssh-user", "", "the remote SSH user (required)")
-
 	// Pass encoded private key content via base64. e.g. MacOS: base64 < ~/.ssh/id_rsa
 	// Or just pass the private key filename.
-	syncSftpCmd.Flags().StringVar(&sftpKey, "ssh-key", "", "the base64 encoded ssh private key content or the ssh private key filename or the raw private content (required)")
-	syncSftpCmd.Flags().IntVar(&sftpMaxAttempts, "max-attempts", 0, "the maximum number of retries if an error is encountered; by default, retries are infinite. (optional)")
-	syncSftpCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints more debug information (optional)")
+	syncSftpCmd.Flags().StringVar(&sftpKey, "ssh-key", "", "the base64 encoded ssh private key content or the ssh private key file path or the raw private content (required)")
+	syncSftpCmd.Flags().IntVar(&sftpMaxAttempts, "max-attempts", 0, "the maximum number of retries if an error is encountered; by default, retries are unlimited (optional)")
+	syncSftpCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
 	syncSftpCmd.Flags().BoolVar(&checksum, "checksum", false, "whether to save the checksum to avoid repeating file transfers, default false (optional)")
 	syncSftpCmd.Flags().StringVarP(&pattern, "pattern", "p", "", "only read files that follow the same pattern, for example binlog.* (optional)")
 

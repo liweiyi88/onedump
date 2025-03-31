@@ -16,16 +16,15 @@ func TestSyncSftpCmd(t *testing.T) {
 	cmd := rootCmd
 	assert := assert.New(t)
 
-	t.Run("it should return err if we try to sync multiple files but specify a single file as destination", func(t *testing.T) {
+	t.Run("it should return error if we try to sync multiple files but specify a single file as destination", func(t *testing.T) {
 		currentDir, err := os.Getwd()
 		assert.Nil(err)
-
-		finishCh := make(chan struct{}, 1)
 
 		sourcePath := filepath.ToSlash(currentDir)
 		destPath := filepath.ToSlash(filepath.Join(currentDir, "dest.txt"))
 
-		onClient := func(privateKey string) {
+		finishCh := make(chan struct{}, 1)
+		onServerReady := func(privateKey string) {
 			cmd.SetArgs([]string{
 				"sync", "sftp",
 				"--source=" + sourcePath, "--destination=" + destPath,
@@ -45,7 +44,7 @@ func TestSyncSftpCmd(t *testing.T) {
 			finishCh <- struct{}{}
 		}
 
-		testutils.StartSftpServer("0.0.0.0:20005", 1, onClient)
+		testutils.StartSftpServer("0.0.0.0:20005", 1, onServerReady)
 		<-finishCh
 	})
 
@@ -65,7 +64,7 @@ func TestSyncSftpCmd(t *testing.T) {
 
 		finishCh := make(chan struct{}, 1)
 
-		onClient := func(privateKey string) {
+		onServerReady := func(privateKey string) {
 			destPath := filepath.ToSlash(filepath.Join(currentDir, "dest.txt"))
 			defer os.Remove(destPath)
 
@@ -89,7 +88,7 @@ func TestSyncSftpCmd(t *testing.T) {
 			finishCh <- struct{}{}
 		}
 
-		testutils.StartSftpServer("0.0.0.0:20005", 2, onClient)
+		testutils.StartSftpServer("0.0.0.0:20005", 2, onServerReady)
 		<-finishCh
 	})
 
@@ -126,7 +125,7 @@ func TestSyncSftpCmd(t *testing.T) {
 			}
 		}()
 
-		onClient := func(privateKey string) {
+		onServerReady := func(privateKey string) {
 
 			sourcePath := filepath.ToSlash(currentDir)
 
@@ -151,7 +150,7 @@ func TestSyncSftpCmd(t *testing.T) {
 			finishCh <- struct{}{}
 		}
 
-		testutils.StartSftpServer("0.0.0.0:20005", 3, onClient)
+		testutils.StartSftpServer("0.0.0.0:20005", 3, onServerReady)
 		<-finishCh
 	})
 
@@ -171,7 +170,7 @@ func TestSyncSftpCmd(t *testing.T) {
 
 		finishCh := make(chan struct{}, 1)
 
-		onClient := func(privateKey string) {
+		onServerReady := func(privateKey string) {
 			destPath := currentDir + "/dest.txt"
 			defer os.Remove(destPath)
 
@@ -193,7 +192,6 @@ func TestSyncSftpCmd(t *testing.T) {
 			cmd.Execute()
 
 			assert.Equal(strings.ReplaceAll(readWriter.String(), "\x00", ""), "")
-
 			finishCh <- struct{}{}
 
 			wd, err := os.Getwd()
@@ -210,7 +208,7 @@ func TestSyncSftpCmd(t *testing.T) {
 			}()
 		}
 
-		testutils.StartSftpServer("0.0.0.0:20005", 2, onClient)
+		testutils.StartSftpServer("0.0.0.0:20005", 2, onServerReady)
 		<-finishCh
 	})
 
@@ -240,7 +238,7 @@ func TestSyncSftpCmd(t *testing.T) {
 
 		finishCh := make(chan struct{}, 1)
 
-		onClient := func(privateKey string) {
+		onServerReady := func(privateKey string) {
 			destPath := currentDir + "/dest.txt"
 			defer os.Remove(destPath)
 
@@ -265,7 +263,7 @@ func TestSyncSftpCmd(t *testing.T) {
 			finishCh <- struct{}{}
 		}
 
-		testutils.StartSftpServer("0.0.0.0:20005", 1, onClient)
+		testutils.StartSftpServer("0.0.0.0:20005", 1, onServerReady)
 		<-finishCh
 	})
 }

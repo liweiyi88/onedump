@@ -94,6 +94,7 @@ func TestIsFileTransferred(t *testing.T) {
 	assert.False(transferred)
 
 	err = checksum.SaveState()
+	assert.Nil(err)
 
 	defer func() {
 		if err := checksum.DeleteState(); err != nil {
