@@ -35,19 +35,17 @@ Onedump is a database administration tool that exports data from multiple source
 * [The slow log parser](#the-slow-log-parser)
 * [Resumable and concurrent SFTP file transfers](#resumable-and-concurrent-sftp-file-transfers)
 
-### Supported data sources
-| Databases | Status |
-| --- | --- |
-| MySQL | ✅ Suported |
-| PostgreSQL | ✅ Suported |
+### Supported source databases
+- MySQL
+- PostgreSQL
 
-### Supported destinations
-| Storage | Status |
-| --- | --- |
-| Local | ✅ Suported |
-| S3 | ✅ Suported |
-| Google Drive | ✅ Supported |
-| Dropbox | ✅ Supported |
+### Supported storage destinations
+
+- Local file system
+- AWS S3
+- Google Drive
+- Dropbox
+- SFTP
 
 
 ## Installation
@@ -72,9 +70,9 @@ Docker images are also available in [Docker Hub](https://hub.docker.com/r/julian
 3. When the current native MySQL dumper doesn't fit your needs and you need `mysqldump`.
 
 #### Use a specific pg_dump version
-The docker image contains `mysql` client, `postgresql15-client` and `postgresql16-client`. By default it uses `postgresql16-client`. However, you can pass an environemnt `PG_VERSION` to swtich postgresql client version between `15` and `16`. For example, `docker run -e PG_VERSION=15 julianli/onedump:v1.2.0-arm64 -f config.yaml`.
+The docker image contains `mysql` client, `postgresql15-client` and `postgresql16-client`. By default it uses `postgresql16-client`. However, you can pass an environemnt `PG_VERSION` to swtich postgresql client version between `15` and `16`. For example, `docker run -e PG_VERSION=15 julianli/onedump:v1.5.0-arm64 -f config.yaml`.
 
-> Although we maintain both `ARM64` and `AMD64` Docker images, usually what you need is the `AMD64` image on your production Linux machine. For example: `julianli/onedump:v1.2.0-amd64`*
+> Although we maintain both `ARM64` and `AMD64` Docker images, usually what you need is the `AMD64` image on your production Linux machine. For example: `julianli/onedump:v1.5.0-amd64`*
 
 ## Prerequisites
 
