@@ -4,13 +4,12 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
-
 	"github.com/liweiyi88/onedump/notifier/slack"
 	"github.com/liweiyi88/onedump/storage/dropbox"
 	"github.com/liweiyi88/onedump/storage/gdrive"
 	"github.com/liweiyi88/onedump/storage/local"
 	"github.com/liweiyi88/onedump/storage/s3"
+	"github.com/liweiyi88/onedump/storage/sftp"
 )
 
 var (
@@ -32,7 +31,7 @@ func (dump *Dump) Validate() error {
 	for _, job := range dump.Jobs {
 		err := job.validate()
 		if err != nil {
-			errs = multierror.Append(errs, err)
+			errs = errors.Join(errs, err)
 		}
 	}
 
@@ -54,6 +53,7 @@ type Job struct {
 		S3      []*s3.S3           `yaml:"s3"`
 		GDrive  []*gdrive.GDrive   `yaml:"gdrive"`
 		Dropbox []*dropbox.Dropbox `yaml:"dropbox"`
+		Sftp    []*sftp.Sftp       `yaml:"sftp"`
 	} `yaml:"storage"`
 }
 

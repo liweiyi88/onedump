@@ -19,9 +19,13 @@ import (
 )
 
 var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey, cron string
-var sloglog, database, pattern string
+var sloglog, database, pattern, source, destination string
 var limit int
-var mask bool
+var mask, attach, verbose bool
+
+var sftpHost, sftpUser, sftpKey string
+var checksum bool
+var sftpMaxAttempts int
 
 var rootCmd = &cobra.Command{
 	Use:   "onedump",
@@ -124,5 +128,26 @@ func init() {
 	slowCmd.Flags().IntVarP(&limit, "limit", "l", 0, "limit the number of results. no limit is set by default. (optional)")
 	slowCmd.Flags().BoolVarP(&mask, "mask", "m", true, "mask query values. enabled by default. (optional)")
 	slowCmd.MarkFlagRequired("file")
+
+	syncSftpCmd.Flags().StringVarP(&source, "source", "s", "", "the source file path to be transferred to the destination, supports folder as well (required)")
+	syncSftpCmd.Flags().StringVarP(&destination, "destination", "d", "", "the destination file path that we want to write to, supports folder as well (required)")
+	syncSftpCmd.Flags().BoolVar(&attach, "append", false, "if true, re-run the command will try to append content to file instead of creating a new file. (optional)")
+	syncSftpCmd.Flags().StringVar(&sftpHost, "ssh-host", "", "the remote SSH host (required)")
+	syncSftpCmd.Flags().StringVar(&sftpUser, "ssh-user", "", "the remote SSH user (required)")
+	// Pass encoded private key content via base64. e.g. MacOS: base64 < ~/.ssh/id_rsa
+	// Or just pass the private key filename.
+	syncSftpCmd.Flags().StringVar(&sftpKey, "ssh-key", "", "the base64 encoded ssh private key content or the ssh private key file path or the raw private content (required)")
+	syncSftpCmd.Flags().IntVar(&sftpMaxAttempts, "max-attempts", 0, "the maximum number of retries if an error is encountered; by default, retries are unlimited (optional)")
+	syncSftpCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
+	syncSftpCmd.Flags().BoolVar(&checksum, "checksum", false, "whether to save the checksum to avoid repeating file transfers, default false (optional)")
+	syncSftpCmd.Flags().StringVarP(&pattern, "pattern", "p", "", "only read files that follow the same pattern, for example binlog.* (optional)")
+
+	syncSftpCmd.MarkFlagRequired("source")
+	syncSftpCmd.MarkFlagRequired("destination")
+	syncSftpCmd.MarkFlagRequired("ssh-host")
+	syncSftpCmd.MarkFlagRequired("ssh-user")
+	syncSftpCmd.MarkFlagRequired("ssh-key")
+
 	rootCmd.AddCommand(slowCmd)
+	rootCmd.AddCommand(syncSftpCmd)
 }

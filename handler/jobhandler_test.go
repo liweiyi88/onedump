@@ -35,7 +35,7 @@ func TestDo(t *testing.T) {
 	assert.Nil(err)
 
 	jobs := make([]*config.Job, 0, 1)
-	sshJob := config.NewJob("ssh", "mysqldump", testDBDsn, config.WithSshHost("127.0.0.1:20001"), config.WithSshUser("root"), config.WithSshKey(privateKey))
+	sshJob := config.NewJob("ssh", "mysqldump", testDBDsn, config.WithSshHost("127.0.0.1:20002"), config.WithSshUser("root"), config.WithSshKey(privateKey))
 	localStorages := make([]*local.Local, 0)
 
 	dir, _ := os.Getwd()
@@ -70,10 +70,10 @@ func TestDo(t *testing.T) {
 
 	// Once a ServerConfig has been configured, connections can be
 	// accepted.
-	listener, err := net.Listen("tcp", "0.0.0.0:20001")
+	listener, err := net.Listen("tcp", "0.0.0.0:20002")
 	assert.Nil(err)
 
-	finishCh := make(chan struct{})
+	finishCh := make(chan struct{}, len(onedump.Jobs))
 	go func(onedump config.Dump) {
 		for _, job := range onedump.Jobs {
 			NewJobHandler(job).Do()
@@ -109,10 +109,16 @@ func TestDo(t *testing.T) {
 	assert.Nil(err)
 
 	req := <-requests
-	req.Reply(true, []byte("ssh dump"))
-	channel.SendRequest("exit-status", false, []byte{0, 0, 0, 0})
+	req.Reply(true, nil)
 
-	channel.Close()
+	_, err = channel.Write([]byte("ssh dump"))
+	assert.Nil(err)
+
+	_, err = channel.SendRequest("exit-status", false, []byte{0, 0, 0, 0})
+	assert.Nil(err)
+
+	err = channel.Close()
+	assert.Nil(err)
 
 	<-finishCh
 	if _, err := os.Stat(dumpFile); errors.Is(err, os.ErrNotExist) {

@@ -31,7 +31,7 @@ func (local *Local) Save(reader io.Reader, pathGenerator storage.PathGeneratorFu
 	_, err = io.Copy(file, reader)
 
 	if err != nil {
-		return fmt.Errorf("failed to copy cache file to the dest file: %w", err)
+		return fmt.Errorf("failed to save content to the destination: %w", err)
 	}
 
 	return nil

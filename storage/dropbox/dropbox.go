@@ -113,7 +113,7 @@ func (dropbox *Dropbox) Save(reader io.Reader, pathGenerator storage.PathGenerat
 					return err
 				}
 
-				slog.Info("started dropbox upload session", slog.Any("sessionId", sessId))
+				slog.Debug("[dropbox] started dropbox upload session", slog.Any("sessionId", sessId))
 				sessionId = sessId
 			}
 
@@ -123,7 +123,7 @@ func (dropbox *Dropbox) Save(reader io.Reader, pathGenerator storage.PathGenerat
 					return err
 				}
 
-				slog.Info("finish dropbox upload session with offset", slog.Any("offset", offset))
+				slog.Debug("[dropbox] finish dropbox upload session with offset", slog.Any("offset", offset))
 
 				offset += n
 				continue
@@ -134,7 +134,7 @@ func (dropbox *Dropbox) Save(reader io.Reader, pathGenerator storage.PathGenerat
 				return err
 			}
 
-			slog.Info("append dropbox upload session with offset", slog.Any("offset", offset))
+			slog.Debug("[dropbox] append dropbox upload session with offset", slog.Any("offset", offset))
 			offset += n
 		}
 	}

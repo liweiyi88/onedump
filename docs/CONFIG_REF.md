@@ -20,6 +20,7 @@ jobs:
   - --no-create-info
   sshhost: mywebsite.com #required when connect via ssh
   sshuser: root #required when connect via ssh
+  # sshkey supports base64 encoded string, a file or the raw content.
   sshkey: |-
     -----BEGIN OPENSSH PRIVATE KEY-----
     b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAACFwAAAAdzc2gtcn...
@@ -43,6 +44,16 @@ jobs:
         clientid: fsdfdsf123
         clientsecret: abdfdli86123
         path: /home/mydump.sql
+    sftp:
+        # the remote file path
+      - path: /var/lib/mysql/dbbackup.sql
+        sshhost: remote.com
+        sshuser: root
+        # sshkey supports base64 encoded string, a file name or the raw content.
+        sshkey: |-
+          -----BEGIN OPENSSH PRIVATE KEY-----
+          b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAACFwAAAAdzc2gtcn...
+          -----END OPENSSH PRIVATE KEY-----
 ```
 
 # How to get storage credentials

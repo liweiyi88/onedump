@@ -1,14 +1,13 @@
 package handler
 
 import (
+	"errors"
 	"reflect"
 	"sync"
 
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/jobresult"
 	"github.com/liweiyi88/onedump/notifier/console"
-
-	"github.com/hashicorp/go-multierror"
 )
 
 type Notifier interface {
@@ -17,6 +16,7 @@ type Notifier interface {
 
 type DumpHandler struct {
 	Dump *config.Dump
+	mu   sync.Mutex
 }
 
 func NewDumpHandler(dump *config.Dump) *DumpHandler {
@@ -34,14 +34,19 @@ func (d *DumpHandler) Do() error {
 	for _, job := range d.Dump.Jobs {
 		wg.Add(1)
 		go func(job *config.Job) {
+			defer wg.Done()
+
 			jobHandler := NewJobHandler(job)
 			result := jobHandler.Do()
+
+			d.mu.Lock()
 			if result.Error != nil {
-				dumpErr = multierror.Append(dumpErr, result.Error)
+				dumpErr = errors.Join(dumpErr, result.Error)
 			}
 
 			results = append(results, result)
-			wg.Done()
+			d.mu.Unlock()
+
 		}(job)
 	}
 
@@ -50,28 +55,30 @@ func (d *DumpHandler) Do() error {
 	err := d.notify(results)
 
 	if err != nil {
-		dumpErr = multierror.Append(dumpErr, err)
+		dumpErr = errors.Join(dumpErr, err)
 	}
 
 	return dumpErr
 }
 
 func (d *DumpHandler) notify(results []*jobresult.JobResult) error {
-	var err error
+	var errs error
 	var wg sync.WaitGroup
 	for _, notifier := range d.getNotifiers() {
 		wg.Add(1)
 		go func(notifier Notifier) {
 			notifErr := notifier.Notify(results)
 			if notifErr != nil {
-				err = multierror.Append(err, notifErr)
+				d.mu.Lock()
+				errs = errors.Join(errs, notifErr)
+				d.mu.Unlock()
 			}
 			wg.Done()
 		}(notifier)
 	}
 
 	wg.Wait()
-	return err
+	return errs
 }
 
 func (d *DumpHandler) getNotifiers() []Notifier {

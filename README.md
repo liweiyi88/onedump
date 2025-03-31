@@ -9,13 +9,14 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/liweiyi88/onedump)](https://goreportcard.com/report/github.com/liweiyi88/onedump)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/liweiyi88/onedump/blob/main/LICENSE.md)
 
-Onedump is a database dump and backup tool that can dump different databases to different storages with a simple configuration file or CLI commands.
+Onedump is a database administration tool that exports data from multiple source databases to various storage destinations using a simple configuration file. It also provides CLI commands with flexible file synchronization strategies for efficient data transfers.
 
 ## Features
 * Database backup from different sources to different destinations.
 * MySQL dump with zero dependencies (with built-in mysql native dumper). 
 * Supports dumpers with dependencies (`mysqldump` and `pg_dump`).
 * MySQL slow log parser.
+* Resumable and concurrent SFTP file transfers.
 * Loads configuration from S3 bucket.
 * Compression (use `job.gzip: true` to enable compression).
 * Unique filename (use `job.unique: true` to enable unique filename).
@@ -32,6 +33,7 @@ Onedump is a database dump and backup tool that can dump different databases to 
 * [How it works](#how-it-works)
 * [The native MySQL dumper](#the-native-mysql-dumper) 
 * [The slow log parser](#the-slow-log-parser)
+* [Resumable and concurrent SFTP file transfers](#resumable-and-concurrent-sftp-file-transfers)
 
 ### Supported data sources
 | Databases | Status |
@@ -299,3 +301,6 @@ $onedump slow -f /path/to/folder-or-file -p="*slow.log"
 // Mask query values with ?
 $onedump slow -f /path/to/file -m="true"
 ```
+## Resumable and concurrent SFTP file transfers
+
+Checkout the [sync sftp documentation](./docs/sync/sftp.md) for more details.

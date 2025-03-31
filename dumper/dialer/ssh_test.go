@@ -1,6 +1,8 @@
 package dialer
 
 import (
+	"encoding/base64"
+	"os"
 	"testing"
 
 	"github.com/liweiyi88/onedump/testutils"
@@ -33,4 +35,28 @@ func TestCreateSshClient(t *testing.T) {
 
 	_, err = ssh.CreateSshClient()
 	assert.NotNil(err)
+}
+
+func TestParseSSHKey(t *testing.T) {
+	assert := assert.New(t)
+
+	file, err := os.Create("privateKey.pem")
+	assert.Nil(err)
+
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Error(err)
+		}
+
+		if err := os.Remove(file.Name()); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	_, err = parseSSHKey(file.Name())
+	assert.Nil(err)
+
+	base64Encoded := base64.StdEncoding.EncodeToString([]byte{'f'})
+	key, err := parseSSHKey(base64Encoded)
+	assert.Equal("f", string(key))
 }
