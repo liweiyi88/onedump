@@ -7,7 +7,7 @@ The `sync sftp` command provides an efficient way to transfer files from a sourc
 #### Single file transfer
 ```
 onedump sync sftp \
---source"/path/to/file.txt" \
+--source="/path/to/file.txt" \
 --destination="/var/lib/mysql" \
 --ssh-host="remote.com" \
 --ssh-user="root" \
@@ -19,7 +19,7 @@ onedump sync sftp \
 
 ```
 onedump sync sftp \
---source"/path/to/folder/" \
+--source="/path/to/folder/" \
 --destination="/var/lib/mysql" \
 --ssh-host="remote.com" \
 --ssh-user="root" \
