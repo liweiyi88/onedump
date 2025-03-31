@@ -109,7 +109,7 @@ func syncFile(source, destination string, checksum bool, isDestinationDir bool, 
 
 var syncSftpCmd = &cobra.Command{
 	Use:   "sync sftp",
-	Short: "Sync files to a remote server via SSH with resumable transfer and retries.",
+	Short: "Resumable and concurrent SFTP files transfer.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if verbose {
 			slog.SetLogLoggerLevel(slog.LevelDebug)
