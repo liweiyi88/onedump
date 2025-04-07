@@ -2,6 +2,7 @@ package binlog
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -80,7 +81,7 @@ func TestQueryLogBinBasenameSuccess(t *testing.T) {
 
 	querier := NewBinlogInfoQuerier(db)
 
-	expectedValue := "/var/log/mysql/mysql-bin"
+	expectedValue := filepath.Join("var", "log", "mysql", "mysql-bin")
 	rows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
 		AddRow("log_bin_basename", expectedValue)
 	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME).WillReturnRows(rows)
@@ -99,7 +100,6 @@ func TestQueryLogBinBasenameFailure(t *testing.T) {
 
 	querier := NewBinlogInfoQuerier(db)
 
-	// Test case 1: Query error
 	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME).WillReturnError(errors.New("query error"))
 	value, err := querier.queryLogBinBasename()
 	assert.Error(err)
@@ -107,7 +107,6 @@ func TestQueryLogBinBasenameFailure(t *testing.T) {
 	assert.Contains(err.Error(), "failt to run query")
 	assert.NoError(mock.ExpectationsWereMet())
 
-	// Test case 2: Scan error
 	rows := sqlmock.NewRows([]string{"Variable_name"}).AddRow("log_bin_basename") // missing Value column
 	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME).WillReturnRows(rows)
 	value, err = querier.queryLogBinBasename()
@@ -116,7 +115,6 @@ func TestQueryLogBinBasenameFailure(t *testing.T) {
 	assert.Contains(err.Error(), "fail to scan database rows")
 	assert.NoError(mock.ExpectationsWereMet())
 
-	// Test case 3: No rows returned
 	rows = sqlmock.NewRows([]string{"Variable_name", "Value"}) // empty
 	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME).WillReturnRows(rows)
 	value, err = querier.queryLogBinBasename()
@@ -269,14 +267,16 @@ func TestGetBinlogInfo(t *testing.T) {
 			AddRow(expectedFile, 1234, "", "", "")
 		mock.ExpectQuery(SHOW_MASTER_STATUS_QUERY).WillReturnRows(rows)
 
-		expectedValue := "/var/log/mysql/mysql-bin"
+		expectedValue := filepath.Join("var", "log", "mysql", "mysql-bin")
 		rows = sqlmock.NewRows([]string{"Variable_name", "Value"}).
 			AddRow("log_bin_basename", expectedValue)
 		mock.ExpectQuery(SHOW_LOG_BIN_BASENAME).WillReturnRows(rows)
 
 		info, err := querier.GetBinlogInfo()
 		assert.NoError(err)
-		assert.Equal("/var/log/mysql", info.binlogDir)
+
+		expectedDir := filepath.Join("var", "log", "mysql")
+		assert.Equal(expectedDir, info.binlogDir)
 		assert.Equal("mysql-bin", info.binlogPrefix)
 		assert.Equal("mysql-bin.000123", info.currentBinlogFile)
 	})
