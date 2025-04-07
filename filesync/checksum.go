@@ -1,4 +1,4 @@
-package fileutil
+package filesync
 
 import (
 	"bufio"
@@ -11,12 +11,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 const ChecksumStateFile = "checksum.onedump"
 
 type Checksum struct {
 	filePath string
+	mu       sync.Mutex
 }
 
 func NewChecksum(filePath string) *Checksum {
@@ -133,6 +135,8 @@ func (c *Checksum) SaveState() error {
 		content = "\n" + checksum
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if _, err = file.WriteString(content); err != nil {
 		return fmt.Errorf("fail to write checksum while saving, error: %v", err)
 	}

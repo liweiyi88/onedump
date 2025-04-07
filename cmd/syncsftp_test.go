@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/liweiyi88/onedump/fileutil"
+	"github.com/liweiyi88/onedump/filesync"
 	"github.com/liweiyi88/onedump/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -197,12 +197,12 @@ func TestSyncSftpCmd(t *testing.T) {
 			wd, err := os.Getwd()
 			assert.Nil(err)
 
-			checksumState, err := os.Stat(filepath.Join(wd, fileutil.ChecksumStateFile))
+			checksumState, err := os.Stat(filepath.Join(wd, filesync.ChecksumStateFile))
 			assert.Nil(err)
 			assert.Equal(checksumState.Size(), int64(64))
 
 			defer func() {
-				if err = os.Remove(fileutil.ChecksumStateFile); err != nil {
+				if err = os.Remove(filesync.ChecksumStateFile); err != nil {
 					t.Error(err)
 				}
 			}()
@@ -223,7 +223,7 @@ func TestSyncSftpCmd(t *testing.T) {
 
 		source.WriteString("source content")
 
-		checksum := fileutil.NewChecksum(source.Name())
+		checksum := filesync.NewChecksum(source.Name())
 		err = checksum.SaveState()
 		assert.Nil(err)
 

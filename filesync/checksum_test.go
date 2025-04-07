@@ -1,4 +1,4 @@
-package fileutil
+package filesync
 
 import (
 	"os"

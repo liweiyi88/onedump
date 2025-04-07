@@ -18,7 +18,7 @@ import (
 	"github.com/liweiyi88/onedump/storage/s3"
 )
 
-var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey, cron string
+var file, s3Bucket, s3Prefix, s3Region, s3AccessKeyId, s3SecretAccessKey, cron string
 var sloglog, database, pattern, source, destination string
 var limit int
 var mask, attach, verbose bool
@@ -148,6 +148,15 @@ func init() {
 	syncSftpCmd.MarkFlagRequired("ssh-user")
 	syncSftpCmd.MarkFlagRequired("ssh-key")
 
+	// The command also needs the DATABASE_URL, AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY as env var
+	binlogSyncS3Cmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "AWS S3 bucket name that used for saving binlog files")
+	binlogSyncS3Cmd.Flags().StringVarP(&s3Prefix, "s3-prefix", "p", "", "AWS S3 file prefix (folder) that used for saving binlog files")
+	binlogSyncS3Cmd.MarkFlagRequired("s3-bucket")
+	binlogSyncS3Cmd.MarkFlagRequired("s3-prefix")
+	binlogSyncS3Cmd.Flags().BoolVar(&checksum, "checksum", false, "whether to save the checksum to avoid repeating file transfers, default false (optional)")
+	binlogSyncS3Cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
+
 	rootCmd.AddCommand(slowCmd)
 	rootCmd.AddCommand(syncSftpCmd)
+	rootCmd.AddCommand(binlogSyncS3Cmd)
 }

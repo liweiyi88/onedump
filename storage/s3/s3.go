@@ -3,6 +3,7 @@ package s3
 import (
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -47,7 +48,8 @@ func (s3 *S3) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) er
 
 	key := pathGenerator(s3.Key)
 
-	// TODO: implement re-try
+	slog.Debug("[s3] start to upload file to s3 bucket", slog.Any("bucket", s3.Bucket), slog.Any("key", key))
+
 	_, uploadErr := uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(s3.Bucket),
 		Key:    aws.String(key),
@@ -55,8 +57,10 @@ func (s3 *S3) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) er
 	})
 
 	if uploadErr != nil {
-		return fmt.Errorf("failed to upload file to s3 bucket %w", uploadErr)
+		return fmt.Errorf("fail to upload file to s3 bucket %w", uploadErr)
 	}
+
+	slog.Debug("[s3] the file has been uploaded to the S3 bucket", slog.Any("bucket", s3.Bucket), slog.Any("key", key))
 
 	return nil
 }

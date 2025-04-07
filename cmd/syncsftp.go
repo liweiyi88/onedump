@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/liweiyi88/onedump/filesync"
 	"github.com/liweiyi88/onedump/fileutil"
 	"github.com/liweiyi88/onedump/storage/sftp"
 	"github.com/spf13/cobra"
@@ -29,8 +30,7 @@ func syncFiles(sources []string, destination string, checksum bool, isDestinatio
 				wg.Done()
 			}()
 
-			err := syncFile(file, destination, checksum, isDestinationDir, config)
-			if err != nil {
+			if err := syncFile(file, destination, checksum, isDestinationDir, config); err != nil {
 				errCh <- err
 			}
 		}()
@@ -50,61 +50,40 @@ func syncFiles(sources []string, destination string, checksum bool, isDestinatio
 }
 
 func syncFile(source, destination string, checksum bool, isDestinationDir bool, config *sftp.SftpConifg) error {
-	fileChecksum := fileutil.NewChecksum(source)
+	syncFunc := func() error {
+		sourceFile, err := os.Open(source)
 
-	if !checksum {
-		if err := fileChecksum.DeleteState(); err != nil {
-			return fmt.Errorf("fail to delete the checksum state file, error: %v", err)
-		}
-	} else {
-		transfered, err := fileChecksum.IsFileTransferred()
 		if err != nil {
-			return err
+			return fmt.Errorf("fail to open the source file: %s, error: %v", source, err)
 		}
 
-		if transfered {
-			slog.Debug("the file has already been transfered", slog.Any("filename", source))
-			return nil
+		defer func() {
+			if err := sourceFile.Close(); err != nil {
+				slog.Error("fail to close the source file", slog.Any("error", err))
+			}
+		}()
+
+		path := destination
+		if isDestinationDir {
+			sourceFileInfo, err := sourceFile.Stat()
+			if err != nil {
+				return fmt.Errorf("fail to get source file stat, error: %v", err)
+			}
+
+			path = filepath.Join(destination, sourceFileInfo.Name())
 		}
-	}
 
-	sourceFile, err := os.Open(source)
+		sftp := sftp.NewSftp(config)
+		err = sftp.Save(sourceFile, func(filename string) string { return path })
 
-	if err != nil {
-		return fmt.Errorf("fail to open the source file: %s, error: %v", source, err)
-	}
-
-	defer func() {
-		if err := sourceFile.Close(); err != nil {
-			slog.Error("fail to close the source file", slog.Any("error", err))
-		}
-	}()
-
-	path := destination
-	if isDestinationDir {
-		sourceFileInfo, err := sourceFile.Stat()
 		if err != nil {
-			return fmt.Errorf("fail to get source file stat, error: %v", err)
+			return fmt.Errorf("fail to sync file %s to destination %s, error: %v", source, destination, err)
 		}
 
-		path = filepath.Join(destination, sourceFileInfo.Name())
+		return nil
 	}
 
-	sftp := sftp.NewSftp(config)
-	err = sftp.Save(sourceFile, func(filename string) string { return path })
-
-	if err != nil {
-		return fmt.Errorf("fail to sync file %s to destination %s, error: %v", source, destination, err)
-	}
-
-	if checksum {
-		err := fileChecksum.SaveState()
-		if err != nil {
-			return fmt.Errorf("fail to save the checksum state file for %s, error: %v", source, err)
-		}
-	}
-
-	return nil
+	return filesync.SyncFile(source, checksum, syncFunc)
 }
 
 var syncSftpCmd = &cobra.Command{
