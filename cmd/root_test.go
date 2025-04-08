@@ -74,6 +74,10 @@ func TestRootCmd(t *testing.T) {
 	})
 
 	t.Run("it should return error when no job is defined in the job config file", func(t *testing.T) {
+		t.Setenv("AWS_REGION", "ap-southeast-2")
+		t.Setenv("AWS_ACCESS_KEY_ID", "accessk-key-id")
+		t.Setenv("AWS_SECRET_ACCESS_KEY", "secret-access-key")
+
 		workDir, _ := os.Getwd()
 		filename := workDir + "/test.sql"
 		file, err := os.Create(filename)

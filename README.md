@@ -15,11 +15,10 @@ Onedump is a database administration tool that exports data from multiple source
 * Database backup from different sources to different destinations.
 * MySQL dump with zero dependencies (with built-in mysql native dumper). 
 * Supports dumpers with dependencies (`mysqldump` and `pg_dump`).
+* MySQL binlog backup to AWS S3.
 * MySQL slow log parser.
 * Resumable and concurrent SFTP file transfers.
 * Loads configuration from S3 bucket.
-* Compression (use `job.gzip: true` to enable compression).
-* Unique filename (use `job.unique: true` to enable unique filename).
 * Slack notification.
 * Maintained docker image that contains all dependencies.
 
@@ -33,6 +32,7 @@ Onedump is a database administration tool that exports data from multiple source
 * [How it works](#how-it-works)
 * [The native MySQL dumper](#the-native-mysql-dumper) 
 * [The slow log parser](#the-slow-log-parser)
+* [MySQL binlog backup to AWS S3](#mysql-binlog-backup-to-aws-s3)
 * [Resumable and concurrent SFTP file transfers](#resumable-and-concurrent-sftp-file-transfers)
 
 ### Supported source databases
@@ -299,6 +299,14 @@ $onedump slow -f /path/to/folder-or-file -p="*slow.log"
 // Mask query values with ?
 $onedump slow -f /path/to/file -m="true"
 ```
+## MySQL binlog backup to AWS S3
+
+The `binlog sync-s3` command enables you to back up MySQL binary log (binlog) files to an AWS S3 bucket. This is particularly useful for achieving point-in-time recovery.
+
+Refer to the [documentation](./docs/binlog/sync-s3.md) for detailed usage.
+
 ## Resumable and concurrent SFTP file transfers
 
-Checkout the [sync sftp documentation](./docs/sync/sftp.md) for more details.
+The `sync sftp` command provides an efficient way to transfer files from a source to a remote destination using the SFTP protocol. It supports various options to accommodate different use cases.
+
+Refer to the [documentation](./docs/sync/sftp.md) for detailed usage.
