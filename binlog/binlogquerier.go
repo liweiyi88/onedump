@@ -85,7 +85,7 @@ func (b *binlogInfoQuerier) queryLogBinBasename() (string, error) {
 func (b *binlogInfoQuerier) queryMasterStatus() (string, error) {
 	var currentBinlogFile string
 	var position int
-	var binlogDoDB, binlogIgnoreDB, excutedGtidSet string
+	var binlogDoDB, binlogIgnoreDB, executedGtidSet string
 
 	rows, err := b.db.Query(SHOW_MASTER_STATUS_QUERY)
 	if err != nil {
@@ -99,7 +99,7 @@ func (b *binlogInfoQuerier) queryMasterStatus() (string, error) {
 	}()
 
 	if rows.Next() {
-		if err := rows.Scan(&currentBinlogFile, &position, &binlogDoDB, &binlogIgnoreDB, &excutedGtidSet); err != nil {
+		if err := rows.Scan(&currentBinlogFile, &position, &binlogDoDB, &binlogIgnoreDB, &executedGtidSet); err != nil {
 			return "", fmt.Errorf("fail to scan database rows, query: %s, error: %v", SHOW_MASTER_STATUS_QUERY, err)
 		}
 

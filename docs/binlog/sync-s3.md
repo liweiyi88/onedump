@@ -6,7 +6,7 @@ The `binlog sync-s3` command allows you to store your MySQL binlog files in an A
 
 Before running the command, you need to export the following environment variables:
 
-```
+```bash
 # e.g. user:password@tcp(127.0.0.1)/
 export DATABASE_DSN="database-dsn" \
 export AWS_ACCESS_KEY_ID="aws_access_key_id" \

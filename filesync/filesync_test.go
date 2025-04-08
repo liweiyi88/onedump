@@ -12,7 +12,9 @@ import (
 func TestSyncFile(t *testing.T) {
 	assert := assert.New(t)
 
-	file := "sync-file.txt"
+	tempDir := t.TempDir()
+	file := filepath.Join(tempDir, "sync-file.txt")
+
 	f, err := os.Create(file)
 	assert.NoError(err)
 
@@ -27,13 +29,13 @@ func TestSyncFile(t *testing.T) {
 		assert.NoError(err)
 	}()
 
-	err = SyncFile("sync-file.txt", true, func() error { return nil })
+	err = SyncFile(file, true, func() error { return nil })
 	assert.NoError(err)
 
-	err = SyncFile("sync-file.txt", false, func() error { return nil })
+	err = SyncFile(file, false, func() error { return nil })
 	assert.NoError(err)
 
-	err = SyncFile("sync-file.txt", true, func() error { return fmt.Errorf("sync error") })
+	err = SyncFile(file, true, func() error { return fmt.Errorf("sync error") })
 	assert.Error(err)
 	assert.Contains(err.Error(), "sync error")
 }
