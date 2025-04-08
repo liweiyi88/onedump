@@ -19,7 +19,7 @@ func SyncFile(filename string, checksum bool, syncFunc func() error) error {
 		}
 
 		if transfered {
-			slog.Debug("the file has already been transfered", slog.Any("filename", filename))
+			slog.Debug("the file has already been transferred", slog.Any("filename", filename))
 			return nil
 		}
 	}

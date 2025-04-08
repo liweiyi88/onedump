@@ -57,7 +57,7 @@ func (s3 *S3) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) er
 	})
 
 	if uploadErr != nil {
-		return fmt.Errorf("fail to upload file to s3 bucket %w", uploadErr)
+		return fmt.Errorf("fail to upload file to S3 bucket: %s, key: %s, error: %w", s3.Bucket, key, uploadErr)
 	}
 
 	slog.Debug("[s3] the file has been uploaded to the S3 bucket", slog.Any("bucket", s3.Bucket), slog.Any("key", key))

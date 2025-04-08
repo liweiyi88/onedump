@@ -15,7 +15,7 @@ const (
 )
 
 type BinlogInfo struct {
-	currentBinlogFile string // currentBinlogFile string // e.g. binlog.000001
+	currentBinlogFile string // e.g. binlog.000001
 	binlogDir         string // the binlog folder
 	binlogPrefix      string // the binlog prefix. e.g. binlog
 }
@@ -44,12 +44,10 @@ func (b *binlogInfoQuerier) queryLogBin() error {
 	}()
 
 	var variableName, logBin string
-	for rows.Next() {
+	if rows.Next() {
 		if err := rows.Scan(&variableName, &logBin); err != nil {
 			return fmt.Errorf("fail to scan database rows, query: %s, error: %v", SHOW_LOG_BIN_QUERY, err)
 		}
-
-		break
 	}
 
 	if logBin != "ON" {
@@ -62,7 +60,7 @@ func (b *binlogInfoQuerier) queryLogBin() error {
 func (b *binlogInfoQuerier) queryLogBinBasename() (string, error) {
 	rows, err := b.db.Query(SHOW_LOG_BIN_BASENAME)
 	if err != nil {
-		return "", fmt.Errorf("failt to run query %s, error: %v", SHOW_LOG_BIN_BASENAME, err)
+		return "", fmt.Errorf("fail to run query %s, error: %v", SHOW_LOG_BIN_BASENAME, err)
 	}
 
 	defer func() {
@@ -73,9 +71,9 @@ func (b *binlogInfoQuerier) queryLogBinBasename() (string, error) {
 
 	var variableName, value string
 
-	for rows.Next() {
+	if rows.Next() {
 		if err := rows.Scan(&variableName, &value); err != nil {
-			return "", fmt.Errorf("fail to scan database rows, query: %s, error: %v", SHOW_LOG_BIN_QUERY, err)
+			return "", fmt.Errorf("fail to scan database rows, query: %s, error: %v", SHOW_LOG_BIN_BASENAME, err)
 		}
 
 		return value, nil
@@ -100,7 +98,7 @@ func (b *binlogInfoQuerier) queryMasterStatus() (string, error) {
 		}
 	}()
 
-	for rows.Next() {
+	if rows.Next() {
 		if err := rows.Scan(&currentBinlogFile, &position, &binlogDoDB, &binlogIgnoreDB, &excutedGtidSet); err != nil {
 			return "", fmt.Errorf("fail to scan database rows, query: %s, error: %v", SHOW_MASTER_STATUS_QUERY, err)
 		}

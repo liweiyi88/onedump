@@ -104,7 +104,7 @@ func TestQueryLogBinBasenameFailure(t *testing.T) {
 	value, err := querier.queryLogBinBasename()
 	assert.Error(err)
 	assert.Empty(value)
-	assert.Contains(err.Error(), "failt to run query")
+	assert.Contains(err.Error(), "fail to run query")
 	assert.NoError(mock.ExpectationsWereMet())
 
 	rows := sqlmock.NewRows([]string{"Variable_name"}).AddRow("log_bin_basename") // missing Value column
