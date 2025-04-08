@@ -1,6 +1,6 @@
 ## Resumable and concurrent SFTP file transfers
 
-The `sync sftp` command provides an efficient way to transfer files from a source to a remote destination using the SFTP protocol. It supports various options to accommodate different use cases
+The `sync sftp` command provides an efficient way to transfer files from a source to a remote destination using the SFTP protocol. It supports various options to accommodate different use cases.
 
 ### Common use cases
 
@@ -36,5 +36,5 @@ Checksums are calculated and stored in `checksum.onedump` within the source dire
 
 The command automatically retries and resumes failed transfers indefinitely for recoverable errors until the files are successfully transferred. Use `--max-attempts` to specify when the command should stop retrying.
 
-#### All available Options
-Run `onedump sync sftp --help` to view all available options.
+#### View all available options
+Run `onedump sync sftp --help` see all available options.

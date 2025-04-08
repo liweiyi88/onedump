@@ -41,7 +41,7 @@ It requires the following environment variables:
   - AWS_REGION
   - AWS_ACCESS_KEY_ID
   - AWS_SECRET_ACCESS_KEY
-  - DATABASE_DSN // e.g. root@tcp(127.0.0.1)/test_local
+  - DATABASE_DSN // e.g. root@tcp(127.0.0.1)/
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		requireEnvVars := []string{AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DATABASE_DSN}
