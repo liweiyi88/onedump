@@ -12,15 +12,14 @@ RUN apt-get update && \
     gnupg \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /usr/share/keyrings && \
-echo "deb [arch=amd64 signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt jammy-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
-wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+    RUN mkdir -p /usr/share/postgresql-common/pgdg && \
+    install -d /usr/share/postgresql-common/pgdg && \
+    curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
+    echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt jammy-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    postgresql-client-${PG_VERSION_15} \
-    postgresql-client-${PG_VERSION_16} \
-    && rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends postgresql-client-${PG_VERSION_15} postgresql-client-${PG_VERSION_16} && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p  /opt/mysql-8.4  /opt/mysql-9.2 && \
     curl -LO https://downloads.mysql.com/archives/get/p/23/file/mysql-8.4.4-linux-glibc2.28-x86_64.tar.xz && \
