@@ -30,6 +30,7 @@ type S3 struct {
 	Region          string `yaml:"region"`
 	AccessKeyId     string `yaml:"access-key-id"`
 	SecretAccessKey string `yaml:"secret-access-key"`
+	SessionToken    string `yaml:"session-token"`
 }
 
 func (s3 *S3) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) error {
@@ -40,7 +41,7 @@ func (s3 *S3) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) er
 	}
 
 	if s3.AccessKeyId != "" && s3.SecretAccessKey != "" {
-		awsConfig.Credentials = credentials.NewStaticCredentials(s3.AccessKeyId, s3.SecretAccessKey, "")
+		awsConfig.Credentials = credentials.NewStaticCredentials(s3.AccessKeyId, s3.SecretAccessKey, s3.SessionToken)
 	}
 
 	session := session.Must(session.NewSession(&awsConfig))

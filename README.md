@@ -143,6 +143,7 @@ jobs:
         region: ap-southeast-2
         access-key-id: awsaccesskey
         secret-access-key: awssecret
+        session-token: <session-token> # optional, specify the value if you assume a role.
 ```
 
 #### Multiple dumps to different storage
@@ -170,6 +171,7 @@ jobs:
         region: ap-southeast-2
         access-key-id: awsaccesskey
         secret-access-key: awssecret
+        session-token: <session-token> # optional, specify the value if you assume a role.
 ```
 
 #### Slack notification
@@ -248,6 +250,7 @@ jobs:
         region: ap-southeast-2
         access-key-id: MYKEY...
         secret-access-key: AWSSECRET..
+        session-token: <session-token> # optional, specify the value if you assume a role.
 ```
 
 ### Setting cron job

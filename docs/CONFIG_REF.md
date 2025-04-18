@@ -4,12 +4,14 @@
 jobs:
 - name: local-dump
   dbdriver: postgresql
-    dbdsn: postgres://<user>:<password>@<host>:<port>/<dbname>
-    gzip: true
-    options:
-    storage:
-      local:
-        - path: /Users/jack/Desktop/postgresql-dump.sql
+  dbdsn: postgres://<user>:<password>@<host>:<port>/<dbname>
+  gzip: true
+  options: #optional, database dump options, depends on different drivers.
+  - --skip-comments
+  - --no-create-info
+  storage:
+    local:
+      - path: /Users/jack/Desktop/postgresql-dump.sql
 - name: ssh-dump #dump job name is required.
   dbdriver: mysql #db driver is required. The driver is a dump implementation, available drivers: mysql (the native mysql dumper) , postgresql, mysqldump and pgdump
   dbdsn: user:password@tcp(127.0.0.1:3306)/dbname # dbdsn is required. you should replace, <user>, <password>, <127.0.0.1:3306> and <dbname> with your real db credentials
@@ -34,6 +36,7 @@ jobs:
         region: ap-southeast-2
         access-key-id: <accesskeyid>
         secret-access-key: <secretkey>
+        session-token: <sessiontoken>
     gdrive:
       - filename: dbbackup.sql # required, just the file name, not the full path.
         folderid: 13GbhhbpBeJmUIzm9lET63nXgWgdh3Tly
