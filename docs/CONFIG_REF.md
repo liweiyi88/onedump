@@ -14,6 +14,7 @@ jobs:
       - path: /Users/jack/Desktop/postgresql-dump.sql
 - name: ssh-dump #dump job name is required.
   dbdriver: mysql #db driver is required. The driver is a dump implementation, available drivers: mysql (the native mysql dumper) , postgresql, mysqldump and pgdump
+  driverpath: mysqldump #optional, specify the driver executable path.
   dbdsn: user:password@tcp(127.0.0.1:3306)/dbname # dbdsn is required. you should replace, <user>, <password>, <127.0.0.1:3306> and <dbname> with your real db credentials
   gzip: true #optional, false by default
   unique: true #optional, false by default

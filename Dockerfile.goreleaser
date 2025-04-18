@@ -1,9 +1,37 @@
-FROM alpine:latest as certs
+FROM alpine:latest
 
 ENV PG_VERSION_15=15
 ENV PG_VERSION_16=16
 
-RUN apk update && apk add dpkg ca-certificates mysql-client postgresql${PG_VERSION_15}-client postgresql${PG_VERSION_16}-client --no-cache
+RUN apk update && apk add dpkg ca-certificates curl wget postgresql${PG_VERSION_15}-client postgresql${PG_VERSION_16}-client --no-cache
+
+RUN curl -Lo /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub && \
+    curl -Lo glibc.apk https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.35-r1/glibc-2.35-r1.apk && \
+    apk add glibc.apk && rm glibc.apk
+
+RUN mkdir -p /opt/mysql-9.2 /opt/mysql-8.4
+
+### Install MySQL 8.4.4 mysql client clis
+RUN curl -LO https://downloads.mysql.com/archives/get/p/23/file/mysql-8.4.4-linux-glibc2.28-x86_64.tar.xz && \
+    tar -xf mysql-8.4.4-linux-glibc2.28-x86_64.tar.xz && \
+    mv mysql-8.4.4-linux-glibc2.28-x86_64/bin/* /opt/mysql-8.4/ && \
+    rm -rf mysql-8.4.4-linux-glibc2.28-x86_64* && \
+    chmod +x /opt/mysql-8.4/mysqldump /opt/mysql-8.4/mysqlbinlog
+
+### Install MySQL 9.2.0 mysql client clis
+RUN curl -LO https://downloads.mysql.com/archives/get/p/23/file/mysql-9.2.0-linux-glibc2.28-x86_64.tar.xz && \
+    tar -xf mysql-9.2.0-linux-glibc2.28-x86_64.tar.xz && \
+    mv mysql-9.2.0-linux-glibc2.28-x86_64/bin/* /opt/mysql-9.2/ && \
+    rm -rf mysql-9.2.0-linux-glibc2.28-x86_64* && \
+    chmod +x /opt/mysql-9.2/mysqldump /opt/mysql-9.2/mysqlbinlog
+
+RUN ln -s /opt/mysql-9.2/mysqldump /usr/local/bin/mysqldump92 && \
+    ln -s /opt/mysql-8.4/mysqldump /usr/local/bin/mysqldump && \
+    ln -s /opt/mysql-8.4/mysqldump /usr/local/bin/mysqldump84
+
+RUN ln -s /opt/mysql-9.2/mysqlbinlog /usr/local/bin/mysqlbinlog92 && \
+    ln -s /opt/mysql-8.4/mysqlbinlog /usr/local/bin/mysqlbinlog && \
+    ln -s /opt/mysql-8.4/mysqlbinlog /usr/local/bin/mysqlbinlog84
 
 COPY entrypoint.sh /entrypoint.sh
 COPY onedump /usr/local/bin/

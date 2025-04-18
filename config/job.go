@@ -39,16 +39,17 @@ func (dump *Dump) Validate() error {
 }
 
 type Job struct {
-	Name        string   `yaml:"name"`
-	DBDriver    string   `yaml:"dbdriver"`
-	DBDsn       string   `yaml:"dbdsn"`
-	Gzip        bool     `yaml:"gzip"`
-	Unique      bool     `yaml:"unique"`
-	SshHost     string   `yaml:"sshhost"`
-	SshUser     string   `yaml:"sshuser"`
-	SshKey      string   `yaml:"sshkey"`
-	DumpOptions []string `yaml:"options"`
-	Storage     struct {
+	Name         string   `yaml:"name"`
+	DBDriver     string   `yaml:"dbdriver"`
+	DBDriverPath string   `yaml:"driverpath"`
+	DBDsn        string   `yaml:"dbdsn"`
+	Gzip         bool     `yaml:"gzip"`
+	Unique       bool     `yaml:"unique"`
+	SshHost      string   `yaml:"sshhost"`
+	SshUser      string   `yaml:"sshuser"`
+	SshKey       string   `yaml:"sshkey"`
+	DumpOptions  []string `yaml:"options"`
+	Storage      struct {
 		Local   []*local.Local     `yaml:"local"`
 		S3      []*s3.S3           `yaml:"s3"`
 		GDrive  []*gdrive.GDrive   `yaml:"gdrive"`

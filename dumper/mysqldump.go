@@ -55,8 +55,13 @@ func NewMysqlDump(job *config.Job) (*MysqlDump, error) {
 		commandOptions = options
 	}
 
+	path := "mysqldump"
+	if job.DBDriverPath != "" {
+		path = job.DBDriverPath
+	}
+
 	return &MysqlDump{
-		path:     "mysqldump",
+		path:     path,
 		options:  commandOptions,
 		viaSsh:   job.ViaSsh(),
 		sshHost:  job.SshHost,
