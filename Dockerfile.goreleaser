@@ -2,17 +2,16 @@ FROM debian:bullseye-slim
 
 ENV PG_VERSION_15=15
 ENV PG_VERSION_16=16
+    
+RUN apt-get update && apt-get install -y dpkg ca-certificates curl wget xz-utils gnupg
 
-RUN apt-get update && apt-get install -y \
-    dpkg \
-    ca-certificates \
-    curl \
-    wget \
-    postgresql-client-15 \
-    postgresql-client-16 \
-    && rm -rf /var/lib/apt/lists/*
+RUN sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt bullseye-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
+    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
+    apt-get update && \
+    apt-get install -y postgresql-client-15 postgresql-client-16
 
-RUN curl -LO https://downloads.mysql.com/archives/get/p/23/file/mysql-8.4.4-linux-glibc2.28-x86_64.tar.xz && \
+RUN mkdir -p  /opt/mysql-8.4  /opt/mysql-9.2 && \
+    curl -LO https://downloads.mysql.com/archives/get/p/23/file/mysql-8.4.4-linux-glibc2.28-x86_64.tar.xz && \
     tar -xf mysql-8.4.4-linux-glibc2.28-x86_64.tar.xz && \
     mv mysql-8.4.4-linux-glibc2.28-x86_64/bin/mysqldump /opt/mysql-8.4/mysqldump && \
     mv mysql-8.4.4-linux-glibc2.28-x86_64/bin/mysqlbinlog /opt/mysql-8.4/mysqlbinlog && \
