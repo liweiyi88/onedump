@@ -18,7 +18,7 @@ import (
 	"github.com/liweiyi88/onedump/storage/s3"
 )
 
-var file, s3Bucket, s3Prefix, s3Region, s3AccessKeyId, s3SecretAccessKey, cron string
+var file, s3Bucket, s3Prefix, s3Region, s3AccessKeyId, s3SecretAccessKey, s3SessionToken, cron string
 var sloglog, database, pattern, source, destination string
 var limit int
 var mask, attach, verbose bool
@@ -105,7 +105,7 @@ func Execute() {
 
 func getConfigContent() ([]byte, error) {
 	if s3Bucket != "" {
-		s3Client := s3.NewS3(s3Bucket, file, s3Region, s3AccessKeyId, s3SecretAccessKey)
+		s3Client := s3.NewS3(s3Bucket, file, s3Region, s3AccessKeyId, s3SecretAccessKey, s3SessionToken)
 		return s3Client.GetContent()
 	} else {
 		return os.ReadFile(file)
@@ -121,6 +121,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&s3Region, "aws-region", "r", "", "the aws region to read the config file (optional)")
 	rootCmd.Flags().StringVarP(&s3AccessKeyId, "aws-key", "k", "", "aws access key id to overwrite the default one. (optional)")
 	rootCmd.Flags().StringVarP(&s3SecretAccessKey, "aws-secret", "s", "", "aws secret access key to overwrite the default one. (optional)")
+	rootCmd.Flags().StringVarP(&s3SessionToken, "aws-session-token", "t", "", "specify the aws session token if you use a temporary credentials. (optional)")
 
 	slowCmd.Flags().StringVarP(&sloglog, "file", "f", "", "path to the slow log file. a directory can also be specified. (required)")
 	slowCmd.Flags().StringVarP(&database, "database", "d", string(slow.MySQL), "specify the database engine (optional)")

@@ -28,6 +28,7 @@ const (
 	AWS_REGION            = "AWS_REGION"
 	AWS_ACCESS_KEY_ID     = "AWS_ACCESS_KEY_ID"
 	AWS_SECRET_ACCESS_KEY = "AWS_SECRET_ACCESS_KEY"
+	AWS_SESSION_TOKEN     = "AWS_SESSION_TOKEN"
 	DATABASE_DSN          = "DATABASE_DSN"
 
 	BINLOG_TOGGLE_QUERY = "SHOW VARIABLES LIKE 'log_bin';"
@@ -42,6 +43,8 @@ It requires the following environment variables:
   - AWS_ACCESS_KEY_ID
   - AWS_SECRET_ACCESS_KEY
   - DATABASE_DSN // e.g. root@tcp(127.0.0.1)/
+
+  AWS_SESSION_TOKEN is optional unless you use a temporary credentials
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		requireEnvVars := []string{AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DATABASE_DSN}
@@ -58,6 +61,7 @@ It requires the following environment variables:
 		region := os.Getenv(AWS_REGION)
 		accessKeyId := os.Getenv(AWS_ACCESS_KEY_ID)
 		secretAccessKey := os.Getenv(AWS_SECRET_ACCESS_KEY)
+		sessionToken := os.Getenv(AWS_SESSION_TOKEN)
 
 		db, err := sql.Open("mysql", dsn)
 		if err != nil {
@@ -81,7 +85,7 @@ It requires the following environment variables:
 			return fmt.Errorf("fail to create binlog info querier, error: %v", err)
 		}
 
-		s3 := s3.NewS3(s3Bucket, "", region, accessKeyId, secretAccessKey)
+		s3 := s3.NewS3(s3Bucket, "", region, accessKeyId, secretAccessKey, sessionToken)
 		syncer := binlog.NewBinlogSyncer(s3Prefix, checksum, binlogInfo)
 		return syncer.Sync(s3)
 	},

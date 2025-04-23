@@ -17,7 +17,7 @@ func TestNewS3(t *testing.T) {
 	expectedAccessKeyId := "accessKey"
 	expectedSecretKey := "secret"
 
-	s3 := NewS3(expectedBucket, expectedKey, expectedRegion, expectedAccessKeyId, expectedSecretKey)
+	s3 := NewS3(expectedBucket, expectedKey, expectedRegion, expectedAccessKeyId, expectedSecretKey, "")
 
 	assert.Equal(expectedBucket, s3.Bucket)
 	assert.Equal(expectedKey, s3.Key)

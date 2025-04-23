@@ -131,7 +131,7 @@ func TestDo(t *testing.T) {
 
 func TestGetStorages(t *testing.T) {
 	localStore := local.Local{Path: "db_backup/onedump.sql"}
-	s3 := s3.NewS3("mybucket", "key", "", "", "")
+	s3 := s3.NewS3("mybucket", "key", "", "", "", "")
 	gdrive := &gdrive.GDrive{
 		FileName: "mydump",
 		FolderId: "",

@@ -14,13 +14,14 @@ import (
 	"github.com/liweiyi88/onedump/storage"
 )
 
-func NewS3(bucket, key, region, accessKeyId, secretAccessKey string) *S3 {
+func NewS3(bucket, key, region, accessKeyId, secretAccessKey, sessionToken string) *S3 {
 	return &S3{
 		Bucket:          bucket,
 		Key:             key,
 		Region:          region,
 		AccessKeyId:     accessKeyId,
 		SecretAccessKey: secretAccessKey,
+		SessionToken:    sessionToken,
 	}
 }
 
