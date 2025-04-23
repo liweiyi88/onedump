@@ -10,7 +10,7 @@ import (
 
 const (
 	SHOW_LOG_BIN_QUERY       = "SHOW VARIABLES LIKE 'log_bin';"
-	SHOW_MASTER_STATUS_QUERY = "SHOW MASTER STATUS;"
+	SHOW_BINLOG_STATUS_QUERY = "SHOW BINARY LOG STATUS;"
 	SHOW_LOG_BIN_BASENAME    = "SHOW VARIABLES LIKE 'log_bin_basename';"
 )
 
@@ -82,31 +82,31 @@ func (b *binlogInfoQuerier) queryLogBinBasename() (string, error) {
 	return "", errors.New("fail to get log bin basename result")
 }
 
-func (b *binlogInfoQuerier) queryMasterStatus() (string, error) {
+func (b *binlogInfoQuerier) queryBinlogStatus() (string, error) {
 	var currentBinlogFile string
 	var position int
 	var binlogDoDB, binlogIgnoreDB, executedGtidSet string
 
-	rows, err := b.db.Query(SHOW_MASTER_STATUS_QUERY)
+	rows, err := b.db.Query(SHOW_BINLOG_STATUS_QUERY)
 	if err != nil {
-		return "", fmt.Errorf("fail to run query %s, error: %v", SHOW_MASTER_STATUS_QUERY, err)
+		return "", fmt.Errorf("fail to run query %s, error: %v", SHOW_BINLOG_STATUS_QUERY, err)
 	}
 
 	defer func() {
 		if err := rows.Close(); err != nil {
-			slog.Error("fail to close database rows", slog.Any("error", err), slog.Any("query", SHOW_MASTER_STATUS_QUERY))
+			slog.Error("fail to close database rows", slog.Any("error", err), slog.Any("query", SHOW_BINLOG_STATUS_QUERY))
 		}
 	}()
 
 	if rows.Next() {
 		if err := rows.Scan(&currentBinlogFile, &position, &binlogDoDB, &binlogIgnoreDB, &executedGtidSet); err != nil {
-			return "", fmt.Errorf("fail to scan database rows, query: %s, error: %v", SHOW_MASTER_STATUS_QUERY, err)
+			return "", fmt.Errorf("fail to scan database rows, query: %s, error: %v", SHOW_BINLOG_STATUS_QUERY, err)
 		}
 
 		return currentBinlogFile, nil
 	}
 
-	return "", errors.New("fail to get master status result")
+	return "", errors.New("fail to get binlog status result")
 }
 
 func (b *binlogInfoQuerier) GetBinlogInfo() (*BinlogInfo, error) {
@@ -114,7 +114,7 @@ func (b *binlogInfoQuerier) GetBinlogInfo() (*BinlogInfo, error) {
 		return nil, err
 	}
 
-	currentBinlogFile, err := b.queryMasterStatus()
+	currentBinlogFile, err := b.queryBinlogStatus()
 	if err != nil {
 		return nil, err
 	}
