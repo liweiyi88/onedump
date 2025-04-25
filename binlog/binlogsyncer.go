@@ -3,6 +3,7 @@ package binlog
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"sync"
@@ -38,11 +39,15 @@ func (b *BinlogSyncer) syncFile(filename string, storage storage.Storage) error 
 			return fmt.Errorf("fail to get file stat: %s, error %v", filename, err)
 		}
 
+		// binlog file can be updated during upload (MySQL flush logs).
+		// Enforce the size based on the current read for consistency.
+		limitedReader := io.LimitReader(f, s.Size())
+
 		pathGenerator := func(filename string) string {
 			return b.destinationPath + "/" + s.Name()
 		}
 
-		if err = storage.Save(f, pathGenerator); err != nil {
+		if err = storage.Save(limitedReader, pathGenerator); err != nil {
 			return fmt.Errorf("fail to save file to destination, error: %v", err)
 		}
 
