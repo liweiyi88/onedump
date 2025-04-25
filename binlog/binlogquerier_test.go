@@ -3,6 +3,7 @@ package binlog
 import (
 	"errors"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -84,7 +85,7 @@ func TestQueryLogBinBasenameSuccess(t *testing.T) {
 	expectedValue := filepath.Join("var", "log", "mysql", "mysql-bin")
 	rows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
 		AddRow("log_bin_basename", expectedValue)
-	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME).WillReturnRows(rows)
+	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME_QUERY).WillReturnRows(rows)
 
 	value, err := querier.queryLogBinBasename()
 	assert.NoError(err)
@@ -100,7 +101,7 @@ func TestQueryLogBinBasenameFailure(t *testing.T) {
 
 	querier := NewBinlogInfoQuerier(db)
 
-	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME).WillReturnError(errors.New("query error"))
+	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME_QUERY).WillReturnError(errors.New("query error"))
 	value, err := querier.queryLogBinBasename()
 	assert.Error(err)
 	assert.Empty(value)
@@ -108,7 +109,7 @@ func TestQueryLogBinBasenameFailure(t *testing.T) {
 	assert.NoError(mock.ExpectationsWereMet())
 
 	rows := sqlmock.NewRows([]string{"Variable_name"}).AddRow("log_bin_basename") // missing Value column
-	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME).WillReturnRows(rows)
+	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME_QUERY).WillReturnRows(rows)
 	value, err = querier.queryLogBinBasename()
 	assert.Error(err)
 	assert.Empty(value)
@@ -116,7 +117,7 @@ func TestQueryLogBinBasenameFailure(t *testing.T) {
 	assert.NoError(mock.ExpectationsWereMet())
 
 	rows = sqlmock.NewRows([]string{"Variable_name", "Value"}) // empty
-	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME).WillReturnRows(rows)
+	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME_QUERY).WillReturnRows(rows)
 	value, err = querier.queryLogBinBasename()
 	assert.Error(err)
 	assert.Empty(value)
@@ -133,10 +134,13 @@ func TestQueryBinlogStatusSuccess(t *testing.T) {
 
 	querier := NewBinlogInfoQuerier(db)
 
+	rows := sqlmock.NewRows([]string{"mysql_version"}).AddRow("8.0.42")
+	mock.ExpectQuery(regexp.QuoteMeta(VERSION_QUERY)).WillReturnRows(rows)
+
 	expectedFile := "mysql-bin.000123"
-	rows := sqlmock.NewRows([]string{"File", "Position", "Binlog_Do_DB", "Binlog_Ignore_DB", "Executed_Gtid_Set"}).
+	rows = sqlmock.NewRows([]string{"File", "Position", "Binlog_Do_DB", "Binlog_Ignore_DB", "Executed_Gtid_Set"}).
 		AddRow(expectedFile, 1234, "", "", "")
-	mock.ExpectQuery(SHOW_BINLOG_STATUS_QUERY).WillReturnRows(rows)
+	mock.ExpectQuery("SHOW MASTER STATUS;").WillReturnRows(rows)
 
 	file, err := querier.queryBinlogStatus()
 	assert.NoError(err)
@@ -153,6 +157,9 @@ func TestQueryBinlogStatusFailure(t *testing.T) {
 
 	querier := NewBinlogInfoQuerier(db)
 
+	rows := sqlmock.NewRows([]string{"mysql_version"}).AddRow("8.2.42")
+	mock.ExpectQuery(regexp.QuoteMeta(VERSION_QUERY)).WillReturnRows(rows)
+
 	// Test case 1: Query error
 	mock.ExpectQuery(SHOW_BINLOG_STATUS_QUERY).WillReturnError(errors.New("query error"))
 	file, err := querier.queryBinlogStatus()
@@ -162,7 +169,10 @@ func TestQueryBinlogStatusFailure(t *testing.T) {
 	assert.NoError(mock.ExpectationsWereMet())
 
 	// Test case 2: Scan error
-	rows := sqlmock.NewRows([]string{"File"}).AddRow("mysql-bin.000123") // missing other columns
+	rows = sqlmock.NewRows([]string{"mysql_version"}).AddRow("8.2.42")
+	mock.ExpectQuery(regexp.QuoteMeta(VERSION_QUERY)).WillReturnRows(rows)
+
+	rows = sqlmock.NewRows([]string{"File"}).AddRow("mysql-bin.000123") // missing other columns
 	mock.ExpectQuery(SHOW_BINLOG_STATUS_QUERY).WillReturnRows(rows)
 	file, err = querier.queryBinlogStatus()
 	assert.Error(err)
@@ -171,6 +181,9 @@ func TestQueryBinlogStatusFailure(t *testing.T) {
 	assert.NoError(mock.ExpectationsWereMet())
 
 	// Test case 3: No rows returned
+	rows = sqlmock.NewRows([]string{"mysql_version"}).AddRow("8.2.42")
+	mock.ExpectQuery(regexp.QuoteMeta(VERSION_QUERY)).WillReturnRows(rows)
+
 	rows = sqlmock.NewRows([]string{"File", "Position", "Binlog_Do_DB", "Binlog_Ignore_DB", "Executed_Gtid_Set"}) // empty
 	mock.ExpectQuery(SHOW_BINLOG_STATUS_QUERY).WillReturnRows(rows)
 	file, err = querier.queryBinlogStatus()
@@ -199,12 +212,15 @@ func TestRowsCloseError(t *testing.T) {
 	// Test rows.Close() error for queryLogBinBasename
 	rows = sqlmock.NewRows([]string{"Variable_name", "Value"}).
 		AddRow("log_bin_basename", "/path").CloseError(errors.New("close error"))
-	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME).WillReturnRows(rows)
+	mock.ExpectQuery(SHOW_LOG_BIN_BASENAME_QUERY).WillReturnRows(rows)
 	_, err = querier.queryLogBinBasename()
 	assert.NoError(err) // The close error should be logged but not returned
 	assert.NoError(mock.ExpectationsWereMet())
 
 	// Test rows.Close() error for queryBinlogStatus
+	rows = sqlmock.NewRows([]string{"mysql_version"}).AddRow("8.2.42")
+	mock.ExpectQuery(regexp.QuoteMeta(VERSION_QUERY)).WillReturnRows(rows)
+
 	rows = sqlmock.NewRows([]string{"File", "Position", "Binlog_Do_DB", "Binlog_Ignore_DB", "Executed_Gtid_Set"}).
 		AddRow("mysql-bin.000123", 123, "", "", "").CloseError(errors.New("close error"))
 	mock.ExpectQuery(SHOW_BINLOG_STATUS_QUERY).WillReturnRows(rows)
@@ -216,13 +232,12 @@ func TestRowsCloseError(t *testing.T) {
 func TestGetBinlogInfo(t *testing.T) {
 	assert := assert.New(t)
 
-	db, mock, err := sqlmock.New()
-	assert.NoError(err)
-	defer db.Close()
-
-	querier := NewBinlogInfoQuerier(db)
-
 	t.Run("it should return error if it can not query log bin info", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		assert.NoError(err)
+
+		querier := NewBinlogInfoQuerier(db)
+
 		rows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
 			AddRow("log_bin", "OFF").CloseError(errors.New("close error"))
 		mock.ExpectQuery(SHOW_LOG_BIN_QUERY).WillReturnRows(rows)
@@ -232,6 +247,11 @@ func TestGetBinlogInfo(t *testing.T) {
 	})
 
 	t.Run("it should return error if it can not query binlog status", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		assert.NoError(err)
+
+		querier := NewBinlogInfoQuerier(db)
+
 		rows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
 			AddRow("log_bin", "ON").CloseError(errors.New("close error"))
 		mock.ExpectQuery(SHOW_LOG_BIN_QUERY).WillReturnRows(rows)
@@ -243,26 +263,44 @@ func TestGetBinlogInfo(t *testing.T) {
 	})
 
 	t.Run("it should return error if it can not query binlog basename", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		assert.NoError(err)
+
+		querier := NewBinlogInfoQuerier(db)
+
 		rows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
 			AddRow("log_bin", "ON").CloseError(errors.New("close error"))
 		mock.ExpectQuery(SHOW_LOG_BIN_QUERY).WillReturnRows(rows)
 
 		expectedFile := "mysql-bin.000123"
+		rows = sqlmock.NewRows([]string{"mysql_version"}).AddRow("8.2.42")
+		mock.ExpectQuery(regexp.QuoteMeta(VERSION_QUERY)).WillReturnRows(rows)
+
 		rows = sqlmock.NewRows([]string{"File", "Position", "Binlog_Do_DB", "Binlog_Ignore_DB", "Executed_Gtid_Set"}).
 			AddRow(expectedFile, 1234, "", "", "")
 		mock.ExpectQuery(SHOW_BINLOG_STATUS_QUERY).WillReturnRows(rows)
 
-		mock.ExpectQuery(SHOW_LOG_BIN_BASENAME).WillReturnError(errors.New("query log bin basename error"))
+		mock.ExpectQuery(SHOW_LOG_BIN_BASENAME_QUERY).WillReturnError(errors.New("query log bin basename error"))
 		_, err = querier.GetBinlogInfo()
+
 		assert.Error(err)
 	})
 
 	t.Run("it should get binlog info struct", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		assert.NoError(err)
+
+		querier := NewBinlogInfoQuerier(db)
+
 		rows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
 			AddRow("log_bin", "ON").CloseError(errors.New("close error"))
 		mock.ExpectQuery(SHOW_LOG_BIN_QUERY).WillReturnRows(rows)
 
 		expectedFile := "mysql-bin.000123"
+
+		rows = sqlmock.NewRows([]string{"mysql_version"}).AddRow("8.2.42")
+		mock.ExpectQuery(regexp.QuoteMeta(VERSION_QUERY)).WillReturnRows(rows)
+
 		rows = sqlmock.NewRows([]string{"File", "Position", "Binlog_Do_DB", "Binlog_Ignore_DB", "Executed_Gtid_Set"}).
 			AddRow(expectedFile, 1234, "", "", "")
 		mock.ExpectQuery(SHOW_BINLOG_STATUS_QUERY).WillReturnRows(rows)
@@ -270,7 +308,7 @@ func TestGetBinlogInfo(t *testing.T) {
 		expectedValue := filepath.Join("var", "log", "mysql", "mysql-bin")
 		rows = sqlmock.NewRows([]string{"Variable_name", "Value"}).
 			AddRow("log_bin_basename", expectedValue)
-		mock.ExpectQuery(SHOW_LOG_BIN_BASENAME).WillReturnRows(rows)
+		mock.ExpectQuery(SHOW_LOG_BIN_BASENAME_QUERY).WillReturnRows(rows)
 
 		info, err := querier.GetBinlogInfo()
 		assert.NoError(err)

@@ -9,9 +9,11 @@ import (
 )
 
 const (
-	SHOW_LOG_BIN_QUERY       = "SHOW VARIABLES LIKE 'log_bin';"
-	SHOW_BINLOG_STATUS_QUERY = "SHOW BINARY LOG STATUS;"
-	SHOW_LOG_BIN_BASENAME    = "SHOW VARIABLES LIKE 'log_bin_basename';"
+	SHOW_LOG_BIN_QUERY          = "SHOW VARIABLES LIKE 'log_bin';"
+	SHOW_MASTER_STATUS_QUERY    = "SHOW MASTER STATUS;"
+	SHOW_BINLOG_STATUS_QUERY    = "SHOW BINARY LOG STATUS;"
+	SHOW_LOG_BIN_BASENAME_QUERY = "SHOW VARIABLES LIKE 'log_bin_basename';"
+	VERSION_QUERY               = "SELECT VERSION() AS mysql_version;"
 )
 
 type BinlogInfo struct {
@@ -28,6 +30,29 @@ func NewBinlogInfoQuerier(db *sql.DB) *binlogInfoQuerier {
 	return &binlogInfoQuerier{
 		db,
 	}
+}
+
+func (b *binlogInfoQuerier) queryVersion() (*mysqlVersion, error) {
+	rows, err := b.db.Query(VERSION_QUERY)
+
+	if err != nil {
+		return nil, fmt.Errorf("fail to run query %s, error: %v", VERSION_QUERY, err)
+	}
+
+	defer func() {
+		if err := rows.Close(); err != nil {
+			slog.Error("fail to close database rows", slog.Any("error", err), slog.Any("query", VERSION_QUERY))
+		}
+	}()
+
+	var version string
+	if rows.Next() {
+		if err := rows.Scan(&version); err != nil {
+			return nil, fmt.Errorf("fail to scan database rows, query: %s, error: %v", VERSION_QUERY, err)
+		}
+	}
+
+	return splitServerVersion(version), nil
 }
 
 func (b *binlogInfoQuerier) queryLogBin() error {
@@ -58,14 +83,14 @@ func (b *binlogInfoQuerier) queryLogBin() error {
 }
 
 func (b *binlogInfoQuerier) queryLogBinBasename() (string, error) {
-	rows, err := b.db.Query(SHOW_LOG_BIN_BASENAME)
+	rows, err := b.db.Query(SHOW_LOG_BIN_BASENAME_QUERY)
 	if err != nil {
-		return "", fmt.Errorf("fail to run query %s, error: %v", SHOW_LOG_BIN_BASENAME, err)
+		return "", fmt.Errorf("fail to run query %s, error: %v", SHOW_LOG_BIN_BASENAME_QUERY, err)
 	}
 
 	defer func() {
 		if err := rows.Close(); err != nil {
-			slog.Error("fail to close database rows", slog.Any("error", err), slog.Any("query", SHOW_LOG_BIN_BASENAME))
+			slog.Error("fail to close database rows", slog.Any("error", err), slog.Any("query", SHOW_LOG_BIN_BASENAME_QUERY))
 		}
 	}()
 
@@ -73,7 +98,7 @@ func (b *binlogInfoQuerier) queryLogBinBasename() (string, error) {
 
 	if rows.Next() {
 		if err := rows.Scan(&variableName, &value); err != nil {
-			return "", fmt.Errorf("fail to scan database rows, query: %s, error: %v", SHOW_LOG_BIN_BASENAME, err)
+			return "", fmt.Errorf("fail to scan database rows, query: %s, error: %v", SHOW_LOG_BIN_BASENAME_QUERY, err)
 		}
 
 		return value, nil
@@ -87,20 +112,31 @@ func (b *binlogInfoQuerier) queryBinlogStatus() (string, error) {
 	var position int
 	var binlogDoDB, binlogIgnoreDB, executedGtidSet string
 
-	rows, err := b.db.Query(SHOW_BINLOG_STATUS_QUERY)
+	version, err := b.queryVersion()
 	if err != nil {
-		return "", fmt.Errorf("fail to run query %s, error: %v", SHOW_BINLOG_STATUS_QUERY, err)
+		return "", fmt.Errorf("fail to query MySQL version, error: %v", err)
+	}
+
+	showBinlogStatusQuery := SHOW_BINLOG_STATUS_QUERY
+
+	if version.major <= 8 && version.minor < 2 {
+		showBinlogStatusQuery = SHOW_MASTER_STATUS_QUERY
+	}
+
+	rows, err := b.db.Query(showBinlogStatusQuery)
+	if err != nil {
+		return "", fmt.Errorf("fail to run query %s, error: %v", showBinlogStatusQuery, err)
 	}
 
 	defer func() {
 		if err := rows.Close(); err != nil {
-			slog.Error("fail to close database rows", slog.Any("error", err), slog.Any("query", SHOW_BINLOG_STATUS_QUERY))
+			slog.Error("fail to close database rows", slog.Any("error", err), slog.Any("query", showBinlogStatusQuery))
 		}
 	}()
 
 	if rows.Next() {
 		if err := rows.Scan(&currentBinlogFile, &position, &binlogDoDB, &binlogIgnoreDB, &executedGtidSet); err != nil {
-			return "", fmt.Errorf("fail to scan database rows, query: %s, error: %v", SHOW_BINLOG_STATUS_QUERY, err)
+			return "", fmt.Errorf("fail to scan database rows, query: %s, error: %v", showBinlogStatusQuery, err)
 		}
 
 		return currentBinlogFile, nil
