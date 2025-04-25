@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	SHOW_LOG_BIN_QUERY          = "SHOW VARIABLES LIKE 'log_bin';"
-	SHOW_MASTER_STATUS_QUERY    = "SHOW MASTER STATUS;"
-	SHOW_BINLOG_STATUS_QUERY    = "SHOW BINARY LOG STATUS;"
-	SHOW_LOG_BIN_BASENAME_QUERY = "SHOW VARIABLES LIKE 'log_bin_basename';"
-	VERSION_QUERY               = "SELECT VERSION() AS mysql_version;"
+	ShowLogBinQuery         = "SHOW VARIABLES LIKE 'log_bin';"
+	ShowMasterStatusQuery   = "SHOW MASTER STATUS;"
+	ShowBinlogStatusQuery   = "SHOW BINARY LOG STATUS;"
+	ShowLogBinBasenameQuery = "SHOW VARIABLES LIKE 'log_bin_basename';"
+	VersionQuery            = "SELECT VERSION() AS mysql_version;"
 )
 
 type BinlogInfo struct {
@@ -33,22 +33,22 @@ func NewBinlogInfoQuerier(db *sql.DB) *binlogInfoQuerier {
 }
 
 func (b *binlogInfoQuerier) queryVersion() (*mysqlVersion, error) {
-	rows, err := b.db.Query(VERSION_QUERY)
+	rows, err := b.db.Query(VersionQuery)
 
 	if err != nil {
-		return nil, fmt.Errorf("fail to run query %s, error: %v", VERSION_QUERY, err)
+		return nil, fmt.Errorf("fail to run query %s, error: %v", VersionQuery, err)
 	}
 
 	defer func() {
 		if err := rows.Close(); err != nil {
-			slog.Error("fail to close database rows", slog.Any("error", err), slog.Any("query", VERSION_QUERY))
+			slog.Error("fail to close database rows", slog.Any("error", err), slog.Any("query", VersionQuery))
 		}
 	}()
 
 	var version string
 	if rows.Next() {
 		if err := rows.Scan(&version); err != nil {
-			return nil, fmt.Errorf("fail to scan database rows, query: %s, error: %v", VERSION_QUERY, err)
+			return nil, fmt.Errorf("fail to scan database rows, query: %s, error: %v", VersionQuery, err)
 		}
 	}
 
@@ -56,22 +56,22 @@ func (b *binlogInfoQuerier) queryVersion() (*mysqlVersion, error) {
 }
 
 func (b *binlogInfoQuerier) queryLogBin() error {
-	rows, err := b.db.Query(SHOW_LOG_BIN_QUERY)
+	rows, err := b.db.Query(ShowLogBinQuery)
 
 	if err != nil {
-		return fmt.Errorf("fail to run query %s, error: %v", SHOW_LOG_BIN_QUERY, err)
+		return fmt.Errorf("fail to run query %s, error: %v", ShowLogBinQuery, err)
 	}
 
 	defer func() {
 		if err := rows.Close(); err != nil {
-			slog.Error("fail to close database rows", slog.Any("error", err), slog.Any("query", SHOW_LOG_BIN_QUERY))
+			slog.Error("fail to close database rows", slog.Any("error", err), slog.Any("query", ShowLogBinQuery))
 		}
 	}()
 
 	var variableName, logBin string
 	if rows.Next() {
 		if err := rows.Scan(&variableName, &logBin); err != nil {
-			return fmt.Errorf("fail to scan database rows, query: %s, error: %v", SHOW_LOG_BIN_QUERY, err)
+			return fmt.Errorf("fail to scan database rows, query: %s, error: %v", ShowLogBinQuery, err)
 		}
 	}
 
@@ -83,14 +83,14 @@ func (b *binlogInfoQuerier) queryLogBin() error {
 }
 
 func (b *binlogInfoQuerier) queryLogBinBasename() (string, error) {
-	rows, err := b.db.Query(SHOW_LOG_BIN_BASENAME_QUERY)
+	rows, err := b.db.Query(ShowLogBinBasenameQuery)
 	if err != nil {
-		return "", fmt.Errorf("fail to run query %s, error: %v", SHOW_LOG_BIN_BASENAME_QUERY, err)
+		return "", fmt.Errorf("fail to run query %s, error: %v", ShowLogBinBasenameQuery, err)
 	}
 
 	defer func() {
 		if err := rows.Close(); err != nil {
-			slog.Error("fail to close database rows", slog.Any("error", err), slog.Any("query", SHOW_LOG_BIN_BASENAME_QUERY))
+			slog.Error("fail to close database rows", slog.Any("error", err), slog.Any("query", ShowLogBinBasenameQuery))
 		}
 	}()
 
@@ -98,7 +98,7 @@ func (b *binlogInfoQuerier) queryLogBinBasename() (string, error) {
 
 	if rows.Next() {
 		if err := rows.Scan(&variableName, &value); err != nil {
-			return "", fmt.Errorf("fail to scan database rows, query: %s, error: %v", SHOW_LOG_BIN_BASENAME_QUERY, err)
+			return "", fmt.Errorf("fail to scan database rows, query: %s, error: %v", ShowLogBinBasenameQuery, err)
 		}
 
 		return value, nil
@@ -117,10 +117,12 @@ func (b *binlogInfoQuerier) queryBinlogStatus() (string, error) {
 		return "", fmt.Errorf("fail to query MySQL version, error: %v", err)
 	}
 
-	showBinlogStatusQuery := SHOW_BINLOG_STATUS_QUERY
-
-	if version.major <= 8 && version.minor < 2 {
-		showBinlogStatusQuery = SHOW_MASTER_STATUS_QUERY
+	var showBinlogStatusQuery string
+	// use ShowMasterStatusQuery for all MySQL < 8.2
+	if version.major < 8 || (version.major == 8 && version.minor < 2) {
+		showBinlogStatusQuery = ShowMasterStatusQuery
+	} else {
+		showBinlogStatusQuery = ShowBinlogStatusQuery
 	}
 
 	rows, err := b.db.Query(showBinlogStatusQuery)

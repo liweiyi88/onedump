@@ -1,6 +1,7 @@
 package binlog
 
 import (
+	"log/slog"
 	"strconv"
 	"strings"
 	"unicode"
@@ -12,6 +13,10 @@ type mysqlVersion struct {
 
 // It parses a MySQL version string (e.g., "8.0.34") into major, minor, and patch numbers.
 func splitServerVersion(version string) *mysqlVersion {
+	if version == "" {
+		return &mysqlVersion{major: 0, minor: 0, patch: 0}
+	}
+
 	parts := strings.Split(version, ".")
 
 	var major, minor, patch int
@@ -20,7 +25,7 @@ func splitServerVersion(version string) *mysqlVersion {
 		if i == 0 {
 			n, err := strconv.Atoi(v)
 			if err != nil {
-
+				slog.Info("failed to parse major version number", slog.String("version", version), slog.Any("error", err))
 				return &mysqlVersion{major: 0, minor: 0, patch: 0}
 			}
 
