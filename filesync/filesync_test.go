@@ -9,6 +9,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestHasSynced(t *testing.T) {
+	assert := assert.New(t)
+	filename := "test_checksum.txt"
+
+	if err := createTestFile(filename, "test content"); err != nil {
+		t.Error(err)
+	}
+
+	defer func() {
+		if err := os.Remove(filename); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	synced, err := HasSynced(filename)
+	assert.Nil(err)
+	assert.False(synced)
+}
+
 func TestSyncFile(t *testing.T) {
 	assert := assert.New(t)
 
