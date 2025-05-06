@@ -86,7 +86,7 @@ It requires the following environment variables:
 		}
 
 		s3 := s3.NewS3(s3Bucket, "", region, accessKeyId, secretAccessKey, sessionToken)
-		syncer := binlog.NewBinlogSyncer(s3Prefix, checksum, binlogInfo)
+		syncer := binlog.NewBinlogSyncer(s3Prefix, checksum, saveLog, binlogInfo)
 		return syncer.Sync(s3)
 	},
 }

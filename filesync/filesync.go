@@ -5,6 +5,16 @@ import (
 	"log/slog"
 )
 
+func HasSynced(filename string) (bool, error) {
+	synced, err := NewChecksum(filename).IsFileTransferred()
+
+	if err != nil {
+		return false, fmt.Errorf("fail to check if %s has been transferred, error: %v", filename, err)
+	}
+
+	return synced, nil
+}
+
 func SyncFile(filename string, checksum bool, syncFunc func() error) error {
 	fileChecksum := NewChecksum(filename)
 
@@ -29,8 +39,7 @@ func SyncFile(filename string, checksum bool, syncFunc func() error) error {
 	}
 
 	if checksum {
-		err := fileChecksum.SaveState()
-		if err != nil {
+		if err := fileChecksum.SaveState(); err != nil {
 			return fmt.Errorf("fail to save the checksum state file for %s, error: %v", filename, err)
 		}
 	}

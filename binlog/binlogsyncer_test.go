@@ -96,12 +96,14 @@ func TestBinlogSyncerSyncFile(t *testing.T) {
 func TestBinlogSyncerSync(t *testing.T) {
 	tests := []struct {
 		name        string
+		saveLog     bool
 		setupFiles  func() (string, error)
 		setupMock   func(*MockStorage, []string)
 		expectError bool
 	}{
 		{
-			name: "successful sync of multiple files",
+			name:    "successful sync of multiple files",
+			saveLog: true,
 			setupFiles: func() (string, error) {
 				dir, err := os.MkdirTemp("", "binlogtest")
 				if err != nil {
@@ -127,7 +129,8 @@ func TestBinlogSyncerSync(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "partial failure during sync",
+			name:    "partial failure during sync",
+			saveLog: false,
 			setupFiles: func() (string, error) {
 				dir, err := os.MkdirTemp("", "binlogtest")
 				if err != nil {
@@ -160,7 +163,8 @@ func TestBinlogSyncerSync(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "no files to sync",
+			name:    "no files to sync",
+			saveLog: false,
 			setupFiles: func() (string, error) {
 				dir, err := os.MkdirTemp("", "binlogtest")
 				if err != nil {
@@ -194,14 +198,30 @@ func TestBinlogSyncerSync(t *testing.T) {
 				},
 				destinationPath: "/test/destination",
 				checksum:        false,
+				saveLog:         tt.saveLog,
 			}
 
 			err = syncer.Sync(mockStorage)
 
+			assert := assert.New(t)
+
 			if tt.expectError {
-				assert.Error(t, err)
+				assert.Error(err)
 			} else {
-				assert.NoError(t, err)
+				assert.NoError(err)
+			}
+
+			syncResultFile := filepath.Join(dir, SyncResultFile)
+
+			if tt.saveLog {
+				assert.FileExists(syncResultFile)
+
+				defer func() {
+					err := os.Remove(syncResultFile)
+					assert.NoError(err)
+				}()
+			} else {
+				assert.NoFileExists(syncResultFile)
 			}
 
 			mockStorage.AssertExpectations(t)
@@ -210,7 +230,7 @@ func TestBinlogSyncerSync(t *testing.T) {
 }
 
 func TestNewBinlogSyncer(t *testing.T) {
-	syncer := NewBinlogSyncer("/onedump", false, &BinlogInfo{
+	syncer := NewBinlogSyncer("/onedump", false, false, &BinlogInfo{
 		currentBinlogFile: "mysql-bin.000001",
 		binlogDir:         "/var/log/mysql",
 		binlogPrefix:      "mysql-bin",
@@ -221,4 +241,19 @@ func TestNewBinlogSyncer(t *testing.T) {
 	assert.Equal(t, "/var/log/mysql", syncer.binlogDir)
 	assert.False(t, syncer.checksum)
 	assert.Equal(t, "mysql-bin", syncer.binlogPrefix)
+}
+
+func TestSaveSyncResult(t *testing.T) {
+	assert := assert.New(t)
+	files := []string{"binlog0001", "binlog0002"}
+
+	err := newSyncResult(files, nil).save("")
+	assert.NoError(err)
+
+	defer func() {
+		err := os.Remove(SyncResultFile)
+		assert.NoError(err)
+	}()
+
+	assert.FileExists(SyncResultFile)
 }
