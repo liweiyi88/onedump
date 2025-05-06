@@ -24,7 +24,7 @@ var limit int
 var mask, attach, verbose bool
 
 var sftpHost, sftpUser, sftpKey string
-var checksum bool
+var checksum, saveLog bool
 var sftpMaxAttempts int
 
 var rootCmd = &cobra.Command{
@@ -155,6 +155,7 @@ func init() {
 	binlogSyncS3Cmd.MarkFlagRequired("s3-bucket")
 	binlogSyncS3Cmd.MarkFlagRequired("s3-prefix")
 	binlogSyncS3Cmd.Flags().BoolVar(&checksum, "checksum", false, "whether to save the checksum to avoid repeating file transfers, default: false (optional)")
+	binlogSyncS3Cmd.Flags().BoolVar(&saveLog, "save-log", false, "whether to save the sync results in a log file, default: false (optional)")
 	binlogSyncS3Cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
 
 	rootCmd.AddCommand(slowCmd)
