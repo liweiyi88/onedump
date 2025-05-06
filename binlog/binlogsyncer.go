@@ -63,7 +63,7 @@ func (s *syncResult) save(dir string) error {
 		}
 	}()
 
-	data := append([]byte("\n"), encoded...)
+	data := append(encoded, []byte("\n")...)
 	_, err = syncFile.Write(data)
 
 	return err
@@ -174,9 +174,12 @@ func (b *BinlogSyncer) Sync(storage storage.Storage) error {
 		return syncError
 	}
 
-	err = newSyncResult(syncFiles, syncError).save(b.binlogDir)
+	saveErr := newSyncResult(syncFiles, syncError).save(b.binlogDir)
+	if saveErr != nil {
+		return errors.Join(syncError, saveErr)
+	}
 
-	return errors.Join(syncError, err)
+	return syncError
 }
 
 func NewBinlogSyncer(destinationPath string, checksum bool, saveLog bool, binlogInfo *BinlogInfo) *BinlogSyncer {

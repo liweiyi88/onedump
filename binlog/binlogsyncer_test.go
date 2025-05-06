@@ -39,7 +39,7 @@ func TestBinlogSyncerSyncFile(t *testing.T) {
 			setupMock: func(ms *MockStorage) {
 				ms.On("Save", mock.Anything, mock.Anything).Return(nil)
 			},
-			checksum:    false,
+			checksum:    true,
 			expectError: false,
 		},
 		{
@@ -97,13 +97,15 @@ func TestBinlogSyncerSync(t *testing.T) {
 	tests := []struct {
 		name        string
 		saveLog     bool
+		checksum    bool
 		setupFiles  func() (string, error)
 		setupMock   func(*MockStorage, []string)
 		expectError bool
 	}{
 		{
-			name:    "successful sync of multiple files",
-			saveLog: true,
+			name:     "successful sync of multiple files",
+			saveLog:  true,
+			checksum: true,
 			setupFiles: func() (string, error) {
 				dir, err := os.MkdirTemp("", "binlogtest")
 				if err != nil {
@@ -122,15 +124,15 @@ func TestBinlogSyncerSync(t *testing.T) {
 			setupMock: func(ms *MockStorage, files []string) {
 				for range files {
 					ms.On("Save", mock.Anything, mock.AnythingOfType("storage.PathGeneratorFunc")).
-						Return(nil).
-						Once()
+						Return(nil)
 				}
 			},
 			expectError: false,
 		},
 		{
-			name:    "partial failure during sync",
-			saveLog: false,
+			name:     "partial failure during sync",
+			saveLog:  false,
+			checksum: false,
 			setupFiles: func() (string, error) {
 				dir, err := os.MkdirTemp("", "binlogtest")
 				if err != nil {
@@ -163,8 +165,9 @@ func TestBinlogSyncerSync(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:    "no files to sync",
-			saveLog: false,
+			name:     "no files to sync",
+			saveLog:  false,
+			checksum: true,
 			setupFiles: func() (string, error) {
 				dir, err := os.MkdirTemp("", "binlogtest")
 				if err != nil {
@@ -197,7 +200,7 @@ func TestBinlogSyncerSync(t *testing.T) {
 					binlogPrefix: "binlog",
 				},
 				destinationPath: "/test/destination",
-				checksum:        false,
+				checksum:        tt.checksum,
 				saveLog:         tt.saveLog,
 			}
 
