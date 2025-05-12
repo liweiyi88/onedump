@@ -23,10 +23,10 @@ const (
 )
 
 type syncResult struct {
-	FinishAt time.Time `json:"finished_at"`
-	Files    []string  `json:"files"`
-	Ok       bool      `json:"ok"`
-	Error    string    `json:"error"`
+	FinishedAt time.Time `json:"finished_at"`
+	Files      []string  `json:"files"`
+	Ok         bool      `json:"ok"`
+	Error      string    `json:"error"`
 }
 
 func newSyncResult(files []string, err error) *syncResult {
@@ -39,10 +39,10 @@ func newSyncResult(files []string, err error) *syncResult {
 	}
 
 	return &syncResult{
-		Files:    files,
-		Error:    syncError,
-		FinishAt: time.Now().UTC(),
-		Ok:       ok,
+		Files:      files,
+		Error:      syncError,
+		FinishedAt: time.Now().UTC(),
+		Ok:         ok,
 	}
 }
 
