@@ -38,7 +38,7 @@ func TestComputeChecksum(t *testing.T) {
 		}
 	}()
 
-	f := NewChecksum(filename)
+	f := NewChecksum(filename, "")
 
 	checksum, err := f.computeChecksum()
 	if err != nil {
@@ -69,7 +69,7 @@ func TestComputeChecksum(t *testing.T) {
 }
 
 func TestGetStateFilePath(t *testing.T) {
-	checksum := NewChecksum("")
+	checksum := NewChecksum("", "")
 	assert.Equal(t, "checksum.onedump", checksum.getStateFilePath())
 }
 
@@ -87,7 +87,7 @@ func TestIsFileTransferred(t *testing.T) {
 		}
 	}()
 
-	checksum := NewChecksum(filename)
+	checksum := NewChecksum(filename, "")
 
 	transferred, err := checksum.IsFileTransferred()
 	assert.Nil(err)
@@ -108,7 +108,7 @@ func TestIsFileTransferred(t *testing.T) {
 }
 
 func TestDeleteState(t *testing.T) {
-	checksum := NewChecksum("")
+	checksum := NewChecksum("", "")
 	err := checksum.DeleteState()
 	assert.Nil(t, err)
 }

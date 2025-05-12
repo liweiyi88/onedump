@@ -32,6 +32,8 @@ Using `--checksum=true` ensures that files already transferred are not sent agai
 
 Checksums are calculated and stored in `checksum.onedump` within the source directory.
 
+Alternatively, you can use the `--checksum-file` option to specify a custom file for saving the checksum results.
+
 #### Max retry attempts
 
 The command automatically retries and resumes failed transfers indefinitely for recoverable errors until the files are successfully transferred. Use `--max-attempts` to specify when the command should stop retrying.

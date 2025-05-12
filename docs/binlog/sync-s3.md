@@ -35,5 +35,11 @@ The sync result log file is named `onedump-binlog-sync.log` and will be saved in
 onedump binlog sync-s3 --s3-bucket="your-bucket" --s3-prefix="binlogs" --save-log=true
 ```
 
+If you want to save it to a specific file, then use `--save-log=true` with `--log-file=/path/to/the/file.log`
+
+```
+onedump binlog sync-s3 --s3-bucket="your-bucket" --s3-prefix="binlogs" --save-log=true --log-file=/path/to/the/file.log
+```
+
 #### View all available options
 Run `onedump binlog sync-s3 --help` see all available options.

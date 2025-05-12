@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/liweiyi88/onedump/filesync"
 	"github.com/liweiyi88/onedump/fileutil"
 	"github.com/liweiyi88/onedump/storage"
 	"github.com/stretchr/testify/assert"
@@ -75,9 +76,11 @@ func TestBinlogSyncerSyncFile(t *testing.T) {
 			mockStorage := new(MockStorage)
 			tt.setupMock(mockStorage)
 
+			checksumFile := filepath.Join(t.TempDir(), "checksum.state")
+			fs := filesync.NewFileSync(tt.checksum, checksumFile)
 			syncer := &BinlogSyncer{
 				destinationPath: "/test/destination",
-				checksum:        tt.checksum,
+				fs:              fs,
 			}
 
 			err := syncer.syncFile(tt.filename, mockStorage)
@@ -194,13 +197,15 @@ func TestBinlogSyncerSync(t *testing.T) {
 			mockStorage := new(MockStorage)
 			tt.setupMock(mockStorage, files)
 
+			checksumFile := filepath.Join(t.TempDir(), "checksum.state")
+			fs := filesync.NewFileSync(tt.checksum, checksumFile)
 			syncer := &BinlogSyncer{
+				fs: fs,
 				BinlogInfo: &BinlogInfo{
 					binlogDir:    dir,
 					binlogPrefix: "binlog",
 				},
 				destinationPath: "/test/destination",
-				checksum:        tt.checksum,
 				saveLog:         tt.saveLog,
 			}
 
@@ -233,7 +238,10 @@ func TestBinlogSyncerSync(t *testing.T) {
 }
 
 func TestNewBinlogSyncer(t *testing.T) {
-	syncer := NewBinlogSyncer("/onedump", false, false, &BinlogInfo{
+
+	fs := filesync.NewFileSync(false, "")
+
+	syncer := NewBinlogSyncer("/onedump", false, "", fs, &BinlogInfo{
 		currentBinlogFile: "mysql-bin.000001",
 		binlogDir:         "/var/log/mysql",
 		binlogPrefix:      "mysql-bin",
@@ -242,7 +250,7 @@ func TestNewBinlogSyncer(t *testing.T) {
 	assert.Equal(t, "/onedump", syncer.destinationPath)
 	assert.Equal(t, "mysql-bin.000001", syncer.currentBinlogFile)
 	assert.Equal(t, "/var/log/mysql", syncer.binlogDir)
-	assert.False(t, syncer.checksum)
+	assert.False(t, fs.SaveChecksum)
 	assert.Equal(t, "mysql-bin", syncer.binlogPrefix)
 }
 
@@ -250,13 +258,28 @@ func TestSaveSyncResult(t *testing.T) {
 	assert := assert.New(t)
 	files := []string{"binlog0001", "binlog0002"}
 
-	err := newSyncResult(files, nil).save("")
-	assert.NoError(err)
-
-	defer func() {
-		err := os.Remove(SyncResultFile)
+	t.Run("save sync result in default log file", func(t *testing.T) {
+		err := newSyncResult(files, nil).save("", "")
 		assert.NoError(err)
-	}()
 
-	assert.FileExists(SyncResultFile)
+		defer func() {
+			err := os.Remove(SyncResultFile)
+			assert.NoError(err)
+		}()
+
+		assert.FileExists(SyncResultFile)
+	})
+
+	t.Run("save sync result in a custom log file", func(t *testing.T) {
+		logFile := filepath.Join(os.TempDir(), "test-result.log")
+		err := newSyncResult(files, nil).save("", logFile)
+		assert.NoError(err)
+
+		defer func() {
+			err := os.Remove(logFile)
+			assert.NoError(err)
+		}()
+
+		assert.FileExists(logFile)
+	})
 }

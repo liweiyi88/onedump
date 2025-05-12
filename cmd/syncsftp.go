@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func syncFiles(sources []string, destination string, checksum bool, isDestinationDir bool, config *sftp.SftpConifg) error {
+func syncFiles(sources []string, destination string, checksum bool, checksumFile string, isDestinationDir bool, config *sftp.SftpConifg) error {
 	errCh := make(chan error, len(sources))
 
 	// Process maximum 10 files at a time
@@ -30,7 +30,7 @@ func syncFiles(sources []string, destination string, checksum bool, isDestinatio
 				wg.Done()
 			}()
 
-			if err := syncFile(file, destination, checksum, isDestinationDir, config); err != nil {
+			if err := syncFile(file, destination, checksum, checksumFile, isDestinationDir, config); err != nil {
 				errCh <- err
 			}
 		}()
@@ -49,7 +49,7 @@ func syncFiles(sources []string, destination string, checksum bool, isDestinatio
 	return errors.Join(allErrors...)
 }
 
-func syncFile(source, destination string, checksum bool, isDestinationDir bool, config *sftp.SftpConifg) error {
+func syncFile(source, destination string, checksum bool, checksumFile string, isDestinationDir bool, config *sftp.SftpConifg) error {
 	syncFunc := func() error {
 		sourceFile, err := os.Open(source)
 
@@ -83,7 +83,9 @@ func syncFile(source, destination string, checksum bool, isDestinationDir bool, 
 		return nil
 	}
 
-	return filesync.SyncFile(source, checksum, syncFunc)
+	fs := filesync.NewFileSync(checksum, checksumFile)
+
+	return fs.SyncFile(source, syncFunc)
 }
 
 var syncSftpCmd = &cobra.Command{
@@ -129,9 +131,9 @@ var syncSftpCmd = &cobra.Command{
 				return errors.New("no file found for syncing")
 			}
 
-			return syncFiles(files, destination, checksum, isDestinationDir, config)
+			return syncFiles(files, destination, checksum, checksumFile, isDestinationDir, config)
 		}
 
-		return syncFile(source, destination, checksum, isDestinationDir, config)
+		return syncFile(source, destination, checksum, checksumFile, isDestinationDir, config)
 	},
 }
