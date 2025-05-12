@@ -5,8 +5,20 @@ import (
 	"log/slog"
 )
 
-func HasSynced(filename string) (bool, error) {
-	synced, err := NewChecksum(filename).IsFileTransferred()
+type FileSync struct {
+	SaveChecksum bool
+	checksumFile string
+}
+
+func NewFileSync(saveChecksum bool, checksumFile string) *FileSync {
+	return &FileSync{
+		SaveChecksum: saveChecksum,
+		checksumFile: checksumFile,
+	}
+}
+
+func (fs *FileSync) HasSynced(filename string) (bool, error) {
+	synced, err := NewChecksum(filename, fs.checksumFile).IsFileTransferred()
 
 	if err != nil {
 		return false, fmt.Errorf("fail to check if %s has been transferred, error: %v", filename, err)
@@ -15,10 +27,10 @@ func HasSynced(filename string) (bool, error) {
 	return synced, nil
 }
 
-func SyncFile(filename string, checksum bool, syncFunc func() error) error {
-	fileChecksum := NewChecksum(filename)
+func (fs *FileSync) SyncFile(filename string, syncFunc func() error) error {
+	fileChecksum := NewChecksum(filename, fs.checksumFile)
 
-	if !checksum {
+	if !fs.SaveChecksum {
 		if err := fileChecksum.DeleteState(); err != nil {
 			return fmt.Errorf("fail to delete the checksum state file, error: %v", err)
 		}
@@ -29,7 +41,7 @@ func SyncFile(filename string, checksum bool, syncFunc func() error) error {
 		}
 
 		if transfered {
-			slog.Debug("the file has already been transferred", slog.Any("filename", filename))
+			slog.Debug("[filesync] the file has already been transferred", slog.Any("filename", filename))
 			return nil
 		}
 	}
@@ -38,7 +50,7 @@ func SyncFile(filename string, checksum bool, syncFunc func() error) error {
 		return err
 	}
 
-	if checksum {
+	if fs.SaveChecksum {
 		if err := fileChecksum.SaveState(); err != nil {
 			return fmt.Errorf("fail to save the checksum state file for %s, error: %v", filename, err)
 		}

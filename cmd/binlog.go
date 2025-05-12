@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/liweiyi88/onedump/binlog"
+	"github.com/liweiyi88/onedump/filesync"
 	"github.com/liweiyi88/onedump/storage/s3"
 	"github.com/spf13/cobra"
 )
@@ -86,7 +87,8 @@ It requires the following environment variables:
 		}
 
 		s3 := s3.NewS3(s3Bucket, "", region, accessKeyId, secretAccessKey, sessionToken)
-		syncer := binlog.NewBinlogSyncer(s3Prefix, checksum, saveLog, binlogInfo)
+		fs := filesync.NewFileSync(checksum, checksumFile)
+		syncer := binlog.NewBinlogSyncer(s3Prefix, saveLog, logFile, fs, binlogInfo)
 		return syncer.Sync(s3)
 	},
 }

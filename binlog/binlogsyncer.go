@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,11 +19,11 @@ import (
 
 const (
 	MaxConcurrentSync = 10
-	SyncResultFile    = "onedump-binlog-sync.log"
+	SyncResultFile    = "onedump-binlog-sync.log" // The default binlog sync result filename
 )
 
 type syncResult struct {
-	FinishAt time.Time `json:"finish_at"`
+	FinishAt time.Time `json:"finished_at"`
 	Files    []string  `json:"files"`
 	Ok       bool      `json:"ok"`
 	Error    string    `json:"error"`
@@ -45,14 +46,20 @@ func newSyncResult(files []string, err error) *syncResult {
 	}
 }
 
-func (s *syncResult) save(dir string) error {
+func (s *syncResult) save(dir string, logFile string) error {
 	encoded, err := json.Marshal(s)
 
 	if err != nil {
 		return fmt.Errorf("fail to encode sync result to json, error: %v", err)
 	}
 
-	syncFile, err := os.OpenFile(filepath.Join(dir, SyncResultFile), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	resultFile := filepath.Join(dir, SyncResultFile)
+
+	if strings.TrimSpace(logFile) != "" {
+		resultFile = logFile
+	}
+
+	syncFile, err := os.OpenFile(resultFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("fail to open sync result file, error: %v", err)
 	}
@@ -71,8 +78,9 @@ func (s *syncResult) save(dir string) error {
 
 type BinlogSyncer struct {
 	destinationPath string // storage folder
-	checksum        bool   // if save checksum and avoid re-transfer
 	saveLog         bool   // is save sync result in a log file
+	logFile         string // if not empty string, save result log in the specific file.
+	fs              *filesync.FileSync
 	*BinlogInfo
 }
 
@@ -109,7 +117,7 @@ func (b *BinlogSyncer) syncFile(filename string, storage storage.Storage) error 
 		return nil
 	}
 
-	return filesync.SyncFile(filename, b.checksum, syncFunc)
+	return b.fs.SyncFile(filename, syncFunc)
 }
 
 func (b *BinlogSyncer) Sync(storage storage.Storage) error {
@@ -122,16 +130,15 @@ func (b *BinlogSyncer) Sync(storage storage.Storage) error {
 	errCh := make(chan error, len(files))
 	var wg sync.WaitGroup
 
-	syncFiles := make([]string, 0)
-
+	var syncFiles []string
 	// Filter out files that have been synced before.
 	// So the save log will persist proper file names.
-	if b.checksum {
+	if b.fs.SaveChecksum {
 		for _, file := range files {
-			synced, err := filesync.HasSynced(file)
+			synced, err := b.fs.HasSynced(file)
 
 			if err != nil {
-				return fmt.Errorf("fail to check if %s has been transfered, error: %v", file, err)
+				return fmt.Errorf("fail to check if %s has been transferred, error: %v", file, err)
 			}
 
 			if !synced {
@@ -146,7 +153,7 @@ func (b *BinlogSyncer) Sync(storage storage.Storage) error {
 		wg.Add(1)
 		limiter <- struct{}{}
 
-		go func() {
+		go func(file string) {
 			defer func() {
 				<-limiter
 				wg.Done()
@@ -155,7 +162,7 @@ func (b *BinlogSyncer) Sync(storage storage.Storage) error {
 			if err := b.syncFile(file, storage); err != nil {
 				errCh <- fmt.Errorf("fail to sync file: %s, error: %v", file, err)
 			}
-		}()
+		}(file)
 	}
 
 	go func() {
@@ -174,7 +181,7 @@ func (b *BinlogSyncer) Sync(storage storage.Storage) error {
 		return syncError
 	}
 
-	saveErr := newSyncResult(syncFiles, syncError).save(b.binlogDir)
+	saveErr := newSyncResult(syncFiles, syncError).save(b.binlogDir, b.logFile)
 	if saveErr != nil {
 		return errors.Join(syncError, saveErr)
 	}
@@ -182,11 +189,18 @@ func (b *BinlogSyncer) Sync(storage storage.Storage) error {
 	return syncError
 }
 
-func NewBinlogSyncer(destinationPath string, checksum bool, saveLog bool, binlogInfo *BinlogInfo) *BinlogSyncer {
+func NewBinlogSyncer(
+	destinationPath string,
+	saveLog bool,
+	logFile string,
+	fileSync *filesync.FileSync,
+	binlogInfo *BinlogInfo,
+) *BinlogSyncer {
 	return &BinlogSyncer{
 		destinationPath,
-		checksum,
 		saveLog,
+		logFile,
+		fileSync,
 		binlogInfo,
 	}
 }

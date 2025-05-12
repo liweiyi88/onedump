@@ -23,7 +23,9 @@ func TestHasSynced(t *testing.T) {
 		}
 	}()
 
-	synced, err := HasSynced(filename)
+	fs := NewFileSync(false, "")
+
+	synced, err := fs.HasSynced(filename)
 	assert.Nil(err)
 	assert.False(synced)
 }
@@ -48,13 +50,28 @@ func TestSyncFile(t *testing.T) {
 		assert.NoError(err)
 	}()
 
-	err = SyncFile(file, true, func() error { return nil })
+	fs := NewFileSync(true, "")
+	err = fs.SyncFile(file, func() error { return nil })
 	assert.NoError(err)
 
-	err = SyncFile(file, false, func() error { return nil })
+	fs = NewFileSync(false, "")
+	err = fs.SyncFile(file, func() error { return nil })
 	assert.NoError(err)
 
-	err = SyncFile(file, true, func() error { return fmt.Errorf("sync error") })
+	fs = NewFileSync(true, "")
+	err = fs.SyncFile(file, func() error { return fmt.Errorf("sync error") })
 	assert.Error(err)
 	assert.Contains(err.Error(), "sync error")
+
+	customStateFile := filepath.Join(tempDir, "custom-checksum-state.log")
+	fs = NewFileSync(true, customStateFile)
+	err = fs.SyncFile(file, func() error { return nil })
+
+	defer func() {
+		err := os.Remove(customStateFile)
+		assert.NoError(err)
+	}()
+
+	assert.NoError(err)
+	assert.FileExists(customStateFile)
 }

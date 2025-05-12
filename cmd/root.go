@@ -19,13 +19,22 @@ import (
 )
 
 var file, s3Bucket, s3Prefix, s3Region, s3AccessKeyId, s3SecretAccessKey, s3SessionToken, cron string
-var sloglog, database, pattern, source, destination string
-var limit int
-var mask, attach, verbose bool
+var (
+	sloglog, database, pattern, source, destination string
+	mask                                            bool
+)
 
-var sftpHost, sftpUser, sftpKey string
-var checksum, saveLog bool
-var sftpMaxAttempts int
+var (
+	sftpHost, sftpUser, sftpKey string
+	sftpMaxAttempts             int
+)
+
+var (
+	attach                     bool
+	limit                      int
+	checksum, saveLog, verbose bool
+	logFile, checksumFile      string
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "onedump",
@@ -141,6 +150,7 @@ func init() {
 	syncSftpCmd.Flags().IntVar(&sftpMaxAttempts, "max-attempts", 0, "the maximum number of retries if an error is encountered; by default, retries are unlimited (optional)")
 	syncSftpCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
 	syncSftpCmd.Flags().BoolVar(&checksum, "checksum", false, "whether to save the checksum to avoid repeating file transfers, default false (optional)")
+	syncSftpCmd.Flags().StringVar(&checksumFile, "checksum-file", "", "save checksum results in a specific file if --checksum=true, default: /path/to/sync/folder/checksum.onedump (optional)")
 	syncSftpCmd.Flags().StringVarP(&pattern, "pattern", "p", "", "only read files that follow the same pattern, for example binlog.* (optional)")
 
 	syncSftpCmd.MarkFlagRequired("source")
@@ -155,7 +165,9 @@ func init() {
 	binlogSyncS3Cmd.MarkFlagRequired("s3-bucket")
 	binlogSyncS3Cmd.MarkFlagRequired("s3-prefix")
 	binlogSyncS3Cmd.Flags().BoolVar(&checksum, "checksum", false, "whether to save the checksum to avoid repeating file transfers, default: false (optional)")
+	binlogSyncS3Cmd.Flags().StringVar(&checksumFile, "checksum-file", "", "save checksum results in a specific file if --checksum=true, default: /path/to/sync/folder/checksum.onedump (optional)")
 	binlogSyncS3Cmd.Flags().BoolVar(&saveLog, "save-log", false, "whether to save the sync results in a log file, default: false (optional)")
+	binlogSyncS3Cmd.Flags().StringVar(&logFile, "log-file", "", "save result log in a specific file if --save-log=true. default: /path/to/binlogs/onedump-binlog-sync.log (optional)")
 	binlogSyncS3Cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
 
 	rootCmd.AddCommand(slowCmd)

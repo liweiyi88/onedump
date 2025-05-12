@@ -17,12 +17,16 @@ import (
 const ChecksumStateFile = "checksum.onedump"
 
 type Checksum struct {
-	filePath string
-	mu       sync.Mutex
+	filePath  string
+	stateFile string
+	mu        sync.Mutex
 }
 
-func NewChecksum(filePath string) *Checksum {
-	return &Checksum{filePath: filePath}
+func NewChecksum(filePath string, stateFile string) *Checksum {
+	return &Checksum{
+		filePath:  filePath,
+		stateFile: stateFile,
+	}
 }
 
 func (c *Checksum) computeChecksum() (string, error) {
@@ -48,6 +52,10 @@ func (c *Checksum) computeChecksum() (string, error) {
 }
 
 func (c *Checksum) getStateFilePath() string {
+	if strings.TrimSpace(c.stateFile) != "" {
+		return c.stateFile
+	}
+
 	return filepath.Join(filepath.Dir(c.filePath), ChecksumStateFile)
 }
 

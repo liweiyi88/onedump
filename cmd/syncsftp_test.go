@@ -223,7 +223,7 @@ func TestSyncSftpCmd(t *testing.T) {
 
 		source.WriteString("source content")
 
-		checksum := filesync.NewChecksum(source.Name())
+		checksum := filesync.NewChecksum(source.Name(), "")
 		err = checksum.SaveState()
 		assert.Nil(err)
 
