@@ -132,8 +132,6 @@ func (b *BinlogSyncer) Sync(storage storage.Storage) error {
 	}
 
 	limiter := make(chan struct{}, MaxConcurrentSync)
-	errCh := make(chan error, len(files))
-	var wg sync.WaitGroup
 
 	var syncFiles []string
 	// Filter out files that have been synced before.
@@ -153,6 +151,9 @@ func (b *BinlogSyncer) Sync(storage storage.Storage) error {
 	} else {
 		syncFiles = files
 	}
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(syncFiles))
 
 	for _, file := range syncFiles {
 		wg.Add(1)
