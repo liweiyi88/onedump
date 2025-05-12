@@ -59,6 +59,11 @@ func (s *syncResult) save(dir string, logFile string) error {
 		resultFile = logFile
 	}
 
+	// Ensure the directory for the result file exists
+	if err := os.MkdirAll(filepath.Dir(resultFile), 0o755); err != nil {
+		return fmt.Errorf("fail to create result log directory, error: %v", err)
+	}
+
 	syncFile, err := os.OpenFile(resultFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("fail to open sync result file, error: %v", err)
@@ -197,10 +202,10 @@ func NewBinlogSyncer(
 	binlogInfo *BinlogInfo,
 ) *BinlogSyncer {
 	return &BinlogSyncer{
-		destinationPath,
-		saveLog,
-		logFile,
-		fileSync,
-		binlogInfo,
+		destinationPath: destinationPath,
+		saveLog:         saveLog,
+		logFile:         logFile,
+		fs:              fileSync,
+		BinlogInfo:      binlogInfo,
 	}
 }

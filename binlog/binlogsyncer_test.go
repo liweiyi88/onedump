@@ -76,7 +76,8 @@ func TestBinlogSyncerSyncFile(t *testing.T) {
 			mockStorage := new(MockStorage)
 			tt.setupMock(mockStorage)
 
-			fs := filesync.NewFileSync(tt.checksum, "")
+			checksumFile := filepath.Join(t.TempDir(), "checksum.state")
+			fs := filesync.NewFileSync(tt.checksum, checksumFile)
 			syncer := &BinlogSyncer{
 				destinationPath: "/test/destination",
 				fs:              fs,
@@ -196,7 +197,8 @@ func TestBinlogSyncerSync(t *testing.T) {
 			mockStorage := new(MockStorage)
 			tt.setupMock(mockStorage, files)
 
-			fs := filesync.NewFileSync(tt.checksum, "")
+			checksumFile := filepath.Join(t.TempDir(), "checksum.state")
+			fs := filesync.NewFileSync(tt.checksum, checksumFile)
 			syncer := &BinlogSyncer{
 				fs: fs,
 				BinlogInfo: &BinlogInfo{
