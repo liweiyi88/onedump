@@ -126,7 +126,7 @@ func (b *BinlogSyncer) syncFile(filename string, storage storage.Storage) error 
 }
 
 func (b *BinlogSyncer) Sync(storage storage.Storage) error {
-	files, err := fileutil.ListFiles(b.binlogDir, b.binlogPrefix+"*")
+	files, err := fileutil.ListFiles(b.binlogDir, b.binlogPrefix+"*", "")
 	if err != nil {
 		return fmt.Errorf("fail to list all binlog files, error: %v", err)
 	}

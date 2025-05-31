@@ -122,7 +122,7 @@ var syncSftpCmd = &cobra.Command{
 		}
 
 		if sourceInfo.IsDir() {
-			files, err := fileutil.ListFiles(source, pattern)
+			files, err := fileutil.ListFiles(source, pattern, "")
 			if err != nil {
 				return fmt.Errorf("fail to list all files for source dir, error: %v", err)
 			}

@@ -142,7 +142,8 @@ func TestQueryBinlogStatusSuccess(t *testing.T) {
 		AddRow(expectedFile, 1234, "", "", "")
 	mock.ExpectQuery(ShowMasterStatusQuery).WillReturnRows(rows)
 
-	file, err := querier.queryBinlogStatus()
+	file, position, err := querier.queryBinlogStatus()
+	assert.Equal(1234, position)
 	assert.NoError(err)
 	assert.Equal(expectedFile, file)
 	assert.NoError(mock.ExpectationsWereMet())
@@ -162,7 +163,7 @@ func TestQueryBinlogStatusFailure(t *testing.T) {
 
 	// Test case 1: Query error
 	mock.ExpectQuery(ShowBinlogStatusQuery).WillReturnError(errors.New("query error"))
-	file, err := querier.queryBinlogStatus()
+	file, _, err := querier.queryBinlogStatus()
 	assert.Error(err)
 	assert.Empty(file)
 	assert.Contains(err.Error(), "fail to run query")
@@ -174,7 +175,7 @@ func TestQueryBinlogStatusFailure(t *testing.T) {
 
 	rows = sqlmock.NewRows([]string{"File"}).AddRow("mysql-bin.000123") // missing other columns
 	mock.ExpectQuery(ShowBinlogStatusQuery).WillReturnRows(rows)
-	file, err = querier.queryBinlogStatus()
+	file, _, err = querier.queryBinlogStatus()
 	assert.Error(err)
 	assert.Empty(file)
 	assert.Contains(err.Error(), "fail to scan database rows")
@@ -186,7 +187,7 @@ func TestQueryBinlogStatusFailure(t *testing.T) {
 
 	rows = sqlmock.NewRows([]string{"File", "Position", "Binlog_Do_DB", "Binlog_Ignore_DB", "Executed_Gtid_Set"}) // empty
 	mock.ExpectQuery(ShowBinlogStatusQuery).WillReturnRows(rows)
-	file, err = querier.queryBinlogStatus()
+	file, _, err = querier.queryBinlogStatus()
 	assert.Error(err)
 	assert.Empty(file)
 	assert.Equal("fail to get binlog status result", err.Error())
@@ -224,7 +225,7 @@ func TestRowsCloseError(t *testing.T) {
 	rows = sqlmock.NewRows([]string{"File", "Position", "Binlog_Do_DB", "Binlog_Ignore_DB", "Executed_Gtid_Set"}).
 		AddRow("mysql-bin.000123", 123, "", "", "").CloseError(errors.New("close error"))
 	mock.ExpectQuery(ShowBinlogStatusQuery).WillReturnRows(rows)
-	_, err = querier.queryBinlogStatus()
+	_, _, err = querier.queryBinlogStatus()
 	assert.NoError(err) // The close error should be logged but not returned
 	assert.NoError(mock.ExpectationsWereMet())
 }
@@ -333,7 +334,7 @@ func TestGetBinlogInfo(t *testing.T) {
 			AddRow(expectedFile, 1234, "", "", "")
 		mock.ExpectQuery(ShowMasterStatusQuery).WillReturnRows(rows)
 
-		file, err := querier.queryBinlogStatus()
+		file, _, err := querier.queryBinlogStatus()
 		assert.NoError(err)
 		assert.Equal(expectedFile, file)
 		assert.NoError(mock.ExpectationsWereMet())
@@ -354,7 +355,7 @@ func TestGetBinlogInfo(t *testing.T) {
 			AddRow(expectedFile, 1234, "", "", "")
 		mock.ExpectQuery(ShowBinlogStatusQuery).WillReturnRows(rows)
 
-		file, err := querier.queryBinlogStatus()
+		file, _, err := querier.queryBinlogStatus()
 		assert.NoError(err)
 		assert.Equal(expectedFile, file)
 		assert.NoError(mock.ExpectationsWereMet())

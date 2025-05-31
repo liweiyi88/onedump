@@ -4,7 +4,6 @@ import (
 	"compress/gzip"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -60,31 +59,27 @@ func TestWorkDir(t *testing.T) {
 }
 
 func TestListFiles(t *testing.T) {
+	assert := assert.New(t)
+
 	tempDir, err := os.MkdirTemp("", "testdir")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
+	assert.NoError(err)
 
 	defer os.RemoveAll(tempDir) // Clean up after test
 
 	files := []string{"file1.txt", "file2.log", "file3.txt"}
 	for _, f := range files {
 		filePath := filepath.Join(tempDir, f)
-		if err := os.WriteFile(filePath, []byte("test"), 0644); err != nil {
-			t.Fatalf("Failed to create test file %s: %v", f, err)
-		}
+		err := os.WriteFile(filePath, []byte("test"), 0644)
+		assert.NoError(err)
 	}
 
 	subDir := filepath.Join(tempDir, "subdir")
-	if err := os.Mkdir(subDir, 0755); err != nil {
-		t.Fatalf("Failed to create subdirectory: %v", err)
-	}
+	err = os.Mkdir(subDir, 0755)
+	assert.NoError(err)
 
 	// Test without pattern (should return all files)
-	result, err := ListFiles(tempDir, "")
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	result, err := ListFiles(tempDir, "", "")
+	assert.NoError(err)
 
 	expected := []string{
 		filepath.Join(tempDir, "file1.txt"),
@@ -92,34 +87,30 @@ func TestListFiles(t *testing.T) {
 		filepath.Join(tempDir, "file3.txt"),
 	}
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %v, got %v", expected, result)
-	}
+	assert.Equal(result, expected)
 
 	// Test with pattern (*.txt)
-	result, err = ListFiles(tempDir, "*.txt")
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+	expected = []string{
+		filepath.Join(tempDir, "file1.txt"),
+		filepath.Join(tempDir, "file3.txt"),
 	}
+	result, err = ListFiles(tempDir, "*.txt", "")
+	assert.NoError(err)
+	assert.Equal(result, expected)
 
+	result, err = ListFiles(tempDir, "[invalid]", "")
+	assert.NoError(err)
+	assert.Len(result, 0)
+
+	// Test with skipExt option
 	expected = []string{
 		filepath.Join(tempDir, "file1.txt"),
 		filepath.Join(tempDir, "file3.txt"),
 	}
 
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %v, got %v", expected, result)
-	}
-
-	result, err = ListFiles(tempDir, "[invalid]")
-
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	if len(result) != 0 {
-		t.Errorf("Expected no matching files, but got: %v", result)
-	}
+	result, err = ListFiles(tempDir, "", ".log")
+	assert.NoError(err)
+	assert.Len(result, 2)
 }
 
 func TestIsGzipped(t *testing.T) {

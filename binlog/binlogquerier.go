@@ -18,6 +18,7 @@ const (
 
 type BinlogInfo struct {
 	currentBinlogFile string // e.g. binlog.000001
+	position          int
 	binlogDir         string // the binlog folder
 	binlogPrefix      string // the binlog prefix. e.g. binlog
 }
@@ -107,14 +108,14 @@ func (b *binlogInfoQuerier) queryLogBinBasename() (string, error) {
 	return "", errors.New("fail to get log bin basename result")
 }
 
-func (b *binlogInfoQuerier) queryBinlogStatus() (string, error) {
+func (b *binlogInfoQuerier) queryBinlogStatus() (string, int, error) {
 	var currentBinlogFile string
 	var position int
 	var binlogDoDB, binlogIgnoreDB, executedGtidSet string
 
 	version, err := b.queryVersion()
 	if err != nil {
-		return "", fmt.Errorf("fail to query MySQL version, error: %v", err)
+		return "", 0, fmt.Errorf("fail to query MySQL version, error: %v", err)
 	}
 
 	var showBinlogStatusQuery string
@@ -127,7 +128,7 @@ func (b *binlogInfoQuerier) queryBinlogStatus() (string, error) {
 
 	rows, err := b.db.Query(showBinlogStatusQuery)
 	if err != nil {
-		return "", fmt.Errorf("fail to run query %s, error: %v", showBinlogStatusQuery, err)
+		return "", 0, fmt.Errorf("fail to run query %s, error: %v", showBinlogStatusQuery, err)
 	}
 
 	defer func() {
@@ -138,13 +139,13 @@ func (b *binlogInfoQuerier) queryBinlogStatus() (string, error) {
 
 	if rows.Next() {
 		if err := rows.Scan(&currentBinlogFile, &position, &binlogDoDB, &binlogIgnoreDB, &executedGtidSet); err != nil {
-			return "", fmt.Errorf("fail to scan database rows, query: %s, error: %v", showBinlogStatusQuery, err)
+			return "", 0, fmt.Errorf("fail to scan database rows, query: %s, error: %v", showBinlogStatusQuery, err)
 		}
 
-		return currentBinlogFile, nil
+		return currentBinlogFile, position, nil
 	}
 
-	return "", errors.New("fail to get binlog status result")
+	return "", 0, errors.New("fail to get binlog status result")
 }
 
 func (b *binlogInfoQuerier) GetBinlogInfo() (*BinlogInfo, error) {
@@ -152,7 +153,7 @@ func (b *binlogInfoQuerier) GetBinlogInfo() (*BinlogInfo, error) {
 		return nil, err
 	}
 
-	currentBinlogFile, err := b.queryBinlogStatus()
+	currentBinlogFile, position, err := b.queryBinlogStatus()
 	if err != nil {
 		return nil, err
 	}
@@ -167,6 +168,7 @@ func (b *binlogInfoQuerier) GetBinlogInfo() (*BinlogInfo, error) {
 
 	return &BinlogInfo{
 		currentBinlogFile,
+		position,
 		binlogDir,
 		binlogPrefix,
 	}, nil

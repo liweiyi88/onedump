@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -30,10 +31,17 @@ var (
 )
 
 var (
-	attach                     bool
-	limit                      int
-	checksum, saveLog, verbose bool
-	logFile, checksumFile      string
+	attach                             bool
+	limit                              int
+	checksum, saveLog, verbose, dryRun bool
+	logFile, checksumFile              string
+	dir                                string
+)
+
+// For binlog restore command
+var (
+	mysqlbinlogPath string
+	stopDateTime    string
 )
 
 var rootCmd = &cobra.Command{
@@ -115,10 +123,22 @@ func Execute() {
 func getConfigContent() ([]byte, error) {
 	if s3Bucket != "" {
 		s3Client := s3.NewS3(s3Bucket, file, s3Region, s3AccessKeyId, s3SecretAccessKey, s3SessionToken)
-		return s3Client.GetContent()
+		return s3Client.GetContent(context.Background())
 	} else {
 		return os.ReadFile(file)
 	}
+}
+
+func validateEnvVars(vars []string) error {
+	var errs error
+
+	for _, v := range vars {
+		if os.Getenv(v) == "" {
+			errs = errors.Join(errs, fmt.Errorf("missing required environment variable %s", v))
+		}
+	}
+
+	return errs
 }
 
 func init() {
@@ -159,6 +179,19 @@ func init() {
 	syncSftpCmd.MarkFlagRequired("ssh-user")
 	syncSftpCmd.MarkFlagRequired("ssh-key")
 
+	binlogCmd.AddCommand(binlogSyncS3Cmd)
+	binlogCmd.AddCommand(binlogRestoreS3Cmd)
+
+	binlogRestoreS3Cmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "AWS S3 bucket name that used for saving binlog files (required)")
+	binlogRestoreS3Cmd.Flags().StringVarP(&s3Prefix, "s3-prefix", "p", "", "AWS S3 file prefix (folder) that used for saving binlog files (required)")
+	binlogRestoreS3Cmd.Flags().StringVarP(&dir, "dir", "d", "", "A directory that saves binlog files temporally (required)")
+	binlogRestoreS3Cmd.Flags().StringVar(&mysqlbinlogPath, "mysqlbinlog-path", "mysqlbinlog", "Set the mysqlbinlog command path, default: mysqlbinlog (optional)")
+	binlogRestoreS3Cmd.Flags().StringVar(&stopDateTime, "stop-datetime", time.Now().Format(time.DateTime), "Set the stop datetime for point-in-time recovery. Defaults to the current time. (Optional)")
+	binlogRestoreS3Cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, output only the SQL restore statements without applying them. default: false (optional)")
+	binlogRestoreS3Cmd.MarkFlagRequired("dir")
+	binlogRestoreS3Cmd.MarkFlagRequired("s3-bucket")
+	binlogRestoreS3Cmd.MarkFlagRequired("s3-prefix")
+
 	// The command also needs the DATABASE_URL, AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY as env var
 	binlogSyncS3Cmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "AWS S3 bucket name that used for saving binlog files (required)")
 	binlogSyncS3Cmd.Flags().StringVarP(&s3Prefix, "s3-prefix", "p", "", "AWS S3 file prefix (folder) that used for saving binlog files (required)")
@@ -172,5 +205,5 @@ func init() {
 
 	rootCmd.AddCommand(slowCmd)
 	rootCmd.AddCommand(syncSftpCmd)
-	rootCmd.AddCommand(binlogSyncS3Cmd)
+	rootCmd.AddCommand(binlogCmd)
 }

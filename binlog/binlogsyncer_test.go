@@ -191,7 +191,7 @@ func TestBinlogSyncerSync(t *testing.T) {
 			defer os.RemoveAll(dir)
 
 			// List files to know how many mocks we need
-			files, err := fileutil.ListFiles(dir, "binlog*")
+			files, err := fileutil.ListFiles(dir, "binlog*", "")
 			require.NoError(t, err)
 
 			mockStorage := new(MockStorage)
