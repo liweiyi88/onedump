@@ -40,6 +40,9 @@ var (
 
 // For binlog restore command
 var (
+	dumpFilePath    string
+	startBinlog     string
+	startPosition   int
 	mysqlbinlogPath string
 	stopDateTime    string
 )
@@ -186,11 +189,17 @@ func init() {
 	binlogRestoreS3Cmd.Flags().StringVarP(&s3Prefix, "s3-prefix", "p", "", "AWS S3 file prefix (folder) that used for saving binlog files (required)")
 	binlogRestoreS3Cmd.Flags().StringVarP(&dir, "dir", "d", "", "A directory that saves binlog files temporally (required)")
 	binlogRestoreS3Cmd.Flags().StringVar(&mysqlbinlogPath, "mysqlbinlog-path", "mysqlbinlog", "Set the mysqlbinlog command path, default: mysqlbinlog (optional)")
-	binlogRestoreS3Cmd.Flags().StringVar(&stopDateTime, "stop-datetime", time.Now().Format(time.DateTime), "Set the stop datetime for point-in-time recovery. Defaults to the current time. (Optional)")
+	binlogRestoreS3Cmd.Flags().StringVar(&stopDateTime, "stop-datetime", time.Now().Format(time.DateTime), "Set the stop datetime for point-in-time recovery. Defaults to the current time. (optional)")
+	binlogRestoreS3Cmd.Flags().StringVar(&startBinlog, "start-binlog", "", "Binlog file to start recovery from (optional if --dump-file is provided)")
+	binlogRestoreS3Cmd.Flags().IntVar(&startPosition, "start-position", 0, "Position in the binlog file to begin recovery (optional if --dump-file is provided)")
+	binlogRestoreS3Cmd.Flags().StringVar(&dumpFilePath, "dump-file", "", "Full database dump that contains binlog file and position (optional if --start-binlog and --start-position are provided)")
 	binlogRestoreS3Cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, output only the SQL restore statements without applying them. default: false (optional)")
+	binlogRestoreS3Cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
 	binlogRestoreS3Cmd.MarkFlagRequired("dir")
 	binlogRestoreS3Cmd.MarkFlagRequired("s3-bucket")
 	binlogRestoreS3Cmd.MarkFlagRequired("s3-prefix")
+	binlogRestoreS3Cmd.MarkFlagsRequiredTogether("start-binlog", "start-position")
+	binlogRestoreS3Cmd.MarkFlagsOneRequired("start-binlog", "dump-file")
 
 	// The command also needs the DATABASE_URL, AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY as env var
 	binlogSyncS3Cmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "AWS S3 bucket name that used for saving binlog files (required)")

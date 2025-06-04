@@ -1,0 +1,15 @@
+services:
+  mysql:
+    build: .
+    container_name: binlog-restore
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "33066:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql_backup:/backups
+    restart: "no"
+
+volumes:
+  mysql-data:

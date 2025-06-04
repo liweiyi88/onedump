@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
+	"strings"
 
 	"github.com/liweiyi88/onedump/binlog"
 	"github.com/liweiyi88/onedump/storage/s3"
@@ -57,9 +57,32 @@ It requires the following environment variables:
 			return fmt.Errorf("fail to connect to database, error: %v", err)
 		}
 
+		if strings.TrimSpace(dumpFilePath) != "" {
+			dumpFile, err := os.Open(dumpFilePath)
+
+			if err != nil {
+				return fmt.Errorf("fail to open dump file: %s, error: %v", dumpFilePath, err)
+			}
+
+			defer func() {
+				if err := dumpFile.Close(); err != nil {
+					slog.Error("fail to close dump file", slog.Any("dumpFile", dumpFilePath), slog.Any("error", err))
+				}
+			}()
+
+			file, pos, err := binlog.ParseBinlogFilePosition(dumpFile)
+			if err != nil {
+				return fmt.Errorf("fail to parse binlog file position from %s, error: %v", dumpFilePath, err)
+			}
+
+			startBinlog = file
+			startPosition = pos
+		}
+
 		binlogRestorer := binlog.NewBinlogRestorer(
-			binlog.NewBinlogInfoQuerier(db),
-			filepath.Join(dir, s3Prefix),
+			dir,
+			startBinlog,
+			startPosition,
 			binlog.WithMySQLBinlogPath(mysqlbinlogPath),
 			binlog.WithDryRun(dryRun),
 			binlog.WithStopDateTime(stopDateTime),
@@ -71,8 +94,7 @@ It requires the following environment variables:
 
 		ctx := context.Background()
 		s3 := s3.NewS3(s3Bucket, "", region, accessKeyId, secretAccessKey, sessionToken)
-
-		err = s3.DownloadObjectsToDir(ctx, s3Prefix, dir)
+		err = s3.DownloadObjects(ctx, s3Prefix, dir)
 		if err != nil {
 			return err
 		}

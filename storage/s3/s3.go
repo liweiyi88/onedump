@@ -74,7 +74,7 @@ func (s3 *S3) downloadObjectToDir(ctx context.Context, key string, dir string) e
 		}
 	}()
 
-	localPath := filepath.Join(dir, key)
+	localPath := filepath.Join(dir, filepath.Base(key))
 	err = os.MkdirAll(filepath.Dir(localPath), os.ModePerm)
 
 	if err != nil {
@@ -134,7 +134,7 @@ func (s3 *S3) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) er
 	return nil
 }
 
-func (s3 *S3) DownloadObjectsToDir(ctx context.Context, prefix, dir string) error {
+func (s3 *S3) DownloadObjects(ctx context.Context, prefix, dir string) error {
 	client := s3.getClient()
 
 	paginator := s3Client.NewListObjectsV2Paginator(client, &s3Client.ListObjectsV2Input{
