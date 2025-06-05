@@ -1,4 +1,4 @@
-package cmd
+package binlogcmd
 
 import (
 	"context"
@@ -7,14 +7,39 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/liweiyi88/onedump/binlog"
+	"github.com/liweiyi88/onedump/env"
 	"github.com/liweiyi88/onedump/storage/s3"
 	"github.com/spf13/cobra"
 )
 
-var binlogRestoreS3Cmd = &cobra.Command{
-	Use:   "restore-s3",
+var (
+	dir, mysqlbinlogPath, stopDateTime, startBinlog, dumpFilePath string
+	startPosition                                                 int
+)
+
+func init() {
+	BinlogRestoreS3Cmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "AWS S3 bucket name that used for saving binlog files (required)")
+	BinlogRestoreS3Cmd.Flags().StringVarP(&s3Prefix, "s3-prefix", "p", "", "AWS S3 file prefix (folder) that used for saving binlog files (required)")
+	BinlogRestoreS3Cmd.Flags().StringVarP(&dir, "dir", "d", "", "A directory that saves binlog files temporally (required)")
+	BinlogRestoreS3Cmd.Flags().StringVar(&mysqlbinlogPath, "mysqlbinlog-path", "mysqlbinlog", "Set the mysqlbinlog command path, default: mysqlbinlog (optional)")
+	BinlogRestoreS3Cmd.Flags().StringVar(&stopDateTime, "stop-datetime", time.Now().Format(time.DateTime), "Set the stop datetime for point-in-time recovery. Defaults to the current time. (optional)")
+	BinlogRestoreS3Cmd.Flags().StringVar(&startBinlog, "start-binlog", "", "Binlog file to start recovery from (optional if --dump-file is provided)")
+	BinlogRestoreS3Cmd.Flags().IntVar(&startPosition, "start-position", 0, "Position in the binlog file to begin recovery (optional if --dump-file is provided)")
+	BinlogRestoreS3Cmd.Flags().StringVar(&dumpFilePath, "dump-file", "", "Full database dump that contains binlog file and position (optional if --start-binlog and --start-position are provided)")
+	BinlogRestoreS3Cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, output only the SQL restore statements without applying them. default: false (optional)")
+	BinlogRestoreS3Cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
+	BinlogRestoreS3Cmd.MarkFlagRequired("dir")
+	BinlogRestoreS3Cmd.MarkFlagRequired("s3-bucket")
+	BinlogRestoreS3Cmd.MarkFlagRequired("s3-prefix")
+	BinlogRestoreS3Cmd.MarkFlagsRequiredTogether("start-binlog", "start-position")
+	BinlogRestoreS3Cmd.MarkFlagsOneRequired("start-binlog", "dump-file")
+}
+
+var BinlogRestoreS3Cmd = &cobra.Command{
+	Use:   "restore s3",
 	Short: "Restore database from MySQL binlogs stored in an AWS S3 bucket",
 	Long: `Restore database from MySQL binlogs stored in an AWS S3 bucket
 It requires the following environment variables:
@@ -28,7 +53,7 @@ It requires the following environment variables:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		requireEnvVars := []string{AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DATABASE_DSN}
 
-		if err := validateEnvVars(requireEnvVars); err != nil {
+		if err := env.ValidateEnvVars(requireEnvVars); err != nil {
 			return err
 		}
 

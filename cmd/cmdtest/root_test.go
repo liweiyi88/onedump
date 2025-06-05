@@ -1,4 +1,4 @@
-package cmd
+package cmdtest
 
 import (
 	"bytes"
@@ -7,12 +7,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/liweiyi88/onedump/cmd"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRootCmdWithCron(t *testing.T) {
 	assert := assert.New(t)
-	cmd := rootCmd
+	cmd := cmd.RootCmd
 
 	workDir, _ := os.Getwd()
 	filename := workDir + "/test.sql"
@@ -57,7 +58,7 @@ func TestRootCmd(t *testing.T) {
 	assert := assert.New(t)
 
 	t.Run("it should return error when job file can not be opened", func(t *testing.T) {
-		cmd := rootCmd
+		cmd := cmd.RootCmd
 		cmd.SetArgs([]string{"-f", "/Users/jobs.yaml"})
 		b := bytes.NewBufferString("")
 		cmd.SetErr(b)
@@ -86,7 +87,7 @@ func TestRootCmd(t *testing.T) {
 		defer os.Remove(filename)
 		file.Close()
 
-		cmd := rootCmd
+		cmd := cmd.RootCmd
 		cmd.SetArgs([]string{"-f", filename})
 		b := bytes.NewBufferString("")
 		cmd.SetErr(b)

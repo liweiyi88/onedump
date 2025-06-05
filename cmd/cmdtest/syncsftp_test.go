@@ -1,19 +1,21 @@
-package cmd
+package cmdtest
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/liweiyi88/onedump/cmd"
 	"github.com/liweiyi88/onedump/filesync"
 	"github.com/liweiyi88/onedump/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSyncSftpCmd(t *testing.T) {
-	cmd := rootCmd
+	cmd := cmd.RootCmd
 	assert := assert.New(t)
 
 	t.Run("it should return error if we try to sync multiple files but specify a single file as destination", func(t *testing.T) {
@@ -22,6 +24,8 @@ func TestSyncSftpCmd(t *testing.T) {
 
 		sourcePath := filepath.ToSlash(currentDir)
 		destPath := filepath.ToSlash(filepath.Join(currentDir, "dest.txt"))
+
+		fmt.Println(sourcePath, destPath)
 
 		finishCh := make(chan struct{}, 1)
 		onServerReady := func(privateKey string) {

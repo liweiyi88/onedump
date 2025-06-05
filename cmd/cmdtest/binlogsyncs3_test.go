@@ -1,9 +1,10 @@
-package cmd
+package cmdtest
 
 import (
 	"os"
 	"testing"
 
+	"github.com/liweiyi88/onedump/env"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -53,7 +54,7 @@ func TestValidateEnvVars(t *testing.T) {
 			tt.setupEnv()
 			defer tt.cleanupEnv()
 
-			err := validateEnvVars(tt.vars)
+			err := env.ValidateEnvVars(tt.vars)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {

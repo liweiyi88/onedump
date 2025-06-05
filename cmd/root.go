@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,41 +12,17 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/liweiyi88/onedump/cmd/binlogcmd"
+	"github.com/liweiyi88/onedump/cmd/slowcmd"
+	"github.com/liweiyi88/onedump/cmd/synccmd"
 	"github.com/liweiyi88/onedump/config"
 	"github.com/liweiyi88/onedump/handler"
-	"github.com/liweiyi88/onedump/slow"
 	"github.com/liweiyi88/onedump/storage/s3"
 )
 
 var file, s3Bucket, s3Prefix, s3Region, s3AccessKeyId, s3SecretAccessKey, s3SessionToken, cron string
-var (
-	sloglog, database, pattern, source, destination string
-	mask                                            bool
-)
 
-var (
-	sftpHost, sftpUser, sftpKey string
-	sftpMaxAttempts             int
-)
-
-var (
-	attach                             bool
-	limit                              int
-	checksum, saveLog, verbose, dryRun bool
-	logFile, checksumFile              string
-	dir                                string
-)
-
-// For binlog restore command
-var (
-	dumpFilePath    string
-	startBinlog     string
-	startPosition   int
-	mysqlbinlogPath string
-	stopDateTime    string
-)
-
-var rootCmd = &cobra.Command{
+var RootCmd = &cobra.Command{
 	Use:   "onedump",
 	Short: "Dump database content from different sources to different destinations with a yaml config file.",
 	Args:  cobra.ExactArgs(0),
@@ -118,7 +93,7 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := RootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
@@ -132,87 +107,18 @@ func getConfigContent() ([]byte, error) {
 	}
 }
 
-func validateEnvVars(vars []string) error {
-	var errs error
-
-	for _, v := range vars {
-		if os.Getenv(v) == "" {
-			errs = errors.Join(errs, fmt.Errorf("missing required environment variable %s", v))
-		}
-	}
-
-	return errs
-}
-
 func init() {
-	rootCmd.Flags().StringVarP(&file, "file", "f", "", "jobs yaml file path.")
-	rootCmd.MarkFlagRequired("file")
+	RootCmd.Flags().StringVarP(&file, "file", "f", "", "jobs yaml file path.")
+	RootCmd.MarkFlagRequired("file")
 
-	rootCmd.Flags().StringVarP(&cron, "cron", "c", "", "run onedump with cron mode by passing cron experssions. e.g. --cron '1h' (optional)")
-	rootCmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "read config file from a s3 bucket (optional)")
-	rootCmd.Flags().StringVarP(&s3Region, "aws-region", "r", "", "the aws region to read the config file (optional)")
-	rootCmd.Flags().StringVarP(&s3AccessKeyId, "aws-key", "k", "", "aws access key id to overwrite the default one. (optional)")
-	rootCmd.Flags().StringVarP(&s3SecretAccessKey, "aws-secret", "s", "", "aws secret access key to overwrite the default one. (optional)")
-	rootCmd.Flags().StringVarP(&s3SessionToken, "aws-session-token", "t", "", "specify the aws session token if you use a temporary credentials. (optional)")
+	RootCmd.Flags().StringVarP(&cron, "cron", "c", "", "run onedump with cron mode by passing cron experssions. e.g. --cron '1h' (optional)")
+	RootCmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "read config file from a s3 bucket (optional)")
+	RootCmd.Flags().StringVarP(&s3Region, "aws-region", "r", "", "the aws region to read the config file (optional)")
+	RootCmd.Flags().StringVarP(&s3AccessKeyId, "aws-key", "k", "", "aws access key id to overwrite the default one. (optional)")
+	RootCmd.Flags().StringVarP(&s3SecretAccessKey, "aws-secret", "s", "", "aws secret access key to overwrite the default one. (optional)")
+	RootCmd.Flags().StringVarP(&s3SessionToken, "aws-session-token", "t", "", "specify the aws session token if you use a temporary credentials. (optional)")
 
-	slowCmd.Flags().StringVarP(&sloglog, "file", "f", "", "path to the slow log file. a directory can also be specified. (required)")
-	slowCmd.Flags().StringVarP(&database, "database", "d", string(slow.MySQL), "specify the database engine (optional)")
-	slowCmd.Flags().StringVarP(&pattern, "pattern", "p", "", "only read files that follow the same pattern, for example *slow.log . (optional)")
-	slowCmd.Flags().IntVarP(&limit, "limit", "l", 0, "limit the number of results. no limit is set by default. (optional)")
-	slowCmd.Flags().BoolVarP(&mask, "mask", "m", true, "mask query values. enabled by default. (optional)")
-	slowCmd.MarkFlagRequired("file")
-
-	syncSftpCmd.Flags().StringVarP(&source, "source", "s", "", "the source file path to be transferred to the destination, supports folder as well (required)")
-	syncSftpCmd.Flags().StringVarP(&destination, "destination", "d", "", "the destination file path that we want to write to, supports folder as well (required)")
-	syncSftpCmd.Flags().BoolVar(&attach, "append", false, "if true, re-run the command will try to append content to file instead of creating a new file. (optional)")
-	syncSftpCmd.Flags().StringVar(&sftpHost, "ssh-host", "", "the remote SSH host (required)")
-	syncSftpCmd.Flags().StringVar(&sftpUser, "ssh-user", "", "the remote SSH user (required)")
-	// Pass encoded private key content via base64. e.g. MacOS: base64 < ~/.ssh/id_rsa
-	// Or just pass the private key filename.
-	syncSftpCmd.Flags().StringVar(&sftpKey, "ssh-key", "", "the base64 encoded ssh private key content or the ssh private key file path or the raw private content (required)")
-	syncSftpCmd.Flags().IntVar(&sftpMaxAttempts, "max-attempts", 0, "the maximum number of retries if an error is encountered; by default, retries are unlimited (optional)")
-	syncSftpCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
-	syncSftpCmd.Flags().BoolVar(&checksum, "checksum", false, "whether to save the checksum to avoid repeating file transfers, default false (optional)")
-	syncSftpCmd.Flags().StringVar(&checksumFile, "checksum-file", "", "save checksum results in a specific file if --checksum=true, default: /path/to/sync/folder/checksum.onedump (optional)")
-	syncSftpCmd.Flags().StringVarP(&pattern, "pattern", "p", "", "only read files that follow the same pattern, for example binlog.* (optional)")
-
-	syncSftpCmd.MarkFlagRequired("source")
-	syncSftpCmd.MarkFlagRequired("destination")
-	syncSftpCmd.MarkFlagRequired("ssh-host")
-	syncSftpCmd.MarkFlagRequired("ssh-user")
-	syncSftpCmd.MarkFlagRequired("ssh-key")
-
-	binlogCmd.AddCommand(binlogSyncS3Cmd)
-	binlogCmd.AddCommand(binlogRestoreS3Cmd)
-
-	binlogRestoreS3Cmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "AWS S3 bucket name that used for saving binlog files (required)")
-	binlogRestoreS3Cmd.Flags().StringVarP(&s3Prefix, "s3-prefix", "p", "", "AWS S3 file prefix (folder) that used for saving binlog files (required)")
-	binlogRestoreS3Cmd.Flags().StringVarP(&dir, "dir", "d", "", "A directory that saves binlog files temporally (required)")
-	binlogRestoreS3Cmd.Flags().StringVar(&mysqlbinlogPath, "mysqlbinlog-path", "mysqlbinlog", "Set the mysqlbinlog command path, default: mysqlbinlog (optional)")
-	binlogRestoreS3Cmd.Flags().StringVar(&stopDateTime, "stop-datetime", time.Now().Format(time.DateTime), "Set the stop datetime for point-in-time recovery. Defaults to the current time. (optional)")
-	binlogRestoreS3Cmd.Flags().StringVar(&startBinlog, "start-binlog", "", "Binlog file to start recovery from (optional if --dump-file is provided)")
-	binlogRestoreS3Cmd.Flags().IntVar(&startPosition, "start-position", 0, "Position in the binlog file to begin recovery (optional if --dump-file is provided)")
-	binlogRestoreS3Cmd.Flags().StringVar(&dumpFilePath, "dump-file", "", "Full database dump that contains binlog file and position (optional if --start-binlog and --start-position are provided)")
-	binlogRestoreS3Cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, output only the SQL restore statements without applying them. default: false (optional)")
-	binlogRestoreS3Cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
-	binlogRestoreS3Cmd.MarkFlagRequired("dir")
-	binlogRestoreS3Cmd.MarkFlagRequired("s3-bucket")
-	binlogRestoreS3Cmd.MarkFlagRequired("s3-prefix")
-	binlogRestoreS3Cmd.MarkFlagsRequiredTogether("start-binlog", "start-position")
-	binlogRestoreS3Cmd.MarkFlagsOneRequired("start-binlog", "dump-file")
-
-	// The command also needs the DATABASE_URL, AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY as env var
-	binlogSyncS3Cmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "AWS S3 bucket name that used for saving binlog files (required)")
-	binlogSyncS3Cmd.Flags().StringVarP(&s3Prefix, "s3-prefix", "p", "", "AWS S3 file prefix (folder) that used for saving binlog files (required)")
-	binlogSyncS3Cmd.MarkFlagRequired("s3-bucket")
-	binlogSyncS3Cmd.MarkFlagRequired("s3-prefix")
-	binlogSyncS3Cmd.Flags().BoolVar(&checksum, "checksum", false, "whether to save the checksum to avoid repeating file transfers, default: false (optional)")
-	binlogSyncS3Cmd.Flags().StringVar(&checksumFile, "checksum-file", "", "save checksum results in a specific file if --checksum=true, default: /path/to/sync/folder/checksum.onedump (optional)")
-	binlogSyncS3Cmd.Flags().BoolVar(&saveLog, "save-log", false, "whether to save the sync results in a log file, default: false (optional)")
-	binlogSyncS3Cmd.Flags().StringVar(&logFile, "log-file", "", "save result log in a specific file if --save-log=true. default: /path/to/binlogs/onedump-binlog-sync.log (optional)")
-	binlogSyncS3Cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
-
-	rootCmd.AddCommand(slowCmd)
-	rootCmd.AddCommand(syncSftpCmd)
-	rootCmd.AddCommand(binlogCmd)
+	RootCmd.AddCommand(slowcmd.SlowCmd)
+	RootCmd.AddCommand(synccmd.SyncCmd)
+	RootCmd.AddCommand(binlogcmd.BinlogCmd)
 }

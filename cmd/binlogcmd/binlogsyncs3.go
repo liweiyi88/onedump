@@ -1,4 +1,4 @@
-package cmd
+package binlogcmd
 
 import (
 	"database/sql"
@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/liweiyi88/onedump/binlog"
+	"github.com/liweiyi88/onedump/env"
 	"github.com/liweiyi88/onedump/filesync"
 	"github.com/liweiyi88/onedump/storage/s3"
 	"github.com/spf13/cobra"
@@ -22,8 +23,26 @@ const (
 	BINLOG_TOGGLE_QUERY = "SHOW VARIABLES LIKE 'log_bin';"
 )
 
-var binlogSyncS3Cmd = &cobra.Command{
-	Use:   "sync-s3",
+var (
+	checksumFile, logFile string
+	checksum, saveLog     bool
+)
+
+func init() {
+	// The command also needs the DATABASE_URL, AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY as env var
+	BinlogSyncS3Cmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "AWS S3 bucket name that used for saving binlog files (required)")
+	BinlogSyncS3Cmd.Flags().StringVarP(&s3Prefix, "s3-prefix", "p", "", "AWS S3 file prefix (folder) that used for saving binlog files (required)")
+	BinlogSyncS3Cmd.MarkFlagRequired("s3-bucket")
+	BinlogSyncS3Cmd.MarkFlagRequired("s3-prefix")
+	BinlogSyncS3Cmd.Flags().BoolVar(&checksum, "checksum", false, "whether to save the checksum to avoid repeating file transfers, default: false (optional)")
+	BinlogSyncS3Cmd.Flags().StringVar(&checksumFile, "checksum-file", "", "save checksum results in a specific file if --checksum=true, default: /path/to/sync/folder/checksum.onedump (optional)")
+	BinlogSyncS3Cmd.Flags().BoolVar(&saveLog, "save-log", false, "whether to save the sync results in a log file, default: false (optional)")
+	BinlogSyncS3Cmd.Flags().StringVar(&logFile, "log-file", "", "save result log in a specific file if --save-log=true. default: /path/to/binlogs/onedump-binlog-sync.log (optional)")
+	BinlogSyncS3Cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
+}
+
+var BinlogSyncS3Cmd = &cobra.Command{
+	Use:   "sync s3",
 	Short: "Sync local MySQL binlog files to an AWS S3 bucket",
 	Long: `Sync local Mysql binlog files to an AWS S3 bucket.
 It requires the following environment variables:
@@ -37,7 +56,7 @@ It requires the following environment variables:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		requireEnvVars := []string{AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DATABASE_DSN}
 
-		if err := validateEnvVars(requireEnvVars); err != nil {
+		if err := env.ValidateEnvVars(requireEnvVars); err != nil {
 			return err
 		}
 
