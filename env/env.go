@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-func ValidateEnvVars(vars []string) error {
+func EnsureRequiredVars(vars []string) error {
 	var errs error
 
 	for _, v := range vars {

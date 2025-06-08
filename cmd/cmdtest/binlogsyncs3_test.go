@@ -54,7 +54,7 @@ func TestValidateEnvVars(t *testing.T) {
 			tt.setupEnv()
 			defer tt.cleanupEnv()
 
-			err := env.ValidateEnvVars(tt.vars)
+			err := env.EnsureRequiredVars(tt.vars)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {

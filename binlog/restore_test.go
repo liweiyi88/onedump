@@ -129,7 +129,7 @@ func TestGetRestoreCommands(t *testing.T) {
 
 	t.Run("it should return empty commands if plan's binlogs are empty", func(t *testing.T) {
 		plan := newBinlogRestorePlan(123)
-		commands := restorer.getRestoreCommandArgs(plan)
+		commands := restorer.createRestoreCommandArgs(plan)
 		assert.Len(commands, 0)
 	})
 
@@ -138,14 +138,14 @@ func TestGetRestoreCommands(t *testing.T) {
 		plan.binlogs = []string{"mysqlbin.00001"}
 		stopPos := 123
 		plan.stopPosition = &stopPos
-		commands := restorer.getRestoreCommandArgs(plan)
+		commands := restorer.createRestoreCommandArgs(plan)
 		assert.Len(commands, 0)
 	})
 
 	t.Run("it should return one command if plan has only one binlog when stop position is not specified", func(t *testing.T) {
 		plan := newBinlogRestorePlan(123)
 		plan.binlogs = []string{"mysqlbin.00001"}
-		commands := restorer.getRestoreCommandArgs(plan)
+		commands := restorer.createRestoreCommandArgs(plan)
 		assert.Len(commands, 1)
 		assert.Equal("mysqlbin.00001 --start-position=123", commands[0])
 	})
@@ -155,7 +155,7 @@ func TestGetRestoreCommands(t *testing.T) {
 		plan.binlogs = []string{"mysqlbin.00001"}
 		stopPos := 140
 		plan.stopPosition = &stopPos
-		commands := restorer.getRestoreCommandArgs(plan)
+		commands := restorer.createRestoreCommandArgs(plan)
 		assert.Len(commands, 1)
 		assert.Equal("mysqlbin.00001 --start-position=123 --stop-position=140", commands[0])
 	})
@@ -163,7 +163,7 @@ func TestGetRestoreCommands(t *testing.T) {
 	t.Run("it should return multiple commands that have no chunked parts when stop position is not set", func(t *testing.T) {
 		plan := newBinlogRestorePlan(123)
 		plan.binlogs = []string{"mysqlbin.00001", "mysqlbin.00002", "mysqlbin.00003", "mysqlbin.00004"}
-		commands := restorer.getRestoreCommandArgs(plan)
+		commands := restorer.createRestoreCommandArgs(plan)
 		assert.Len(commands, 3)
 		assert.Equal("mysqlbin.00001 --start-position=123", commands[0])
 		assert.Equal("mysqlbin.00002 mysqlbin.00003", commands[1])
@@ -175,7 +175,7 @@ func TestGetRestoreCommands(t *testing.T) {
 		plan.binlogs = []string{"mysqlbin.00001", "mysqlbin.00002", "mysqlbin.00003", "mysqlbin.00004"}
 		stopPos := 140
 		plan.stopPosition = &stopPos
-		commands := restorer.getRestoreCommandArgs(plan)
+		commands := restorer.createRestoreCommandArgs(plan)
 		assert.Len(commands, 3)
 		assert.Equal("mysqlbin.00001 --start-position=123", commands[0])
 		assert.Equal("mysqlbin.00002 mysqlbin.00003", commands[1])
@@ -201,7 +201,7 @@ func TestGetRestoreCommands(t *testing.T) {
 		}
 		stopPos := 140
 		plan.stopPosition = &stopPos
-		commands := restorer.getRestoreCommandArgs(plan)
+		commands := restorer.createRestoreCommandArgs(plan)
 		assert.Len(commands, 4)
 		assert.Equal("mysqlbin.000001 --start-position=123", commands[0])
 		assert.Equal("mysqlbin.000002 mysqlbin.000003 mysqlbin.000004 mysqlbin.000005 mysqlbin.000006 mysqlbin.000007 mysqlbin.000008 mysqlbin.000009 mysqlbin.000010 mysqlbin.000011", commands[1])

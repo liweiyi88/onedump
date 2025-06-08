@@ -28,7 +28,7 @@ func init() {
 	BinlogRestoreS3Cmd.Flags().StringVar(&stopDateTime, "stop-datetime", time.Now().Format(time.DateTime), "Set the stop datetime for point-in-time recovery. Defaults to the current time. (optional)")
 	BinlogRestoreS3Cmd.Flags().StringVar(&startBinlog, "start-binlog", "", "Binlog file to start recovery from (optional if --dump-file is provided)")
 	BinlogRestoreS3Cmd.Flags().IntVar(&startPosition, "start-position", 0, "Position in the binlog file to begin recovery (optional if --dump-file is provided)")
-	BinlogRestoreS3Cmd.Flags().StringVar(&dumpFilePath, "dump-file", "", "Full database dump that contains binlog file and position (optional if --start-binlog and --start-position are provided)")
+	BinlogRestoreS3Cmd.Flags().StringVar(&dumpFilePath, "dump-file", "", "A Database dump file that contains binlog file and position (optional if --start-binlog and --start-position are provided)")
 	BinlogRestoreS3Cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, output only the SQL restore statements without applying them. default: false (optional)")
 	BinlogRestoreS3Cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
 	BinlogRestoreS3Cmd.MarkFlagRequired("dir")
@@ -40,8 +40,8 @@ func init() {
 
 var BinlogRestoreS3Cmd = &cobra.Command{
 	Use:   "restore s3",
-	Short: "Restore database from MySQL binlogs stored in an AWS S3 bucket",
-	Long: `Restore database from MySQL binlogs stored in an AWS S3 bucket
+	Short: "Restore database from MySQL binlogs that are saved in an AWS S3 bucket",
+	Long: `Restore database from MySQL binlogs that are saved in an AWS S3 bucket
 It requires the following environment variables:
   - AWS_REGION
   - AWS_ACCESS_KEY_ID
@@ -53,7 +53,7 @@ It requires the following environment variables:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		requireEnvVars := []string{AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DATABASE_DSN}
 
-		if err := env.ValidateEnvVars(requireEnvVars); err != nil {
+		if err := env.EnsureRequiredVars(requireEnvVars); err != nil {
 			return err
 		}
 
@@ -111,9 +111,10 @@ It requires the following environment variables:
 			binlog.WithMySQLBinlogPath(mysqlbinlogPath),
 			binlog.WithDryRun(dryRun),
 			binlog.WithStopDateTime(stopDateTime),
+			binlog.WithDatabaseDSN(dsn),
 		)
 
-		if err := binlogRestorer.ValidateExternalCommandPaths(); err != nil {
+		if err := binlogRestorer.EnsureMysqlCommandPaths(); err != nil {
 			return err
 		}
 

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/go-mysql-org/go-mysql/replication"
+	"github.com/go-sql-driver/mysql"
 	"github.com/liweiyi88/onedump/fileutil"
 	"github.com/liweiyi88/onedump/sliceutil"
 )
@@ -48,6 +49,7 @@ func newBinlogRestorePlan(startPosition int) *binlogRestorePlan {
 type BinlogRestorer struct {
 	binlogDir       string
 	dryRun          bool
+	dsn             string
 	mysqlPath       string
 	mysqlbinlogPath string
 	startBinlog     string
@@ -96,14 +98,20 @@ func WithStopDateTime(stopDateTime string) binlogRestoreOption {
 	}
 }
 
-func (b *BinlogRestorer) ValidateExternalCommandPaths() error {
+func WithDatabaseDSN(dsn string) binlogRestoreOption {
+	return func(binlogRestorer *BinlogRestorer) {
+		binlogRestorer.dsn = dsn
+	}
+}
+
+func (b *BinlogRestorer) EnsureMysqlCommandPaths() error {
 	if _, err := exec.LookPath(b.mysqlbinlogPath); err != nil {
-		return fmt.Errorf("command %s not found: %v", "mysqlbinlog", err)
+		return fmt.Errorf("%s command is required but not found: %v", "mysqlbinlog", err)
 	}
 
 	if !b.dryRun {
 		if _, err := exec.LookPath(b.mysqlPath); err != nil {
-			return fmt.Errorf("command %s not found: %v", "mysql", err)
+			return fmt.Errorf("%s command is required but not found: %v", "mysql", err)
 		}
 	}
 
@@ -206,7 +214,7 @@ func (b *BinlogRestorer) createBinlogRestorePlan() (*binlogRestorePlan, error) {
 	return plan, nil
 }
 
-func (b *BinlogRestorer) getRestoreCommandArgs(plan *binlogRestorePlan) []string {
+func (b *BinlogRestorer) createRestoreCommandArgs(plan *binlogRestorePlan) []string {
 	args := make([]string, 0)
 
 	if len(plan.binlogs) == 0 {
@@ -263,11 +271,11 @@ func (b *BinlogRestorer) Restore() error {
 		return fmt.Errorf("fail to extract stop position, error: %v", err)
 	}
 
-	allArgs := b.getRestoreCommandArgs(plan)
+	cmdArgs := b.createRestoreCommandArgs(plan)
 
-	for _, args := range allArgs {
-		cmdArgs := strings.Fields(args)
-		mysqlBinlogCmd := exec.Command(b.mysqlbinlogPath, cmdArgs...)
+	for _, argsString := range cmdArgs {
+		args := strings.Fields(argsString)
+		mysqlBinlogCmd := exec.Command(b.mysqlbinlogPath, args...)
 		mysqlBinlogCmd.Stdout = os.Stdout
 		mysqlBinlogCmd.Stderr = os.Stderr
 
@@ -284,8 +292,12 @@ func (b *BinlogRestorer) Restore() error {
 				return fmt.Errorf("fail to get restore command std out pipe, error: %v", err)
 			}
 
-			// @TODO: passing username and password or pass DSN???
-			mysqlCmd := exec.Command(b.mysqlPath, "-u", "username", "-p", "password")
+			cfg, err := mysql.ParseDSN(b.dsn)
+			if err != nil {
+				return fmt.Errorf("fail to parse database dsn: %s, error: %v", b.dsn, err)
+			}
+
+			mysqlCmd := exec.Command(b.mysqlPath, "-u", cfg.User, "-p", cfg.Passwd)
 			mysqlCmd.Stdin = mysqlBinlogCmdOut
 			mysqlCmd.Stdout = os.Stdout
 			mysqlCmd.Stderr = os.Stderr
@@ -308,9 +320,6 @@ func (b *BinlogRestorer) Restore() error {
 		}
 	}
 
-	// @TODO
-	// if dry run output all event to stdout
-	// otherwise chunk commands and run them one by one
 	return nil
 }
 

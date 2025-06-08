@@ -17,7 +17,7 @@ func TestNewBinlogInfoQuerier(t *testing.T) {
 	assert.NoError(err)
 	defer db.Close()
 
-	querier := NewBinlogInfoQuerier(db)
+	querier := NewBinlogQuerier(db)
 	assert.NotNil(querier)
 	assert.Equal(db, querier.db)
 }
@@ -29,7 +29,7 @@ func TestQueryLogBinSuccess(t *testing.T) {
 	assert.NoError(err)
 	defer db.Close()
 
-	querier := NewBinlogInfoQuerier(db)
+	querier := NewBinlogQuerier(db)
 
 	// Mock successful response with log_bin ON
 	rows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
@@ -47,7 +47,7 @@ func TestQueryLogBinFailure(t *testing.T) {
 	assert.NoError(err)
 	defer db.Close()
 
-	querier := NewBinlogInfoQuerier(db)
+	querier := NewBinlogQuerier(db)
 
 	// Test case 1: Query error
 	mock.ExpectQuery(ShowLogBinQuery).WillReturnError(errors.New("query error"))
@@ -80,7 +80,7 @@ func TestQueryLogBinBasenameSuccess(t *testing.T) {
 	assert.NoError(err)
 	defer db.Close()
 
-	querier := NewBinlogInfoQuerier(db)
+	querier := NewBinlogQuerier(db)
 
 	expectedValue := filepath.Join("var", "log", "mysql", "mysql-bin")
 	rows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
@@ -99,7 +99,7 @@ func TestQueryLogBinBasenameFailure(t *testing.T) {
 	assert.NoError(err)
 	defer db.Close()
 
-	querier := NewBinlogInfoQuerier(db)
+	querier := NewBinlogQuerier(db)
 
 	mock.ExpectQuery(ShowLogBinBasenameQuery).WillReturnError(errors.New("query error"))
 	value, err := querier.queryLogBinBasename()
@@ -132,7 +132,7 @@ func TestQueryBinlogStatusSuccess(t *testing.T) {
 	assert.NoError(err)
 	defer db.Close()
 
-	querier := NewBinlogInfoQuerier(db)
+	querier := NewBinlogQuerier(db)
 
 	rows := sqlmock.NewRows([]string{"mysql_version"}).AddRow("8.0.42")
 	mock.ExpectQuery(regexp.QuoteMeta(VersionQuery)).WillReturnRows(rows)
@@ -156,7 +156,7 @@ func TestQueryBinlogStatusFailure(t *testing.T) {
 	assert.NoError(err)
 	defer db.Close()
 
-	querier := NewBinlogInfoQuerier(db)
+	querier := NewBinlogQuerier(db)
 
 	rows := sqlmock.NewRows([]string{"mysql_version"}).AddRow("8.2.42")
 	mock.ExpectQuery(regexp.QuoteMeta(VersionQuery)).WillReturnRows(rows)
@@ -200,7 +200,7 @@ func TestRowsCloseError(t *testing.T) {
 	assert.NoError(err)
 	defer db.Close()
 
-	querier := NewBinlogInfoQuerier(db)
+	querier := NewBinlogQuerier(db)
 
 	// Test rows.Close() error for queryLogBin
 	rows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
@@ -237,7 +237,7 @@ func TestGetBinlogInfo(t *testing.T) {
 		db, mock, err := sqlmock.New()
 		assert.NoError(err)
 
-		querier := NewBinlogInfoQuerier(db)
+		querier := NewBinlogQuerier(db)
 
 		rows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
 			AddRow("log_bin", "OFF").CloseError(errors.New("close error"))
@@ -251,7 +251,7 @@ func TestGetBinlogInfo(t *testing.T) {
 		db, mock, err := sqlmock.New()
 		assert.NoError(err)
 
-		querier := NewBinlogInfoQuerier(db)
+		querier := NewBinlogQuerier(db)
 
 		rows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
 			AddRow("log_bin", "ON").CloseError(errors.New("close error"))
@@ -267,7 +267,7 @@ func TestGetBinlogInfo(t *testing.T) {
 		db, mock, err := sqlmock.New()
 		assert.NoError(err)
 
-		querier := NewBinlogInfoQuerier(db)
+		querier := NewBinlogQuerier(db)
 
 		rows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
 			AddRow("log_bin", "ON").CloseError(errors.New("close error"))
@@ -291,7 +291,7 @@ func TestGetBinlogInfo(t *testing.T) {
 		db, mock, err := sqlmock.New()
 		assert.NoError(err)
 
-		querier := NewBinlogInfoQuerier(db)
+		querier := NewBinlogQuerier(db)
 
 		rows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
 			AddRow("log_bin", "ON").CloseError(errors.New("close error"))
@@ -324,7 +324,7 @@ func TestGetBinlogInfo(t *testing.T) {
 		assert.NoError(err)
 		defer db.Close()
 
-		querier := NewBinlogInfoQuerier(db)
+		querier := NewBinlogQuerier(db)
 
 		rows := sqlmock.NewRows([]string{"mysql_version"}).AddRow("5.7.1")
 		mock.ExpectQuery(regexp.QuoteMeta(VersionQuery)).WillReturnRows(rows)
@@ -345,7 +345,7 @@ func TestGetBinlogInfo(t *testing.T) {
 		assert.NoError(err)
 		defer db.Close()
 
-		querier := NewBinlogInfoQuerier(db)
+		querier := NewBinlogQuerier(db)
 
 		rows := sqlmock.NewRows([]string{"mysql_version"}).AddRow("8.2.0")
 		mock.ExpectQuery(regexp.QuoteMeta(VersionQuery)).WillReturnRows(rows)

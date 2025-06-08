@@ -2,7 +2,6 @@ package cmdtest
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,8 +23,6 @@ func TestSyncSftpCmd(t *testing.T) {
 
 		sourcePath := filepath.ToSlash(currentDir)
 		destPath := filepath.ToSlash(filepath.Join(currentDir, "dest.txt"))
-
-		fmt.Println(sourcePath, destPath)
 
 		finishCh := make(chan struct{}, 1)
 		onServerReady := func(privateKey string) {
