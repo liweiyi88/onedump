@@ -26,6 +26,7 @@ func NewS3(bucket, key, region, accessKeyId, secretAccessKey, sessionToken strin
 		SecretAccessKey: secretAccessKey,
 		SessionToken:    sessionToken,
 	}
+
 	return s3
 }
 
@@ -47,14 +48,14 @@ func (s3 *S3) createClient() *s3Client.Client {
 		))
 
 	if err != nil {
-		panic(fmt.Sprintf("[s3] failed loading config, %v", err))
+		panic(fmt.Sprintf("[s3] failed to load config, %v", err))
 	}
 
 	return s3Client.NewFromConfig(cfg)
 }
 
 // Download a S3 object content to a local file using streaming
-func (s3 *S3) downloadObjectToDir(ctx context.Context, key string, dir string) error {
+func (s3 *S3) downloadObjectToDir(ctx context.Context, prefix, key, dir string) error {
 	client := s3.getClient()
 
 	slog.Debug("[s3] downloading content...", slog.Any("key", key))
@@ -74,7 +75,10 @@ func (s3 *S3) downloadObjectToDir(ctx context.Context, key string, dir string) e
 		}
 	}()
 
-	localPath := filepath.Join(dir, filepath.Base(key))
+	path := strings.TrimPrefix(key, prefix)
+	path = strings.TrimLeft(path, "/")
+
+	localPath := filepath.Join(dir, path)
 	err = os.MkdirAll(filepath.Dir(localPath), os.ModePerm)
 
 	if err != nil {
@@ -157,7 +161,7 @@ func (s3 *S3) DownloadObjects(ctx context.Context, prefix, dir string) error {
 				continue
 			}
 
-			err := s3.downloadObjectToDir(ctx, key, dir)
+			err := s3.downloadObjectToDir(ctx, prefix, key, dir)
 
 			if err != nil {
 				return fmt.Errorf("[s3] fail to download content, file key: %s, error: %v", key, err)

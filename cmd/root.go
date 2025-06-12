@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/liweiyi88/onedump/cmd/binlogcmd"
+	"github.com/liweiyi88/onedump/cmd/downloadcmd"
 	"github.com/liweiyi88/onedump/cmd/slowcmd"
 	"github.com/liweiyi88/onedump/cmd/synccmd"
 	"github.com/liweiyi88/onedump/config"
@@ -121,4 +122,5 @@ func init() {
 	RootCmd.AddCommand(slowcmd.SlowCmd)
 	RootCmd.AddCommand(synccmd.SyncCmd)
 	RootCmd.AddCommand(binlogcmd.BinlogCmd)
+	RootCmd.AddCommand(downloadcmd.DownloadCmd)
 }

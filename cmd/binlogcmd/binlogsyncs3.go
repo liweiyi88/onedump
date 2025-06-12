@@ -4,23 +4,12 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
-	"os"
 
 	"github.com/liweiyi88/onedump/binlog"
 	"github.com/liweiyi88/onedump/env"
 	"github.com/liweiyi88/onedump/filesync"
 	"github.com/liweiyi88/onedump/storage/s3"
 	"github.com/spf13/cobra"
-)
-
-const (
-	AWS_REGION            = "AWS_REGION"
-	AWS_ACCESS_KEY_ID     = "AWS_ACCESS_KEY_ID"
-	AWS_SECRET_ACCESS_KEY = "AWS_SECRET_ACCESS_KEY"
-	AWS_SESSION_TOKEN     = "AWS_SESSION_TOKEN"
-	DATABASE_DSN          = "DATABASE_DSN"
-
-	BINLOG_TOGGLE_QUERY = "SHOW VARIABLES LIKE 'log_bin';"
 )
 
 var (
@@ -54,8 +43,12 @@ It requires the following environment variables:
   AWS_SESSION_TOKEN is optional unless you use a temporary credentials
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		vars := []string{AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DATABASE_DSN}
-		if err := env.EnsureRequiredVars(vars); err != nil {
+		envs, err := env.NewEnvResolver(
+			env.WithAWS(),
+			env.WithDatabaseDSN()).
+			Resolve()
+
+		if err != nil {
 			return err
 		}
 
@@ -63,13 +56,7 @@ It requires the following environment variables:
 			slog.SetLogLoggerLevel(slog.LevelDebug)
 		}
 
-		dsn := os.Getenv(DATABASE_DSN)
-		region := os.Getenv(AWS_REGION)
-		accessKeyId := os.Getenv(AWS_ACCESS_KEY_ID)
-		secretAccessKey := os.Getenv(AWS_SECRET_ACCESS_KEY)
-		sessionToken := os.Getenv(AWS_SESSION_TOKEN)
-
-		db, err := sql.Open("mysql", dsn)
+		db, err := sql.Open("mysql", envs.DatabaseDSN)
 		if err != nil {
 			return fmt.Errorf("fail to open database, error: %v", err)
 		}
@@ -88,10 +75,18 @@ It requires the following environment variables:
 		binlogInfo, err := querier.GetBinlogInfo()
 
 		if err != nil {
-			return fmt.Errorf("fail to create binlog info querier, error: %v", err)
+			return fmt.Errorf("fail to get binlog info, error: %v", err)
 		}
 
-		s3 := s3.NewS3(s3Bucket, "", region, accessKeyId, secretAccessKey, sessionToken)
+		credentials := envs.AWSCredentials
+		s3 := s3.NewS3(
+			s3Bucket,
+			"",
+			credentials.Region,
+			credentials.AccessKeyID,
+			credentials.SecretAccessKey,
+			credentials.SessionToken)
+
 		fs := filesync.NewFileSync(checksum, checksumFile)
 		syncer := binlog.NewBinlogSyncer(s3Prefix, saveLog, logFile, fs, binlogInfo)
 		return syncer.Sync(s3)
