@@ -1,4 +1,4 @@
-package cmdtest
+package binlogcmd_test
 
 import (
 	"os"

@@ -29,8 +29,9 @@ const (
 
 var (
 	// A fake error to stop parsing events.
-	ErrStopPositionFound = errors.New("stop position found")
-	ErrBinlogsNotFound   = errors.New("no binlog files were found in the directory.")
+	ErrEventBeforeStopDatetime = errors.New("event is before stop datetime")
+	ErrStopPositionNotFound    = errors.New("stop position not found")
+	ErrBinlogsNotFound         = errors.New("no binlog files were found in the directory")
 )
 
 type binlogRestorePlan struct {
@@ -75,6 +76,12 @@ func NewBinlogRestorer(binlogDir string, startBinlog string, startPosition int, 
 
 type binlogRestoreOption func(binlogRestorer *BinlogRestorer)
 
+func WithMySQLPath(mysqlPath string) binlogRestoreOption {
+	return func(binlogRestorer *BinlogRestorer) {
+		binlogRestorer.mysqlPath = mysqlPath
+	}
+}
+
 func WithMySQLBinlogPath(mysqlbinlogPath string) binlogRestoreOption {
 	return func(binlogRestorer *BinlogRestorer) {
 		binlogRestorer.mysqlbinlogPath = mysqlbinlogPath
@@ -104,7 +111,7 @@ func WithDatabaseDSN(dsn string) binlogRestoreOption {
 	}
 }
 
-func (b *BinlogRestorer) EnsureMysqlCommandPaths() error {
+func (b *BinlogRestorer) EnsureMySQLCommandPaths() error {
 	if _, err := exec.LookPath(b.mysqlbinlogPath); err != nil {
 		return fmt.Errorf("%s command is required but not found: %v", "mysqlbinlog", err)
 	}
@@ -193,7 +200,7 @@ func (b *BinlogRestorer) createBinlogRestorePlan() (*binlogRestorePlan, error) {
 			// The --stop-datetime option is exclusive in mysqlbinlog command
 			// So lets keep the logic consistent with mysqlbinlog
 			if !eventTime.Before(b.stopDateTime) {
-				return ErrStopPositionFound
+				return ErrEventBeforeStopDatetime
 			}
 
 			stopPos := int(e.Header.LogPos)
@@ -202,15 +209,26 @@ func (b *BinlogRestorer) createBinlogRestorePlan() (*binlogRestorePlan, error) {
 		})
 
 		if err != nil {
-			if errors.Is(err, ErrStopPositionFound) {
-				return plan, nil
+			if !errors.Is(err, ErrEventBeforeStopDatetime) {
+				return nil, fmt.Errorf("fail to parse binlog file: %s: %v", binlog, err)
 			}
 
-			return nil, fmt.Errorf("fail to parse binlog file: %s: %v", binlog, err)
+			// If we cannot find the stop position in this binlog,
+			// then let's continue to try to find the stop position in the next binlog file.
+			if plan.stopPosition == nil {
+				continue
+			}
+
+			return plan, nil
 		}
 	}
 
-	// If stop position is not found, we just process all events.
+	// We should find a stop position.
+	// If we can't find the position, it means the value of stop datetime is before all events from all binlog files.
+	if plan.stopPosition == nil {
+		return nil, ErrStopPositionNotFound
+	}
+
 	return plan, nil
 }
 
@@ -223,7 +241,7 @@ func (b *BinlogRestorer) createRestoreCommandArgs(plan *binlogRestorePlan) []str
 	}
 
 	if len(plan.binlogs) == 1 && plan.stopPosition != nil && plan.startPosition == *plan.stopPosition {
-		slog.Debug("the database is already update to date, skip")
+		slog.Debug("start position is the same as the stop position, skip")
 		return args
 	}
 
@@ -244,10 +262,10 @@ func (b *BinlogRestorer) createRestoreCommandArgs(plan *binlogRestorePlan) []str
 	firstCommand := fmt.Sprintf("%s --start-position=%d", firstBinlog, plan.startPosition)
 	args = append(args, firstCommand)
 
-	restBinlogs := plan.binlogs[1 : len(plan.binlogs)-1]
+	middleBinlogs := plan.binlogs[1 : len(plan.binlogs)-1]
 
-	if len(restBinlogs) > 0 {
-		chunkBinlogs := sliceutil.Chunk(restBinlogs, MaxBinlogsPerExecution)
+	if len(middleBinlogs) > 0 {
+		chunkBinlogs := sliceutil.Chunk(middleBinlogs, MaxBinlogsPerExecution)
 		for _, binlogs := range chunkBinlogs {
 			command := fmt.Sprintf("%s", strings.Join(binlogs, " "))
 			args = append(args, command)
@@ -268,7 +286,7 @@ func (b *BinlogRestorer) createRestoreCommandArgs(plan *binlogRestorePlan) []str
 func (b *BinlogRestorer) Restore() error {
 	plan, err := b.createBinlogRestorePlan()
 	if err != nil {
-		return fmt.Errorf("fail to extract stop position, error: %v", err)
+		return fmt.Errorf("fail to create binlog restore plan, error: %v", err)
 	}
 
 	cmdArgs := b.createRestoreCommandArgs(plan)
@@ -276,11 +294,11 @@ func (b *BinlogRestorer) Restore() error {
 	for _, argsString := range cmdArgs {
 		args := strings.Fields(argsString)
 		mysqlBinlogCmd := exec.Command(b.mysqlbinlogPath, args...)
-		mysqlBinlogCmd.Stdout = os.Stdout
 		mysqlBinlogCmd.Stderr = os.Stderr
 
 		// echo the results to stdout and stderr if dry run
 		if b.dryRun {
+			mysqlBinlogCmd.Stdout = os.Stdout
 			if err := mysqlBinlogCmd.Run(); err != nil {
 				return fmt.Errorf("fail to run mysqlbinlog command with args: %s, error: %v", args, err)
 			}
@@ -331,7 +349,6 @@ func ParseBinlogFilePosition(reader io.Reader) (string, int, error) {
 
 	for scanner.Scan() {
 		line := scanner.Text()
-
 		matches := regex.FindStringSubmatch(line)
 
 		if len(matches) == 5 {

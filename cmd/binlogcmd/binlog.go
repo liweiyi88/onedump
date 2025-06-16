@@ -9,7 +9,7 @@ var (
 
 func init() {
 	BinlogCmd.AddCommand(BinlogSyncS3Cmd)
-	BinlogCmd.AddCommand(BinlogRestoreS3Cmd)
+	BinlogCmd.AddCommand(BinlogRestoreCmd)
 }
 
 var BinlogCmd = &cobra.Command{

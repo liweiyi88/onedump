@@ -34,6 +34,7 @@ Onedump is a database administration tool that exports data from multiple source
 * [The slow log parser](#the-slow-log-parser)
 * [MySQL binlog backup to AWS S3](#mysql-binlog-backup-to-aws-s3)
 * [Resumable and concurrent SFTP file transfers](#resumable-and-concurrent-sftp-file-transfers)
+* [Contribution](#contribution)
 
 ### Supported source databases
 - MySQL
@@ -313,3 +314,6 @@ Refer to the [documentation](./docs/binlog/sync-s3.md) for detailed usage.
 The `sync sftp` command provides an efficient way to transfer files from a source to a remote destination using the SFTP protocol. It supports various options to accommodate different use cases.
 
 Refer to the [documentation](./docs/sync/sftp.md) for detailed usage.
+
+## Contribution
+For development guidelines, refer to the [Development Guides](./docs/development.md).

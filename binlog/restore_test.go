@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -207,5 +208,173 @@ func TestGetRestoreCommands(t *testing.T) {
 		assert.Equal("mysqlbin.000002 mysqlbin.000003 mysqlbin.000004 mysqlbin.000005 mysqlbin.000006 mysqlbin.000007 mysqlbin.000008 mysqlbin.000009 mysqlbin.000010 mysqlbin.000011", commands[1])
 		assert.Equal("mysqlbin.000012", commands[2])
 		assert.Equal("mysqlbin.000013 --stop-position=140", commands[3])
+	})
+}
+
+func TestWithOptions(t *testing.T) {
+	restorer := NewBinlogRestorer(
+		"",
+		"",
+		0,
+		WithDatabaseDSN("root:root@tcp(127.0.0.1:33044)/"),
+		WithDryRun(true),
+		WithMySQLPath("mysql"),
+		WithMySQLBinlogPath("mysqlbinlog"),
+		WithStopDateTime("2025-03-04 12:10:10"),
+	)
+
+	stopDateTime, err := time.Parse(time.DateTime, "2025-03-04 12:10:10")
+	assert.NoError(t, err)
+
+	expected := &BinlogRestorer{
+		binlogDir:       "",
+		dryRun:          true,
+		dsn:             "root:root@tcp(127.0.0.1:33044)/",
+		mysqlPath:       "mysql",
+		mysqlbinlogPath: "mysqlbinlog",
+		startBinlog:     "",
+		startPosition:   0,
+		stopDateTime:    stopDateTime,
+	}
+
+	assert.Equal(t, expected, restorer)
+}
+
+func TestCreateBinlogRestorePlan(t *testing.T) {
+	assert := assert.New(t)
+
+	currentDir, err := os.Getwd()
+	assert.NoError(err)
+
+	binlogsDir := filepath.Join(currentDir, "..", "testutils", "mysqlrestore", "binlogs")
+
+	t.Run("it should return test stop position not found error", func(t *testing.T) {
+		restorer := NewBinlogRestorer(
+			binlogsDir,
+			"mysql-bin.000001",
+			0,
+			WithDatabaseDSN("root:root@tcp(127.0.0.1:33044)/"),
+			WithDryRun(true),
+			WithMySQLPath("mysql"),
+			WithMySQLBinlogPath("mysqlbinlog"),
+			WithStopDateTime("2025-03-04 12:10:10"),
+		)
+
+		_, err := restorer.createBinlogRestorePlan()
+		assert.ErrorIs(err, ErrStopPositionNotFound)
+	})
+
+	t.Run("it should create the plan with stop position that is not the last one from the binlog files", func(t *testing.T) {
+		restorer := NewBinlogRestorer(
+			binlogsDir,
+			"mysql-bin.000002",
+			0,
+			WithDatabaseDSN("root:root@tcp(127.0.0.1:33044)/"),
+			WithDryRun(true),
+			WithMySQLPath("mysql"),
+			WithMySQLBinlogPath("mysqlbinlog"),
+			WithStopDateTime("2025-06-03 01:00:43"),
+		)
+
+		plan, err := restorer.createBinlogRestorePlan()
+		assert.NoError(err)
+
+		stopPos := 1857
+		expected := &binlogRestorePlan{
+			startPosition: 0,
+			stopPosition:  &stopPos,
+			binlogs:       []string{filepath.Join(binlogsDir, "mysql-bin.000002"), filepath.Join(binlogsDir, "mysql-bin.000003")},
+		}
+
+		assert.Equal(expected, plan)
+	})
+
+	t.Run("it should create the plan with stop position that is the last one from the binlog files", func(t *testing.T) {
+		restorer := NewBinlogRestorer(
+			binlogsDir,
+			"mysql-bin.000002",
+			0,
+			WithDatabaseDSN("root:root@tcp(127.0.0.1:33044)/"),
+			WithDryRun(true),
+			WithMySQLPath("mysql"),
+			WithMySQLBinlogPath("mysqlbinlog"),
+			WithStopDateTime("2025-06-05 01:00:43"),
+		)
+
+		plan, err := restorer.createBinlogRestorePlan()
+		assert.NoError(err)
+
+		stopPos := 2609
+		expected := &binlogRestorePlan{
+			startPosition: 0,
+			stopPosition:  &stopPos,
+			binlogs:       []string{filepath.Join(binlogsDir, "mysql-bin.000002"), filepath.Join(binlogsDir, "mysql-bin.000003")},
+		}
+
+		assert.Equal(expected, plan)
+	})
+}
+
+func TestEnsureMySQLCommandPaths(t *testing.T) {
+	assert := assert.New(t)
+	restorer := NewBinlogRestorer("", "", 0, WithMySQLBinlogPath("notfound"))
+
+	err := restorer.EnsureMySQLCommandPaths()
+	assert.Error(err)
+
+	currentDir, err := os.Getwd()
+	assert.NoError(err)
+
+	mysqlbinlog := filepath.Join(currentDir, "..", "testutils", "mysqlrestore", "mysqlbinlog")
+	mysqlPath := filepath.Join(currentDir, "..", "testutils", "mysqlrestore", "mysql")
+
+	restorer = NewBinlogRestorer("", "", 0, WithMySQLBinlogPath(mysqlbinlog), WithMySQLPath("notfound"))
+	err = restorer.EnsureMySQLCommandPaths()
+	assert.Equal(err.Error(), "mysql command is required but not found: exec: \"notfound\": executable file not found in $PATH")
+
+	restorer = NewBinlogRestorer("", "", 0, WithMySQLBinlogPath(mysqlbinlog), WithMySQLPath(mysqlPath))
+	err = restorer.EnsureMySQLCommandPaths()
+	assert.NoError(err)
+}
+
+func TestRestore(t *testing.T) {
+	assert := assert.New(t)
+
+	currentDir, err := os.Getwd()
+	assert.NoError(err)
+
+	binlogsDir := filepath.Join(currentDir, "..", "testutils", "mysqlrestore", "binlogs")
+	mysqlbinlogPath := filepath.Join(currentDir, "..", "testutils", "mysqlrestore", "mysqlbinlog")
+	mysqlPath := filepath.Join(currentDir, "..", "testutils", "mysqlrestore", "mysql")
+
+	t.Run("it should print results when passing --dry-run=true", func(t *testing.T) {
+		restorer := NewBinlogRestorer(
+			binlogsDir,
+			"mysql-bin.000003",
+			0,
+			WithDatabaseDSN("root:root@tcp(127.0.0.1:33044)/"),
+			WithDryRun(true),
+			WithMySQLPath(mysqlPath),
+			WithMySQLBinlogPath(mysqlbinlogPath),
+			WithStopDateTime("2025-06-05 01:00:43"),
+		)
+
+		err := restorer.Restore()
+		assert.NoError(err)
+	})
+
+	t.Run("it should restore", func(t *testing.T) {
+		restorer := NewBinlogRestorer(
+			binlogsDir,
+			"mysql-bin.000003",
+			0,
+			WithDatabaseDSN("root:root@tcp(127.0.0.1:33044)/"),
+			WithMySQLPath(mysqlPath),
+			WithMySQLBinlogPath(mysqlbinlogPath),
+			WithStopDateTime("2025-06-05 01:00:43"),
+		)
+
+		err := restorer.Restore()
+		assert.NoError(err)
 	})
 }

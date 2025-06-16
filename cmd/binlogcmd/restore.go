@@ -21,39 +21,42 @@ var (
 	startPosition                                                 int
 )
 
-func init() {
-	BinlogRestoreS3Cmd.Flags().StringVarP(&dir, "dir", "d", "", "A directory that saves binlog files temporally (required)")
-	BinlogRestoreS3Cmd.Flags().StringVar(&mysqlbinlogPath, "mysqlbinlog-path", "mysqlbinlog", "Set the mysqlbinlog command path, default: mysqlbinlog (optional)")
-	BinlogRestoreS3Cmd.Flags().StringVar(&stopDateTime, "stop-datetime", time.Now().Format(time.DateTime), "Set the stop datetime for point-in-time recovery. Defaults to the current time. (optional)")
-	BinlogRestoreS3Cmd.Flags().StringVar(&startBinlog, "start-binlog", "", "Binlog file to start recovery from (optional if --dump-file is provided)")
-	BinlogRestoreS3Cmd.Flags().IntVar(&startPosition, "start-position", 0, "Position in the binlog file to begin recovery (optional if --dump-file is provided)")
-	BinlogRestoreS3Cmd.Flags().StringVar(&dumpFilePath, "dump-file", "", "A Database dump file that contains binlog file and position (optional if --start-binlog and --start-position are provided)")
-	BinlogRestoreS3Cmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, output only the SQL restore statements without applying them. default: false (optional)")
-	BinlogRestoreS3Cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
-	BinlogRestoreS3Cmd.MarkFlagRequired("dir")
-	BinlogRestoreS3Cmd.MarkFlagsRequiredTogether("start-binlog", "start-position")
-	BinlogRestoreS3Cmd.MarkFlagsOneRequired("start-binlog", "dump-file")
+var OpenDB = func(dsn string) (*sql.DB, error) {
+	return sql.Open("mysql", dsn)
 }
 
-var BinlogRestoreS3Cmd = &cobra.Command{
-	Use:   "restore s3",
-	Short: "Restore database from MySQL binlogs that are saved in an AWS S3 bucket",
-	Long: `Restore database from MySQL binlogs that are saved in an AWS S3 bucket
+func init() {
+	BinlogRestoreCmd.Flags().StringVarP(&dir, "dir", "d", "", "A directory that saves binlog files temporally (required)")
+	BinlogRestoreCmd.Flags().StringVar(&mysqlbinlogPath, "mysqlbinlog-path", "mysqlbinlog", "Set the mysqlbinlog command path, default: mysqlbinlog (optional)")
+	BinlogRestoreCmd.Flags().StringVar(&stopDateTime, "stop-datetime", time.Now().Format(time.DateTime), "Set the stop datetime for point-in-time recovery. Defaults to the current time. (optional)")
+	BinlogRestoreCmd.Flags().StringVar(&startBinlog, "start-binlog", "", "Binlog file to start recovery from (optional if --dump-file is provided)")
+	BinlogRestoreCmd.Flags().IntVar(&startPosition, "start-position", 0, "Position in the binlog file to begin recovery (optional if --dump-file is provided)")
+	BinlogRestoreCmd.Flags().StringVar(&dumpFilePath, "dump-file", "", "A Database dump file that contains binlog file and position (optional if --start-binlog and --start-position are provided)")
+	BinlogRestoreCmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, output the parsed binlog events instead of applying them. default: false (optional)")
+	BinlogRestoreCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
+	BinlogRestoreCmd.MarkFlagRequired("dir")
+	BinlogRestoreCmd.MarkFlagsRequiredTogether("start-binlog", "start-position")
+	BinlogRestoreCmd.MarkFlagsOneRequired("start-binlog", "dump-file")
+}
+
+var BinlogRestoreCmd = &cobra.Command{
+	Use:   "restore",
+	Short: "Restore the database from MySQL binlogs",
+	Long: `Restore the database from MySQL binlogs
 It requires the following environment variables:
   - DATABASE_DSN // e.g. root@tcp(127.0.0.1)/
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		envs, err := env.NewEnvResolver(env.WithDatabaseDSN()).Resolve()
+		if err != nil {
+			return err
+		}
 
 		if verbose {
 			slog.SetLogLoggerLevel(slog.LevelDebug)
 		}
 
-		if err != nil {
-			return err
-		}
-
-		db, err := sql.Open("mysql", envs.DatabaseDSN)
+		db, err := OpenDB(envs.DatabaseDSN)
 		if err != nil {
 			return fmt.Errorf("fail to open database, error: %v", err)
 		}
@@ -88,7 +91,7 @@ It requires the following environment variables:
 			binlog.WithDatabaseDSN(envs.DatabaseDSN),
 		)
 
-		if err := binlogRestorer.EnsureMysqlCommandPaths(); err != nil {
+		if err := binlogRestorer.EnsureMySQLCommandPaths(); err != nil {
 			return err
 		}
 
@@ -106,7 +109,7 @@ func extractBinlogStartFilePosition(filePath string) (string, int, error) {
 
 	defer func() {
 		if err := dumpFile.Close(); err != nil {
-			slog.Error("fail to close dump file", slog.Any("dumpFile", filePath), slog.Any("error", err))
+			slog.Error("fail to close dump file", slog.String("dumpFile", filePath), slog.Any("error", err))
 		}
 	}()
 
