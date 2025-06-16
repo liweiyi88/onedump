@@ -1,4 +1,4 @@
-package cmdtest
+package synccmd_test
 
 import (
 	"bytes"

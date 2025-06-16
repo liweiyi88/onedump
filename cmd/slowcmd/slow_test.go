@@ -1,4 +1,4 @@
-package cmdtest
+package slowcmd_test
 
 import (
 	"bytes"
