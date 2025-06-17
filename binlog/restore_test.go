@@ -12,23 +12,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func getTestMySQLCliPaths() (string, string) {
+func getTestMySQLCliPaths() (string, string, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
-		panic(fmt.Sprintf("Could not get current work dir: %v", err))
+		return "", "", fmt.Errorf("Could not get current work dir: %v", err)
 	}
 
 	basePath := filepath.Join(currentDir, "..", "testutils", "mysqlrestore")
 
 	switch runtime.GOOS {
 	case "darwin":
-		return filepath.Join(basePath, "mysqlbinlog_darwin"), filepath.Join(basePath, "mysql_darwin")
+		return filepath.Join(basePath, "mysqlbinlog_darwin"), filepath.Join(basePath, "mysql_darwin"), nil
 	case "linux":
-		return filepath.Join(basePath, "mysqlbinlog_linux"), filepath.Join(basePath, "mysql_linux")
+		return filepath.Join(basePath, "mysqlbinlog_linux"), filepath.Join(basePath, "mysql_linux"), nil
 	case "windows":
-		return filepath.Join(basePath, "mysqlbinlog.exe"), filepath.Join(basePath, "mysql.exe")
+		return filepath.Join(basePath, "mysqlbinlog.exe"), filepath.Join(basePath, "mysql.exe"), nil
 	default:
-		panic(fmt.Sprintf("Unsupported OS: %s for test", runtime.GOOS))
+		return "", "", fmt.Errorf("Unsupported OS: %s for test", runtime.GOOS)
 	}
 }
 
@@ -268,7 +268,7 @@ func TestCreateBinlogRestorePlan(t *testing.T) {
 
 	binlogsDir := filepath.Join(currentDir, "..", "testutils", "mysqlrestore", "binlogs")
 
-	t.Run("it should create the restore plan if no value of --stop-datetime optio is passed", func(t *testing.T) {
+	t.Run("it should create the restore plan if no value of --stop-datetime option is passed", func(t *testing.T) {
 		restorer := NewBinlogRestorer(
 			binlogsDir,
 			"mysql-bin.000002",
@@ -365,7 +365,8 @@ func TestEnsureMySQLCommandPaths(t *testing.T) {
 	err := restorer.EnsureMySQLCommandPaths()
 	assert.Error(err)
 
-	mysqlbinlogPath, mysqlPath := getTestMySQLCliPaths()
+	mysqlbinlogPath, mysqlPath, err := getTestMySQLCliPaths()
+	assert.NoError(err)
 
 	restorer = NewBinlogRestorer("", "", 0, WithMySQLBinlogPath(mysqlbinlogPath), WithMySQLPath("notfound"))
 	err = restorer.EnsureMySQLCommandPaths()
@@ -385,7 +386,8 @@ func TestRestore(t *testing.T) {
 	t.Log(runtime.GOOS)
 
 	binlogsDir := filepath.Join(currentDir, "..", "testutils", "mysqlrestore", "binlogs")
-	mysqlbinlogPath, mysqlPath := getTestMySQLCliPaths()
+	mysqlbinlogPath, mysqlPath, err := getTestMySQLCliPaths()
+	assert.NoError(err)
 
 	t.Run("it should print results when passing --dry-run=true", func(t *testing.T) {
 		restorer := NewBinlogRestorer(
