@@ -111,8 +111,7 @@ func TestGetSortedBinlogs(t *testing.T) {
 
 		restorer := NewBinlogRestorer(tempDir, "mysqlbin.000005", 123)
 		_, err = restorer.getSortedBinlogs()
-		assert.Error(err)
-		assert.Equal("current binlog mysqlbin.000005 not found", err.Error())
+		assert.EqualError(err, "current binlog mysqlbin.000005 not found")
 	})
 
 	t.Run("it should return sorted binlogs starting from the specified start binlog", func(t *testing.T) {

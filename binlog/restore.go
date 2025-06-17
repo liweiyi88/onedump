@@ -271,7 +271,7 @@ func (b *BinlogRestorer) createRestoreCommandArgs(plan *binlogRestorePlan) []str
 	if len(middleBinlogs) > 0 {
 		chunkBinlogs := sliceutil.Chunk(middleBinlogs, MaxBinlogsPerExecution)
 		for _, binlogs := range chunkBinlogs {
-			command := fmt.Sprintf("%s", strings.Join(binlogs, " "))
+			command := strings.Join(binlogs, " ")
 			args = append(args, command)
 		}
 	}
