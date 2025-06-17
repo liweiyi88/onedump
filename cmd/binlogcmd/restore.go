@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/liweiyi88/onedump/binlog"
 	"github.com/liweiyi88/onedump/env"
@@ -28,7 +27,7 @@ var OpenDB = func(dsn string) (*sql.DB, error) {
 func init() {
 	BinlogRestoreCmd.Flags().StringVarP(&dir, "dir", "d", "", "A directory that saves binlog files temporally (required)")
 	BinlogRestoreCmd.Flags().StringVar(&mysqlbinlogPath, "mysqlbinlog-path", "mysqlbinlog", "Set the mysqlbinlog command path, default: mysqlbinlog (optional)")
-	BinlogRestoreCmd.Flags().StringVar(&stopDateTime, "stop-datetime", time.Now().Format(time.DateTime), "Set the stop datetime for point-in-time recovery. Defaults to the current time. (optional)")
+	BinlogRestoreCmd.Flags().StringVar(&stopDateTime, "stop-datetime", "", "Set the stop datetime for point-in-time recovery. Defaults to the current time. (optional)")
 	BinlogRestoreCmd.Flags().StringVar(&startBinlog, "start-binlog", "", "Binlog file to start recovery from (optional if --dump-file is provided)")
 	BinlogRestoreCmd.Flags().IntVar(&startPosition, "start-position", 0, "Position in the binlog file to begin recovery (optional if --dump-file is provided)")
 	BinlogRestoreCmd.Flags().StringVar(&dumpFilePath, "dump-file", "", "A Database dump file that contains binlog file and position (optional if --start-binlog and --start-position are provided)")

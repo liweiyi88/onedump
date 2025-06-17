@@ -42,10 +42,12 @@ func TestRestoreWithDumpFileVariants(t *testing.T) {
 
 	binlogsDir := filepath.Join(currentDir, "..", "..", "testutils", "mysqlrestore", "binlogs")
 
-	os.Setenv("DATABASE_DSN", "root:root@tcp(127.0.0.1:33044)/")
+	t.Setenv("DATABASE_DSN", "root:root@tcp(127.0.0.1:33044)/")
 
 	t.Run("with plain dump file", func(t *testing.T) {
-		mockDB, _, _ := sqlmock.New()
+		mockDB, _, err := sqlmock.New()
+		assert.NoError(err)
+
 		binlogcmd.OpenDB = func(dsn string) (*sql.DB, error) {
 			return mockDB, nil
 		}

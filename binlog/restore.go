@@ -96,12 +96,14 @@ func WithDryRun(dryRun bool) binlogRestoreOption {
 
 func WithStopDateTime(stopDateTime string) binlogRestoreOption {
 	return func(binlogRestorer *BinlogRestorer) {
-		time, err := time.Parse(time.DateTime, stopDateTime)
-		if err != nil {
-			panic(fmt.Sprintf("invalid value of --stop-datetime option, error: %v", err))
-		}
+		if strings.TrimSpace(stopDateTime) != "" {
+			parsedTime, err := time.Parse(time.DateTime, stopDateTime)
+			if err != nil {
+				panic(fmt.Sprintf("invalid value of --stop-datetime option, error: %v", err))
+			}
 
-		binlogRestorer.stopDateTime = time
+			binlogRestorer.stopDateTime = parsedTime
+		}
 	}
 }
 
@@ -186,46 +188,48 @@ func (b *BinlogRestorer) createBinlogRestorePlan() (*binlogRestorePlan, error) {
 	for _, binlog := range binlogs {
 		plan.binlogs = append(plan.binlogs, binlog)
 
-		err := parser.ParseFile(binlog, 0, func(e *replication.BinlogEvent) error {
-			eventTime := time.Unix(int64(e.Header.Timestamp), 0)
-			pos := e.Header.LogPos
+		if !b.stopDateTime.IsZero() {
+			err := parser.ParseFile(binlog, 0, func(e *replication.BinlogEvent) error {
+				eventTime := time.Unix(int64(e.Header.Timestamp), 0)
+				pos := e.Header.LogPos
 
-			slog.Debug("parsing binlog file...",
-				slog.Any("binlog file", binlog),
-				slog.Any("stop datetime", b.stopDateTime),
-				slog.Any("event time", eventTime),
-				slog.Any("log position", pos),
-			)
+				slog.Debug("parsing binlog file...",
+					slog.Any("binlog file", binlog),
+					slog.Any("stop datetime", b.stopDateTime),
+					slog.Any("event time", eventTime),
+					slog.Any("log position", pos),
+				)
 
-			// The --stop-datetime option is exclusive in mysqlbinlog command
-			// So lets keep the logic consistent with mysqlbinlog
-			if !eventTime.Before(b.stopDateTime) {
-				return ErrEventBeforeStopDatetime
+				// The --stop-datetime option is exclusive in mysqlbinlog command
+				// So lets keep the logic consistent with mysqlbinlog
+				if !eventTime.Before(b.stopDateTime) {
+					return ErrEventBeforeStopDatetime
+				}
+
+				stopPos := int(e.Header.LogPos)
+				plan.stopPosition = &stopPos
+				return nil
+			})
+
+			if err != nil {
+				if !errors.Is(err, ErrEventBeforeStopDatetime) {
+					return nil, fmt.Errorf("fail to parse binlog file: %s: %v", binlog, err)
+				}
+
+				// If we cannot find the stop position in this binlog,
+				// then let's continue to try to find the stop position in the next binlog file.
+				if plan.stopPosition == nil {
+					continue
+				}
+
+				return plan, nil
 			}
-
-			stopPos := int(e.Header.LogPos)
-			plan.stopPosition = &stopPos
-			return nil
-		})
-
-		if err != nil {
-			if !errors.Is(err, ErrEventBeforeStopDatetime) {
-				return nil, fmt.Errorf("fail to parse binlog file: %s: %v", binlog, err)
-			}
-
-			// If we cannot find the stop position in this binlog,
-			// then let's continue to try to find the stop position in the next binlog file.
-			if plan.stopPosition == nil {
-				continue
-			}
-
-			return plan, nil
 		}
 	}
 
-	// We should find a stop position.
+	// We should find a stop position if we pass a valid value of --stop-datetime option
 	// If we can't find the position, it means the value of stop datetime is before all events from all binlog files.
-	if plan.stopPosition == nil {
+	if plan.stopPosition == nil && !b.stopDateTime.IsZero() {
 		return nil, ErrStopPositionNotFound
 	}
 
