@@ -282,6 +282,29 @@ func TestCreateBinlogRestorePlan(t *testing.T) {
 
 	binlogsDir := filepath.Join(currentDir, "..", "testutils", "mysqlrestore", "binlogs")
 
+	t.Run("it should create the restore plan if no value of --stop-datetime optio is passed", func(t *testing.T) {
+		restorer := NewBinlogRestorer(
+			binlogsDir,
+			"mysql-bin.000002",
+			0,
+			WithDatabaseDSN("root:root@tcp(127.0.0.1:33044)/"),
+			WithDryRun(true),
+			WithMySQLPath("mysql"),
+			WithMySQLBinlogPath("mysqlbinlog"),
+		)
+
+		plan, err := restorer.createBinlogRestorePlan()
+		assert.NoError(err)
+
+		expected := &binlogRestorePlan{
+			startPosition: 0,
+			stopPosition:  nil,
+			binlogs:       []string{filepath.Join(binlogsDir, "mysql-bin.000002"), filepath.Join(binlogsDir, "mysql-bin.000003")},
+		}
+
+		assert.Equal(expected, plan)
+	})
+
 	t.Run("it should return test stop position not found error", func(t *testing.T) {
 		restorer := NewBinlogRestorer(
 			binlogsDir,
