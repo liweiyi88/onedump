@@ -87,7 +87,7 @@ func TestListFiles(t *testing.T) {
 		filepath.Join(tempDir, "file3.txt"),
 	}
 
-	assert.Equal(result, expected)
+	assert.Equal(expected, result)
 
 	// Test with pattern (*.txt)
 	expected = []string{
@@ -110,7 +110,7 @@ func TestListFiles(t *testing.T) {
 
 	result, err = ListFiles(tempDir, "", ".log")
 	assert.NoError(err)
-	assert.Len(result, 2)
+	assert.Equal(expected, result)
 }
 
 func TestIsGzipped(t *testing.T) {

@@ -143,7 +143,7 @@ func TestQueryBinlogStatusSuccess(t *testing.T) {
 	mock.ExpectQuery(ShowMasterStatusQuery).WillReturnRows(rows)
 
 	file, position, err := querier.queryBinlogStatus()
-	assert.Equal(1234, position)
+	assert.Equal(uint64(1234), position)
 	assert.NoError(err)
 	assert.Equal(expectedFile, file)
 	assert.NoError(mock.ExpectationsWereMet())

@@ -18,7 +18,7 @@ const (
 
 type BinlogInfo struct {
 	currentBinlogFile string // e.g. binlog.000001
-	position          int
+	position          uint64
 	binlogDir         string // the binlog folder
 	binlogPrefix      string // the binlog prefix. e.g. binlog
 }
@@ -108,9 +108,9 @@ func (b *binlogQuerier) queryLogBinBasename() (string, error) {
 	return "", errors.New("fail to get log bin basename result")
 }
 
-func (b *binlogQuerier) queryBinlogStatus() (string, int, error) {
+func (b *binlogQuerier) queryBinlogStatus() (string, uint64, error) {
 	var currentBinlogFile string
-	var position int
+	var position uint64
 	var binlogDoDB, binlogIgnoreDB, executedGtidSet string
 
 	version, err := b.queryVersion()

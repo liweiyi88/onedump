@@ -26,20 +26,7 @@ func getTestMySQLCliPaths() (string, string) {
 	case "linux":
 		return filepath.Join(basePath, "mysqlbinlog_linux"), filepath.Join(basePath, "mysql_linux")
 	case "windows":
-		mysqlBinlogPath := filepath.Join(basePath, "mysqlbinlog.exe")
-		mysqlPath := filepath.Join(basePath, "mysql.exe")
-
-		if _, err := os.Stat(mysqlBinlogPath); os.IsNotExist(err) {
-			fmt.Printf("%s not found", mysqlBinlogPath)
-			// Use panic to abort test setup, or handle in test with t.Skip
-			panic("mysqlbinlog.exe not found, skipping test on Windows")
-		}
-
-		if _, err := os.Stat(mysqlPath); os.IsNotExist(err) {
-			fmt.Printf("%s not found", mysqlPath)
-			panic("mysql.exe not found, skipping test on Windows")
-		}
-		return mysqlBinlogPath, mysqlPath
+		return filepath.Join(basePath, "mysqlbinlog.exe"), filepath.Join(basePath, "mysql.exe")
 	default:
 		panic(fmt.Sprintf("Unsupported OS: %s for test", runtime.GOOS))
 	}
