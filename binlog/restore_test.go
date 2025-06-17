@@ -125,7 +125,7 @@ func TestGetSortedBinlogs(t *testing.T) {
 		restorer := NewBinlogRestorer(tempDir, "mysqlbin.000005", 123)
 		_, err = restorer.getSortedBinlogs()
 		assert.Error(err)
-		assert.Equal(err.Error(), "current binlog mysqlbin.000005 not found")
+		assert.Equal("current binlog mysqlbin.000005 not found", err.Error())
 	})
 
 	t.Run("it should return sorted binlogs starting from the specified start binlog", func(t *testing.T) {
@@ -395,6 +395,12 @@ func TestRestore(t *testing.T) {
 	})
 
 	t.Run("it should restore", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			// The piping on Window is different from Linux, on CI server the Antivirus/Windows Defender will also slow down the program
+			// They will just cause the test timeout. So lets skip this test on windows machine.
+			t.Skip("Skipping this mysqlbinlog and mysql pipe on Windows due to known performance issues with external commands.")
+		}
+
 		restorer := NewBinlogRestorer(
 			binlogsDir,
 			"mysql-bin.000003",
