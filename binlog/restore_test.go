@@ -54,10 +54,9 @@ func TestParseBinlogFilePosition(t *testing.T) {
 		},
 	}
 
-	assert := assert.New(t)
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			assert := assert.New(t)
 			file, pos, err := ParseBinlogFilePosition(strings.NewReader(tt.input))
 			assert.NoError(err)
 			assert.Equal(tt.wantFile, file)
@@ -66,6 +65,7 @@ func TestParseBinlogFilePosition(t *testing.T) {
 	}
 
 	t.Run("return err if file and position are not found", func(t *testing.T) {
+		assert := assert.New(t)
 		reader := strings.NewReader("invalid content")
 		file, pos, err := ParseBinlogFilePosition(reader)
 		assert.Error(err)

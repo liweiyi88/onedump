@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -323,11 +324,18 @@ func (b *BinlogRestorer) Restore() error {
 				return fmt.Errorf("fail to parse database dsn: %s, error: %v", b.dsn, err)
 			}
 
+			host, port, err := net.SplitHostPort(cfg.Addr)
+			if err != nil {
+				host = cfg.Addr
+				port = "3306"
+			}
+
 			mysqlCmd := exec.Command(
 				b.mysqlPath,
 				"-u", cfg.User,
 				fmt.Sprintf("--password=%s", cfg.Passwd),
-				"-h", cfg.Addr,
+				"-h", host,
+				"-P", port,
 				fmt.Sprintf("--database=%s", cfg.DBName),
 			)
 			mysqlCmd.Stdin = mysqlBinlogCmdOut
