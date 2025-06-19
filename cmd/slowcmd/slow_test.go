@@ -1,4 +1,4 @@
-package cmd
+package slowcmd_test
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/liweiyi88/onedump/cmd"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -23,8 +24,8 @@ func TestSlowCmd(t *testing.T) {
 	defer func() { os.Stdout = originalStdout }() // Ensure that os.Stdout is restored after the test
 
 	assert := assert.New(t)
-	cmd := rootCmd
-	cmd.SetArgs([]string{"slow", "-f", "../testutils/slowlogs/short"})
+	cmd := cmd.RootCmd
+	cmd.SetArgs([]string{"slow", "-f", "../../testutils/slowlogs/short"})
 	cmd.Execute()
 
 	w.Close()

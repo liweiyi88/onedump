@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -72,7 +73,7 @@ func IsGzipped(filename string) bool {
 
 // List all files under a directory, support passing a pattern
 // It does not support reading nested files.
-func ListFiles(dir, pattern string) ([]string, error) {
+func ListFiles(dir, pattern, skipExt string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -94,6 +95,11 @@ func ListFiles(dir, pattern string) ([]string, error) {
 			if !matched {
 				continue
 			}
+		}
+
+		// skip the file that has the matching suffix if specified
+		if strings.TrimSpace(skipExt) != "" && strings.HasSuffix(v.Name(), skipExt) {
+			continue
 		}
 
 		files = append(files, filepath.Join(dir, v.Name()))

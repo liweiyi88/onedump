@@ -1,0 +1,16 @@
+services:
+  mysql:
+    build: .
+    image: mysql:8.4
+    container_name: binlog-restore
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "33066:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command: --skip-log-bin
+    restart: "no"
+
+volumes:
+  mysql-data:

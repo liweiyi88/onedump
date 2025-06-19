@@ -57,9 +57,9 @@ func extractNumber(v string) int {
 
 	for _, ch := range v {
 		if unicode.IsNumber(ch) {
-			numStr += string(ch) // Collect digits
+			numStr += string(ch)
 		} else if len(numStr) > 0 {
-			break // Stop at the first non-digit after starting
+			break
 		}
 	}
 

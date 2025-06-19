@@ -1,4 +1,4 @@
-package cmd
+package synccmd_test
 
 import (
 	"bytes"
@@ -7,13 +7,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/liweiyi88/onedump/cmd"
 	"github.com/liweiyi88/onedump/filesync"
 	"github.com/liweiyi88/onedump/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSyncSftpCmd(t *testing.T) {
-	cmd := rootCmd
+	cmd := cmd.RootCmd
 	assert := assert.New(t)
 
 	t.Run("it should return error if we try to sync multiple files but specify a single file as destination", func(t *testing.T) {

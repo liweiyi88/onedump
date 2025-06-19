@@ -159,7 +159,7 @@ func Parse(filePath string, database DatabaseType, options ParseOptions) ParseRe
 		return parseResult
 	}
 
-	files, err := fileutil.ListFiles(filePath, options.Pattern)
+	files, err := fileutil.ListFiles(filePath, options.Pattern, "")
 
 	if err != nil {
 		parseResult.Error = err.Error()

@@ -1,7 +1,7 @@
 package s3
 
 import (
-	"errors"
+	"context"
 	"strings"
 	"testing"
 
@@ -38,8 +38,7 @@ func TestSave(t *testing.T) {
 	reader := strings.NewReader("hello s3")
 	err := s3.Save(reader, storage.PathGenerator(true, true))
 
-	actual := errors.Unwrap(err).Error()
-	assert.True(t, strings.HasPrefix(actual, "InvalidAccessKeyId"))
+	assert.True(t, strings.Contains(err.Error(), "InvalidAccessKeyId"))
 }
 
 func TestGetContent(t *testing.T) {
@@ -51,7 +50,18 @@ func TestGetContent(t *testing.T) {
 		SecretAccessKey: "none",
 	}
 
-	_, err := s3.GetContent()
+	_, err := s3.GetContent(context.Background())
+	assert.True(t, strings.Contains(err.Error(), "InvalidAccessKeyId"))
+}
 
-	assert.True(t, strings.HasPrefix(err.Error(), "InvalidAccessKeyId"))
+func TestCreateClient(t *testing.T) {
+	s3 := NewS3("", "", "ap-southeast-2", "", "", "")
+	assert.NotPanics(t, func() {
+		s3.createClient()
+	})
+
+	s3 = NewS3("", "", "ap-southeast-2", "accessKey", "", "")
+	assert.NotPanics(t, func() {
+		s3.createClient()
+	})
 }

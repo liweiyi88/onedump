@@ -1,2 +1,3 @@
 .onedump
 *.DS_Store
+testutils/docker/mysql_backup*

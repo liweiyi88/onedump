@@ -1,4 +1,4 @@
-package cmd
+package synccmd
 
 import (
 	"errors"
@@ -13,6 +13,35 @@ import (
 	"github.com/liweiyi88/onedump/storage/sftp"
 	"github.com/spf13/cobra"
 )
+
+var (
+	source, destination, pattern, checksumFile string
+	sftpHost, sftpUser, sftpKey                string
+	sftpMaxAttempts                            int
+	attach, verbose, checksum                  bool
+)
+
+func init() {
+	SyncSftpCmd.Flags().StringVarP(&source, "source", "s", "", "the source file path to be transferred to the destination, supports folder as well (required)")
+	SyncSftpCmd.Flags().StringVarP(&destination, "destination", "d", "", "the destination file path that we want to write to, supports folder as well (required)")
+	SyncSftpCmd.Flags().BoolVar(&attach, "append", false, "if true, re-run the command will try to append content to file instead of creating a new file. (optional)")
+	SyncSftpCmd.Flags().StringVar(&sftpHost, "ssh-host", "", "the remote SSH host (required)")
+	SyncSftpCmd.Flags().StringVar(&sftpUser, "ssh-user", "", "the remote SSH user (required)")
+	// Pass encoded private key content via base64. e.g. MacOS: base64 < ~/.ssh/id_rsa
+	// Or just pass the private key filename.
+	SyncSftpCmd.Flags().StringVar(&sftpKey, "ssh-key", "", "the base64 encoded ssh private key content or the ssh private key file path or the raw private content (required)")
+	SyncSftpCmd.Flags().IntVar(&sftpMaxAttempts, "max-attempts", 0, "the maximum number of retries if an error is encountered; by default, retries are unlimited (optional)")
+	SyncSftpCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
+	SyncSftpCmd.Flags().BoolVar(&checksum, "checksum", false, "whether to save the checksum to avoid repeating file transfers, default false (optional)")
+	SyncSftpCmd.Flags().StringVar(&checksumFile, "checksum-file", "", "save checksum results in a specific file if --checksum=true, default: /path/to/sync/folder/checksum.onedump (optional)")
+	SyncSftpCmd.Flags().StringVarP(&pattern, "pattern", "p", "", "only read files that follow the same pattern, for example binlog.* (optional)")
+
+	SyncSftpCmd.MarkFlagRequired("source")
+	SyncSftpCmd.MarkFlagRequired("destination")
+	SyncSftpCmd.MarkFlagRequired("ssh-host")
+	SyncSftpCmd.MarkFlagRequired("ssh-user")
+	SyncSftpCmd.MarkFlagRequired("ssh-key")
+}
 
 func syncFiles(sources []string, destination string, checksum bool, checksumFile string, isDestinationDir bool, config *sftp.SftpConifg) error {
 	errCh := make(chan error, len(sources))
@@ -88,8 +117,8 @@ func syncFile(source, destination string, checksum bool, checksumFile string, is
 	return fs.SyncFile(source, syncFunc)
 }
 
-var syncSftpCmd = &cobra.Command{
-	Use:   "sync sftp",
+var SyncSftpCmd = &cobra.Command{
+	Use:   "sftp",
 	Short: "Resumable and concurrent SFTP files transfer.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if verbose {
@@ -122,7 +151,7 @@ var syncSftpCmd = &cobra.Command{
 		}
 
 		if sourceInfo.IsDir() {
-			files, err := fileutil.ListFiles(source, pattern)
+			files, err := fileutil.ListFiles(source, pattern, "")
 			if err != nil {
 				return fmt.Errorf("fail to list all files for source dir, error: %v", err)
 			}
