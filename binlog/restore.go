@@ -113,7 +113,7 @@ func WithDatabaseDSN(dsn string) binlogRestoreOption {
 	}
 }
 
-func (b *BinlogRestorer) EnsureMySQLCommandPaths() error {
+func (b *BinlogRestorer) ensureMySQLCommandPaths() error {
 	if _, err := exec.LookPath(b.mysqlbinlogPath); err != nil {
 		return fmt.Errorf("%s command is required but not found: %v", "mysqlbinlog", err)
 	}
@@ -288,6 +288,10 @@ func (b *BinlogRestorer) createRestoreCommandArgs(plan *binlogRestorePlan) []str
 
 // Use mysqlbinlog to restore data -> if --dry-run just output the content, otherwise pipe it with mysql
 func (b *BinlogRestorer) Restore() error {
+	if err := b.ensureMySQLCommandPaths(); err != nil {
+		return err
+	}
+
 	plan, err := b.createBinlogRestorePlan()
 	if err != nil {
 		return fmt.Errorf("fail to create binlog restore plan, error: %v", err)
@@ -319,7 +323,13 @@ func (b *BinlogRestorer) Restore() error {
 				return fmt.Errorf("fail to parse database dsn: %s, error: %v", b.dsn, err)
 			}
 
-			mysqlCmd := exec.Command(b.mysqlPath, "-u", cfg.User, fmt.Sprintf("--password=%s", cfg.Passwd))
+			mysqlCmd := exec.Command(
+				b.mysqlPath,
+				"-u", cfg.User,
+				fmt.Sprintf("--password=%s", cfg.Passwd),
+				"-h", cfg.Addr,
+				fmt.Sprintf("--database=%s", cfg.DBName),
+			)
 			mysqlCmd.Stdin = mysqlBinlogCmdOut
 			mysqlCmd.Stdout = os.Stdout
 			mysqlCmd.Stderr = os.Stderr

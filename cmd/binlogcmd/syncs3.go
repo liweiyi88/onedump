@@ -1,7 +1,6 @@
 package binlogcmd
 
 import (
-	"database/sql"
 	"fmt"
 	"log/slog"
 
@@ -56,7 +55,7 @@ It requires the following environment variables:
 			slog.SetLogLoggerLevel(slog.LevelDebug)
 		}
 
-		db, err := sql.Open("mysql", envs.DatabaseDSN)
+		db, err := OpenDB(envs.DatabaseDSN)
 		if err != nil {
 			return fmt.Errorf("fail to open database, error: %v", err)
 		}

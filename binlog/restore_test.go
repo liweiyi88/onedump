@@ -362,18 +362,18 @@ func TestEnsureMySQLCommandPaths(t *testing.T) {
 	assert := assert.New(t)
 	restorer := NewBinlogRestorer("", "", 0, WithMySQLBinlogPath("notfound"))
 
-	err := restorer.EnsureMySQLCommandPaths()
+	err := restorer.ensureMySQLCommandPaths()
 	assert.Error(err)
 
 	mysqlbinlogPath, mysqlPath, err := getTestMySQLCliPaths()
 	assert.NoError(err)
 
 	restorer = NewBinlogRestorer("", "", 0, WithMySQLBinlogPath(mysqlbinlogPath), WithMySQLPath("notfound"))
-	err = restorer.EnsureMySQLCommandPaths()
+	err = restorer.ensureMySQLCommandPaths()
 	assert.Error(err)
 
 	restorer = NewBinlogRestorer("", "", 0, WithMySQLBinlogPath(mysqlbinlogPath), WithMySQLPath(mysqlPath))
-	err = restorer.EnsureMySQLCommandPaths()
+	err = restorer.ensureMySQLCommandPaths()
 	assert.NoError(err)
 }
 

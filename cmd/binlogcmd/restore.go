@@ -2,7 +2,6 @@ package binlogcmd
 
 import (
 	"compress/gzip"
-	"database/sql"
 	"fmt"
 	"io"
 	"log/slog"
@@ -19,10 +18,6 @@ var (
 	dir, mysqlbinlogPath, stopDateTime, startBinlog, dumpFilePath string
 	startPosition                                                 int
 )
-
-var OpenDB = func(dsn string) (*sql.DB, error) {
-	return sql.Open("mysql", dsn)
-}
 
 func init() {
 	BinlogRestoreCmd.Flags().StringVarP(&dir, "dir", "d", "", "A directory that saves binlog files temporally (required)")
@@ -89,10 +84,6 @@ It requires the following environment variables:
 			binlog.WithStopDateTime(stopDateTime),
 			binlog.WithDatabaseDSN(envs.DatabaseDSN),
 		)
-
-		if err := binlogRestorer.EnsureMySQLCommandPaths(); err != nil {
-			return err
-		}
 
 		return binlogRestorer.Restore()
 	},

@@ -1,11 +1,19 @@
 package binlogcmd
 
-import "github.com/spf13/cobra"
+import (
+	"database/sql"
+
+	"github.com/spf13/cobra"
+)
 
 var (
 	s3Bucket, s3Prefix string
 	dryRun, verbose    bool
 )
+
+var OpenDB = func(dsn string) (*sql.DB, error) {
+	return sql.Open("mysql", dsn)
+}
 
 func init() {
 	BinlogCmd.AddCommand(BinlogSyncS3Cmd)

@@ -37,15 +37,22 @@ type S3 struct {
 	AccessKeyId     string `yaml:"access-key-id"`
 	SecretAccessKey string `yaml:"secret-access-key"`
 	SessionToken    string `yaml:"session-token"`
-	client          *s3Client.Client
 }
 
 func (s3 *S3) createClient() *s3Client.Client {
-	cfg, err := config.LoadDefaultConfig(context.Background(),
-		config.WithRegion(s3.Region),
-		config.WithCredentialsProvider(
-			credentials.NewStaticCredentialsProvider(s3.AccessKeyId, s3.SecretAccessKey, s3.SessionToken),
-		))
+	var cfg aws.Config
+	var err error
+
+	ctx := context.Background()
+	if s3.AccessKeyId != "" {
+		cfg, err = config.LoadDefaultConfig(ctx,
+			config.WithRegion(s3.Region),
+			config.WithCredentialsProvider(
+				credentials.NewStaticCredentialsProvider(s3.AccessKeyId, s3.SecretAccessKey, s3.SessionToken),
+			))
+	} else {
+		cfg, err = config.LoadDefaultConfig(ctx, config.WithRegion(s3.Region))
+	}
 
 	if err != nil {
 		panic(fmt.Sprintf("[s3] failed to load config, %v", err))
@@ -56,7 +63,7 @@ func (s3 *S3) createClient() *s3Client.Client {
 
 // Download a S3 object content to a local file using streaming
 func (s3 *S3) downloadObjectToDir(ctx context.Context, prefix, key, dir string) error {
-	client := s3.getClient()
+	client := s3.createClient()
 
 	slog.Debug("[s3] downloading content...", slog.Any("key", key))
 
@@ -100,24 +107,8 @@ func (s3 *S3) downloadObjectToDir(ctx context.Context, prefix, key, dir string) 
 	return err
 }
 
-func (s3 *S3) getClient() *s3Client.Client {
-	if s3.client == nil {
-		s3.client = s3.createClient()
-		return s3.client
-	}
-
-	credentials, err := s3.client.Options().Credentials.Retrieve(context.Background())
-
-	if err != nil || credentials.Expired() {
-		s3.client = s3.createClient()
-		return s3.client
-	}
-
-	return s3.client
-}
-
 func (s3 *S3) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) error {
-	uploader := manager.NewUploader(s3.getClient())
+	uploader := manager.NewUploader(s3.createClient())
 
 	key := pathGenerator(s3.Key)
 
@@ -139,7 +130,7 @@ func (s3 *S3) Save(reader io.Reader, pathGenerator storage.PathGeneratorFunc) er
 }
 
 func (s3 *S3) DownloadObjects(ctx context.Context, prefix, dir string) error {
-	client := s3.getClient()
+	client := s3.createClient()
 
 	paginator := s3Client.NewListObjectsV2Paginator(client, &s3Client.ListObjectsV2Input{
 		Bucket: aws.String(s3.Bucket),
@@ -174,7 +165,7 @@ func (s3 *S3) DownloadObjects(ctx context.Context, prefix, dir string) error {
 
 // Read full S3 object content into memory
 func (s3 *S3) GetContent(ctx context.Context) ([]byte, error) {
-	client := s3.getClient()
+	client := s3.createClient()
 
 	result, err := client.GetObject(ctx, &s3Client.GetObjectInput{
 		Bucket: &s3.Bucket,

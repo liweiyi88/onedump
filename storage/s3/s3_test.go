@@ -53,3 +53,15 @@ func TestGetContent(t *testing.T) {
 	_, err := s3.GetContent(context.Background())
 	assert.True(t, strings.Contains(err.Error(), "InvalidAccessKeyId"))
 }
+
+func TestCreateClient(t *testing.T) {
+	s3 := NewS3("", "", "ap-southeast-2", "", "", "")
+	assert.NotPanics(t, func() {
+		s3.createClient()
+	})
+
+	s3 = NewS3("", "", "ap-southeast-2", "accessKey", "", "")
+	assert.NotPanics(t, func() {
+		s3.createClient()
+	})
+}
