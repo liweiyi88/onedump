@@ -15,13 +15,14 @@ import (
 )
 
 var (
-	dir, mysqlbinlogPath, stopDateTime, startBinlog, dumpFilePath string
-	startPosition                                                 int
+	dir, mysqlbinlogPath, mysqlPath, stopDateTime, startBinlog, dumpFilePath string
+	startPosition                                                            int
 )
 
 func init() {
 	BinlogRestoreCmd.Flags().StringVarP(&dir, "dir", "d", "", "A directory that saves binlog files temporally (required)")
 	BinlogRestoreCmd.Flags().StringVar(&mysqlbinlogPath, "mysqlbinlog-path", "mysqlbinlog", "Set the mysqlbinlog command path, default: mysqlbinlog (optional)")
+	BinlogRestoreCmd.Flags().StringVar(&mysqlPath, "mysql-path", "mysql", "Set the mysql command path, default: mysql (optional)")
 	BinlogRestoreCmd.Flags().StringVar(&stopDateTime, "stop-datetime", "", "Set the stop datetime for point-in-time recovery. Defaults to the current time. (optional)")
 	BinlogRestoreCmd.Flags().StringVar(&startBinlog, "start-binlog", "", "Binlog file to start recovery from (optional if --dump-file is provided)")
 	BinlogRestoreCmd.Flags().IntVar(&startPosition, "start-position", 0, "Position in the binlog file to begin recovery (optional if --dump-file is provided)")
@@ -80,6 +81,7 @@ It requires the following environment variables:
 			startBinlog,
 			startPosition,
 			binlog.WithMySQLBinlogPath(mysqlbinlogPath),
+			binlog.WithMySQLPath(mysqlPath),
 			binlog.WithDryRun(dryRun),
 			binlog.WithStopDateTime(stopDateTime),
 			binlog.WithDatabaseDSN(envs.DatabaseDSN),

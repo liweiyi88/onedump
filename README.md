@@ -16,6 +16,7 @@ Onedump is a database administration tool that exports data from multiple source
 * MySQL dump with zero dependencies (with built-in mysql native dumper). 
 * Supports dumpers with dependencies (`mysqldump` and `pg_dump`).
 * MySQL binlog backup to AWS S3.
+* MySQL restore from binlogs.
 * MySQL slow log parser.
 * Resumable and concurrent SFTP file transfers.
 * Loads configuration from S3 bucket.
@@ -33,6 +34,7 @@ Onedump is a database administration tool that exports data from multiple source
 * [The native MySQL dumper](#the-native-mysql-dumper) 
 * [The slow log parser](#the-slow-log-parser)
 * [MySQL binlog backup to AWS S3](#mysql-binlog-backup-to-aws-s3)
+* [MySQL binlog restore](#mysql-binlog-restore)
 * [Resumable and concurrent SFTP file transfers](#resumable-and-concurrent-sftp-file-transfers)
 * [Contribution](#contribution)
 
@@ -308,6 +310,12 @@ $onedump slow -f /path/to/file -m="true"
 The `binlog sync-s3` command enables you to back up MySQL binary log (binlog) files to an AWS S3 bucket. This is particularly useful for achieving point-in-time recovery.
 
 Refer to the [documentation](./docs/binlog/sync-s3.md) for detailed usage.
+
+## MySQL binlog restore
+The `binlog restore` command can be used as part of the point-in-time recovery process. It replays events from the binlogs and restores the data to a specified point in time.
+
+Refer to the [documentation](./docs/binlog/restore.md) for detailed usage.
+
 
 ## Resumable and concurrent SFTP file transfers
 
