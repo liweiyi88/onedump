@@ -9,7 +9,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/liweiyi88/onedump)](https://goreportcard.com/report/github.com/liweiyi88/onedump)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/liweiyi88/onedump/blob/main/LICENSE.md)
 
-Onedump is a database administration tool that exports data from multiple source databases to various storage destinations using a simple configuration file. It also provides CLI commands with flexible file synchronization strategies for efficient data transfers.
+Onedump is a database administration tool that streamlines backup and restore tasks across multiple databases and storage destinations.
 
 ## Features
 * Database backup from different sources to different destinations.
