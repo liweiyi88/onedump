@@ -2,7 +2,7 @@
 
 The `binlog sync-s3` command allows you to store your MySQL binlog files in an AWS S3 bucket. Binlog backups are useful when you need point-in-time recovery.
 
-### Usages
+### Usage
 
 Before running the command, you need to export the following environment variables:
 
@@ -27,7 +27,7 @@ onedump binlog sync-s3 --s3-bucket="your-bucket" --s3-prefix="binlogs"
 onedump binlog sync-s3 --s3-bucket="your-bucket" --s3-prefix="binlogs" --checksum=true
 ```
 
-### Save sync results in a log
+#### Save sync results in a log
 
 The sync result log file is named `onedump-binlog-sync.log` and will be saved in the same directory as the binlogs.
 
@@ -42,4 +42,4 @@ onedump binlog sync-s3 --s3-bucket="your-bucket" --s3-prefix="binlogs" --save-lo
 ```
 
 #### View all available options
-Run `onedump binlog sync-s3 --help` see all available options.
+Run `onedump binlog sync-s3 --help` to see all available options.

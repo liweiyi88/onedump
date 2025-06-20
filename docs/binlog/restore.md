@@ -43,3 +43,6 @@ If you want to pipe the result to a running MySQL container
 onedump binlog restore --dir="/path/to/binlogs" --dump-file="path/to/dump-file.sql" | docker exec -i <mysql-container-name> mysql -u<user> -p<password>
 ```
 
+#### View all available options
+Run `onedump binlog restore --help` to see all available options.
+
