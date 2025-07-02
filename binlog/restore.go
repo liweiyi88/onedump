@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,7 +20,6 @@ import (
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/go-sql-driver/mysql"
 	"github.com/liweiyi88/onedump/fileutil"
-	"github.com/liweiyi88/onedump/sliceutil"
 )
 
 const (
@@ -270,8 +270,8 @@ func (b *BinlogRestorer) createRestoreCommandArgs(plan *binlogRestorePlan) []str
 	middleBinlogs := plan.binlogs[1 : len(plan.binlogs)-1]
 
 	if len(middleBinlogs) > 0 {
-		chunkBinlogs := sliceutil.Chunk(middleBinlogs, MaxBinlogsPerExecution)
-		for _, binlogs := range chunkBinlogs {
+		chunkBinlogs := slices.Chunk(middleBinlogs, MaxBinlogsPerExecution)
+		for binlogs := range chunkBinlogs {
 			command := strings.Join(binlogs, " ")
 			args = append(args, command)
 		}
