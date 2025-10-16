@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,7 +22,8 @@ import (
 	"github.com/liweiyi88/onedump/storage/s3"
 )
 
-var file, s3Bucket, s3Prefix, s3Region, s3AccessKeyId, s3SecretAccessKey, s3SessionToken, cron string
+var file, s3Bucket, s3Region, s3AccessKeyId, s3SecretAccessKey, s3SessionToken, cron string
+var verbose bool
 
 var RootCmd = &cobra.Command{
 	Use:   "onedump",
@@ -36,12 +38,19 @@ var RootCmd = &cobra.Command{
 			stop()
 		}()
 
+		if verbose {
+			slog.SetLogLoggerLevel(slog.LevelDebug)
+		}
+
 		content, err := getConfigContent()
 		if err != nil {
 			return fmt.Errorf("failed to read job file from %s, error: %v", file, err)
 		}
 
-		var oneDump config.Dump
+		oneDump := config.Dump{
+			MaxJobs: config.DefaultMaxConcurrentJobs,
+		}
+
 		err = yaml.Unmarshal(content, &oneDump)
 		if err != nil {
 			return fmt.Errorf("failed to read job content from %s, error: %v", file, err)
@@ -118,6 +127,7 @@ func init() {
 	RootCmd.Flags().StringVarP(&s3AccessKeyId, "aws-key", "k", "", "aws access key id to overwrite the default one. (optional)")
 	RootCmd.Flags().StringVarP(&s3SecretAccessKey, "aws-secret", "s", "", "aws secret access key to overwrite the default one. (optional)")
 	RootCmd.Flags().StringVarP(&s3SessionToken, "aws-session-token", "t", "", "specify the aws session token if you use a temporary credentials. (optional)")
+	RootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
 
 	RootCmd.AddCommand(slowcmd.SlowCmd)
 	RootCmd.AddCommand(synccmd.SyncCmd)

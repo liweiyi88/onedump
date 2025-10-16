@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/liweiyi88/onedump/notifier/slack"
@@ -12,6 +13,10 @@ import (
 	"github.com/liweiyi88/onedump/storage/sftp"
 )
 
+const (
+	DefaultMaxConcurrentJobs = 10
+)
+
 var (
 	ErrMissingJobName  = errors.New("job name is required")
 	ErrMissingDBDsn    = errors.New("databse dsn is required")
@@ -19,6 +24,7 @@ var (
 )
 
 type Dump struct {
+	MaxJobs  int `yaml:"maxjobs"`
 	Notifier struct {
 		Slack []*slack.Slack `yaml:"slack"`
 	} `yaml:"notifier"`
@@ -27,6 +33,10 @@ type Dump struct {
 
 func (dump *Dump) Validate() error {
 	var errs error
+
+	if dump.MaxJobs <= 0 {
+		return fmt.Errorf("max jobs should greater than 0, got %d", dump.MaxJobs)
+	}
 
 	for _, job := range dump.Jobs {
 		err := job.validate()
