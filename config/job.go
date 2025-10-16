@@ -35,7 +35,7 @@ func (dump *Dump) Validate() error {
 	var errs error
 
 	if dump.MaxJobs <= 0 {
-		return fmt.Errorf("max jobs should greater than 0, got %d", dump.MaxJobs)
+		return fmt.Errorf("max jobs should be greater than 0, got %d", dump.MaxJobs)
 	}
 
 	for _, job := range dump.Jobs {

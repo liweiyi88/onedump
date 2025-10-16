@@ -93,7 +93,7 @@ jobs:
 	cmd.SetArgs([]string{"-f", filename, "-c", "1s"})
 	err = cmd.Execute()
 	assert.Error(err)
-	assert.Equal("invalid job configuration, error: max jobs should greater than 0, got 0", err.Error())
+	assert.Equal("invalid job configuration, error: max jobs should be greater than 0, got 0", err.Error())
 }
 
 func TestRootCmd(t *testing.T) {
