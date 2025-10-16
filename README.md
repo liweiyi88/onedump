@@ -176,6 +176,17 @@ jobs:
         secret-access-key: awssecret
         session-token: <session-token> # optional, specify the value if you assume a role.
 ```
+#### Controlling the maximum number of concurrent jobs
+
+You can control how many jobs run concurrently by setting the `maxjobs` option (10 jobs by default) in your configuration file. For example:
+
+```
+maxjobs: 20
+jobs:
+- name: local-dump
+  dbdriver: mysql
+  ...
+```
 
 #### Slack notification
 

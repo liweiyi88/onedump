@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"reflect"
 	"sync"
 
@@ -30,11 +31,19 @@ func (d *DumpHandler) Do() error {
 	var wg sync.WaitGroup
 
 	results := make([]*jobresult.JobResult, 0, len(d.Dump.Jobs))
+	limiter := make(chan struct{}, d.Dump.MaxJobs)
 
 	for _, job := range d.Dump.Jobs {
 		wg.Add(1)
+		limiter <- struct{}{}
+
 		go func(job *config.Job) {
-			defer wg.Done()
+			defer func() {
+				<-limiter
+				wg.Done()
+			}()
+
+			slog.Debug("start to process job", slog.String("job", job.Name))
 
 			jobHandler := NewJobHandler(job)
 			result := jobHandler.Do()

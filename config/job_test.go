@@ -47,7 +47,7 @@ func TestValidateDump(t *testing.T) {
 	)
 	jobs = append(jobs, job1)
 
-	dump := Dump{Jobs: jobs}
+	dump := Dump{MaxJobs: DefaultMaxConcurrentJobs, Jobs: jobs}
 
 	err := dump.Validate()
 	assert.Nil(err)

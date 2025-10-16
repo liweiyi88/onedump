@@ -1,6 +1,10 @@
 # Configuration reference
 ## All configurable items
 ```
+maxjobs: 20 #max number of concurrent jobs, optional, 10 by default
+notifier:
+    slack:
+      - incomingwebhook: https://hooks.slack.com/services/A0B8A11N4N/...
 jobs:
 - name: local-dump
   dbdriver: postgresql

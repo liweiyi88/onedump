@@ -24,7 +24,9 @@ func TestRootCmdWithCron(t *testing.T) {
 	defer os.Remove(filename)
 	file.Close()
 
-	config := `jobs:
+	config := `
+maxjobs: 20	
+jobs:
 - name: local-dump
   dbdriver: mysql
   dbdsn: root@tcp(127.0.0.1)/unknow
@@ -45,12 +47,53 @@ func TestRootCmdWithCron(t *testing.T) {
 	cmd.SetOut(o)
 	cmd.SetArgs([]string{"-f", filename, "-c", "1s"})
 	err = cmd.Execute()
-	assert.NotNil(err)
+	assert.Error(err)
 
 	cmd.SetArgs([]string{"-f", filename, "-c", "10s"})
 	err = cmd.Execute()
 
-	assert.NotNil(err)
+	assert.Error(err)
+}
+
+func TestRootCmdWithInvalidMaxJob(t *testing.T) {
+	assert := assert.New(t)
+	cmd := RootCmd
+
+	workDir, _ := os.Getwd()
+	filename := workDir + "/test.sql"
+	file, err := os.Create(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.Remove(filename)
+	file.Close()
+
+	config := `
+maxjobs: 0	
+jobs:
+- name: local-dump
+  dbdriver: mysql
+  dbdsn: root@tcp(127.0.0.1)/unknow
+  gzip: true
+  storage:
+    local:
+    - path: /Users/julianli/Desktop/test-local.sql
+`
+
+	newFd, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, os.ModePerm)
+	assert.Nil(err)
+
+	err = os.WriteFile(filename, []byte(config), 0644)
+	assert.Nil(err)
+
+	newFd.Close()
+	o := bytes.NewBufferString("")
+	cmd.SetOut(o)
+	cmd.SetArgs([]string{"-f", filename, "-c", "1s"})
+	err = cmd.Execute()
+	assert.Error(err)
+	assert.Equal("invalid job configuration, error: max jobs should be greater than 0, got 0", err.Error())
 }
 
 func TestRootCmd(t *testing.T) {
@@ -62,6 +105,7 @@ func TestRootCmd(t *testing.T) {
 		b := bytes.NewBufferString("")
 		cmd.SetErr(b)
 		err := cmd.Execute()
+		assert.NotNil(err)
 
 		out, err := io.ReadAll(b)
 		if err != nil {
