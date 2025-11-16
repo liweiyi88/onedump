@@ -168,7 +168,17 @@ func (m *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string) err
 				typeName := columnTypes[colIndex].DatabaseTypeName()
 
 				switch typeName {
-				case "TINYINT", "SMALLINT", "MEDIUMINT", "INT", "INTEGER", "BIGINT", "UNSIGNED BIGINT", "UNSIGNED INT":
+				case "TINYINT",
+					"SMALLINT",
+					"MEDIUMINT",
+					"INT",
+					"INTEGER",
+					"BIGINT",
+					"UNSIGNED TINYINT",
+					"UNSIGNED SMALLINT",
+					"UNSIGNED MEDIUMINT",
+					"UNSIGNED INT",
+					"UNSIGNED BIGINT":
 					if v, ok := value.([]byte); ok {
 						sb.WriteString(string(v))
 					} else {
