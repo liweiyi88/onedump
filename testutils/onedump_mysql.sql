@@ -42,6 +42,7 @@ CREATE TABLE `onedump` (
   `mediumint` mediumint DEFAULT NULL,
   `int` int DEFAULT NULL,
   `bigint` bigint DEFAULT NULL,
+  `unsigned_bigint` bigint UNSIGNED DEFAULT NULL,
   `float` float DEFAULT NULL,
   `double` double(10,2) DEFAULT NULL,
   `double_precision` double DEFAULT NULL,

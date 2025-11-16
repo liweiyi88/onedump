@@ -88,15 +88,16 @@ func TestWriteTableContentOK(t *testing.T) {
 	assert.NotNil(err)
 
 	rows := mock.
-		NewRows([]string{"null", "tinyint", "tinyint_bytes", "float", "float_bytes", "decimal", "date", "datetime", "timestamp", "time", "year", "char", "binary", "varbinary", "bit", "tinyblob", "bool", "bool", "json"}).
-		AddRow(nil, 1, []byte("1"), 1.1, []byte("1.2"), 1.2, []uint8{50, 48, 50, 52, 45, 48, 54, 45, 49, 55}, []byte("2024-08-09 00:00:00"), []byte("1723161093"), []byte("00:00:00"), 2024, "char", []uint8{1}, "1", []uint8{1}, "tinyblob", true, false, []uint8{1}).
-		AddRow(nil, 1, []byte("1"), 1.1, []byte("1.2"), 1.2, []uint8{50, 48, 50, 52, 45, 48, 54, 45, 49, 55}, []byte("2024-08-09 00:00:00"), []byte("1723161093"), []byte("00:00:00"), 2024, "char", []uint8{1}, "1", []uint8{1}, "tinyblob", true, false, []uint8{1})
+		NewRows([]string{"null", "unsigned_bigint", "tinyint", "tinyint_bytes", "float", "float_bytes", "decimal", "date", "datetime", "timestamp", "time", "year", "char", "binary", "varbinary", "bit", "tinyblob", "bool", "bool", "json"}).
+		AddRow(nil, 1, 1, []byte("1"), 1.1, []byte("1.2"), 1.2, []uint8{50, 48, 50, 52, 45, 48, 54, 45, 49, 55}, []byte("2024-08-09 00:00:00"), []byte("1723161093"), []byte("00:00:00"), 2024, "char", []uint8{1}, "1", []uint8{1}, "tinyblob", true, false, []uint8{1}).
+		AddRow(nil, 1, 1, []byte("1"), 1.1, []byte("1.2"), 1.2, []uint8{50, 48, 50, 52, 45, 48, 54, 45, 49, 55}, []byte("2024-08-09 00:00:00"), []byte("1723161093"), []byte("00:00:00"), 2024, "char", []uint8{1}, "1", []uint8{1}, "tinyblob", true, false, []uint8{1})
 
 	val := reflect.ValueOf(rows).Elem()
 	field := val.FieldByName("def")
 
 	newColumns := []*sqlmock.Column{
 		sqlmock.NewColumn("new").OfType("NULL", nil),
+		sqlmock.NewColumn("new").OfType("UNSIGNED BIGINT", []uint8{1}),
 		sqlmock.NewColumn("new").OfType("TINYINT", 1),
 		sqlmock.NewColumn("new").OfType("TINYINT", 1),
 		sqlmock.NewColumn("new").OfType("FLOAT", 1.1),
