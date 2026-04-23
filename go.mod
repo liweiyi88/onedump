@@ -15,7 +15,7 @@ require (
 	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213
 	github.com/schollz/progressbar/v3 v3.18.0
 	github.com/spf13/cobra v1.9.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
 	google.golang.org/api v0.235.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -84,7 +84,7 @@ require (
 
 require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jackc/pgx/v5 v5.7.5
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/pkg/sftp v1.13.9
 	github.com/spf13/pflag v1.0.6 // indirect
 	golang.org/x/crypto v0.45.0
