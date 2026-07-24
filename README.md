@@ -2,6 +2,8 @@
 <img src="docs/logo.png" alt="Onedump" title="Onedump" />
 </p>
 
+[English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
+
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 [![GoDoc](https://godoc.org/github.com/liweiyi88/onedump?status.svg)](https://godoc.org/github.com/liweiyi88/onedump)
 ![tests](https://github.com/liweiyi88/onedump/actions/workflows/tests.yaml/badge.svg)
@@ -308,7 +310,7 @@ For example
 $onedump slow -f /path/to/file/slow.log
 
 // parse a folder
-$onedump slow -f /path/to/folder 
+$onedump slow -f /path/to/folder
 
 // Parse a folder or file by searching for filenames that match the pattern
 $onedump slow -f /path/to/folder-or-file -p="*slow.log"
