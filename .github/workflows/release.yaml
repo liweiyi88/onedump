@@ -1,36 +1,33 @@
 name: goreleaser
-
 on:
   push:
     tags:
       - '*'
-
 permissions:
   contents: write
   packages: write
   issues: write
-
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3 [pinned by action-pin]
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4 [pinned by action-pin]
         with:
           fetch-depth: 0
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3 [pinned by action-pin]
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3 [pinned by action-pin]
       - run: git fetch --force --tags
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5 [pinned by action-pin]
         with:
           go-version: '^1.24.0'
           cache: true
-      - uses: goreleaser/goreleaser-action@v4
-        with:         
+      - uses: goreleaser/goreleaser-action@5fdedb94abba051217030cc86d4523cf3f02243d # v4 [pinned by action-pin]
+        with:
           distribution: goreleaser
           version: latest
           args: release --clean

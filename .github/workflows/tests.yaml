@@ -1,10 +1,9 @@
 name: tests
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
-
+    branches: [main]
   workflow_dispatch:
 jobs:
   test:
@@ -14,16 +13,15 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: ikalnytskyi/action-setup-postgres@v4
-      - uses: actions/setup-go@v3
+      - uses: ikalnytskyi/action-setup-postgres@fd37e265ec6a48981d62fa415f1fafd03bfd261c # v4 [pinned by action-pin]
+      - uses: actions/setup-go@be3c94b385c4f180051c996d336f57a34c397495 # v3 [pinned by action-pin]
         with:
           go-version: ${{ matrix.go-version }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3 [pinned by action-pin]
       - run: |
           go test -v -cover ./... -coverprofile coverage.out -coverpkg ./...
-
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@ab904c41d6ece82784817410c45d8b8c02684457 # v3 [pinned by action-pin]
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         if: ${{ runner.os == 'Linux' }}
