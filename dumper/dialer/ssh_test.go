@@ -58,5 +58,6 @@ func TestParseSSHKey(t *testing.T) {
 
 	base64Encoded := base64.StdEncoding.EncodeToString([]byte{'f'})
 	key, err := parseSSHKey(base64Encoded)
+	assert.NoError(err)
 	assert.Equal("f", string(key))
 }

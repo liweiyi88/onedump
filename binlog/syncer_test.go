@@ -69,8 +69,8 @@ func TestBinlogSyncerSyncFile(t *testing.T) {
 				require.NoError(t, err)
 				_, err = f.WriteString("test data")
 				require.NoError(t, err)
-				f.Close()
-				defer os.Remove(tt.filename)
+				require.NoError(t, f.Close())
+				defer func() { assert.NoError(t, os.Remove(tt.filename)) }()
 			}
 
 			mockStorage := new(MockStorage)
@@ -188,7 +188,7 @@ func TestBinlogSyncerSync(t *testing.T) {
 			// Setup test files
 			dir, err := tt.setupFiles()
 			require.NoError(t, err)
-			defer os.RemoveAll(dir)
+			defer func() { assert.NoError(t, os.RemoveAll(dir)) }()
 
 			// List files to know how many mocks we need
 			files, err := fileutil.ListFiles(dir, "binlog*", "")

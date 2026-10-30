@@ -56,7 +56,7 @@ func TestMySQLParseWithExtraMetrics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
+	defer func() { assert.NoError(t, file.Close()) }()
 
 	results, err := parser.parse(file)
 	if err != nil {
@@ -91,7 +91,7 @@ func TestMySQLParse(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer file.Close()
+	defer func() { assert.NoError(t, file.Close()) }()
 
 	_, err = parser.parse(file)
 
@@ -135,7 +135,7 @@ func testDeduplication(t *testing.T, mask bool, expectedQuery string) {
 	if err != nil {
 		t.Fatalf("Failed to open test file: %v", err)
 	}
-	defer file.Close()
+	defer func() { assert.NoError(t, file.Close()) }()
 
 	results, err := parser.parse(file)
 	if err != nil {
@@ -176,7 +176,7 @@ func TestParseInvalidContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer file.Close()
+	defer func() { assert.NoError(t, file.Close()) }()
 
 	_, err = parser.parse(file)
 

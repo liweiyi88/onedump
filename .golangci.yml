@@ -1,0 +1,11 @@
+version: "2"
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  # 0 reports every finding; the defaults (50 per linter, 3 of the same) hide
+  # the rest, so a clean run would not mean a clean tree.
+  max-issues-per-linter: 0
+  max-same-issues: 0

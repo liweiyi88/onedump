@@ -22,7 +22,8 @@ func splitServerVersion(version string) *mysqlVersion {
 	var major, minor, patch int
 
 	for i, v := range parts {
-		if i == 0 {
+		switch i {
+		case 0:
 			n, err := strconv.Atoi(v)
 			if err != nil {
 				slog.Info("failed to parse major version number", slog.String("version", version), slog.Any("error", err))
@@ -30,7 +31,7 @@ func splitServerVersion(version string) *mysqlVersion {
 			}
 
 			major = n
-		} else if i == 1 {
+		case 1:
 			n, err := strconv.Atoi(v)
 
 			// if minor version string is not a number, then we try to extract number and ignore the patch part.
@@ -44,7 +45,7 @@ func splitServerVersion(version string) *mysqlVersion {
 			}
 
 			minor = n
-		} else if i == 2 {
+		case 2:
 			patch = extractNumber(v)
 		}
 	}

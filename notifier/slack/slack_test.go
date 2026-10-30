@@ -15,12 +15,14 @@ import (
 func TestNotify(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "done")
+		_, err := fmt.Fprintln(w, "done")
+		assert.NoError(t, err)
 	})
 
 	mux.HandleFunc("/failed", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "done")
+		_, err := fmt.Fprintln(w, "done")
+		assert.NoError(t, err)
 	})
 
 	svr := httptest.NewServer(mux)

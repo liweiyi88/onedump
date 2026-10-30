@@ -35,11 +35,13 @@ func TestGetAccessToken(t *testing.T) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/oauth2/token", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "{\"access_token\":\"sl.BYBntuwSqTes9FsYOrJ68Hi_UvEDH5cZzqt3QSJ3fvVAz\",\"token_type\":\"bearer\",\"expires_in\":14400}")
+		_, err := fmt.Fprintln(w, "{\"access_token\":\"sl.BYBntuwSqTes9FsYOrJ68Hi_UvEDH5cZzqt3QSJ3fvVAz\",\"token_type\":\"bearer\",\"expires_in\":14400}")
+		assert.NoError(err)
 	})
 
 	mux.HandleFunc("/oauth2/token-wrongjson", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "not json")
+		_, err := fmt.Fprintln(w, "not json")
+		assert.NoError(err)
 	})
 
 	svr := httptest.NewServer(mux)
@@ -67,19 +69,23 @@ func TestSaveSuccess(t *testing.T) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/oauth2/token", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "{\"access_token\":\"sl.BYBntuwSqTes9FsYOrJ68Hi_UvEDH5cZzqt3QSJ3fvVAz\",\"token_type\":\"bearer\",\"expires_in\":14400}")
+		_, err := fmt.Fprintln(w, "{\"access_token\":\"sl.BYBntuwSqTes9FsYOrJ68Hi_UvEDH5cZzqt3QSJ3fvVAz\",\"token_type\":\"bearer\",\"expires_in\":14400}")
+		assert.NoError(t, err)
 	})
 
 	mux.HandleFunc("/start", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, response)
+		_, err := fmt.Fprintln(w, response)
+		assert.NoError(t, err)
 	})
 
 	mux.HandleFunc("/append_v2", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, nil)
+		_, err := fmt.Fprintln(w, nil)
+		assert.NoError(t, err)
 	})
 
 	mux.HandleFunc("/finish", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, nil)
+		_, err := fmt.Fprintln(w, nil)
+		assert.NoError(t, err)
 	})
 
 	svr := httptest.NewServer(mux)
@@ -119,7 +125,8 @@ func TestSaveSuccess(t *testing.T) {
 func TestUploadSessionFailure(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/start", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, nil)
+		_, err := fmt.Fprintln(w, nil)
+		assert.NoError(t, err)
 	})
 
 	server := httptest.NewServer(mux)

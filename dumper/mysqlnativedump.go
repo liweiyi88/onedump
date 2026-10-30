@@ -182,16 +182,16 @@ func (m *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string) err
 					if v, ok := value.([]byte); ok {
 						sb.WriteString(string(v))
 					} else {
-						sb.WriteString(fmt.Sprintf("%d", value))
+						fmt.Fprintf(&sb, "%d", value)
 					}
 				case "FLOAT", "DOUBLE":
 					if v, ok := value.([]byte); ok {
 						sb.WriteString(string(v))
 					} else {
-						sb.WriteString(fmt.Sprintf("%f", value))
+						fmt.Fprintf(&sb, "%f", value)
 					}
 				case "DECIMAL", "DEC":
-					sb.WriteString(fmt.Sprintf("%s", value))
+					fmt.Fprintf(&sb, "%s", value)
 				case "DATE":
 					v, ok := value.([]uint8)
 
@@ -199,34 +199,34 @@ func (m *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string) err
 						return fmt.Errorf("could not parse DATE type, expect []uint8, got %T", value)
 					}
 
-					sb.WriteString(fmt.Sprintf("'%s'", v))
+					fmt.Fprintf(&sb, "'%s'", v)
 				case "DATETIME":
 					v, ok := value.([]byte)
 					if !ok {
 						return fmt.Errorf("could not parse DATETIME type, expect []byte, got %T", value)
 					}
 
-					sb.WriteString(fmt.Sprintf("'%s'", string(v)))
+					fmt.Fprintf(&sb, "'%s'", string(v))
 				case "TIMESTAMP":
 					v, ok := value.([]byte)
 					if !ok {
 						return fmt.Errorf("could not parse TIMESTAMP type, expect []byte, got %T", value)
 					}
-					sb.WriteString(fmt.Sprintf("'%s'", string(v)))
+					fmt.Fprintf(&sb, "'%s'", string(v))
 				case "TIME":
 					v, ok := value.([]byte)
 					if !ok {
 						return fmt.Errorf("could not parse TIME type, expect []byte, got %T", value)
 					}
-					sb.WriteString(fmt.Sprintf("'%s'", string(v)))
+					fmt.Fprintf(&sb, "'%s'", string(v))
 				case "YEAR":
 					v, ok := value.(int64)
 					if !ok {
 						return fmt.Errorf("could not parse YEAR type, expect int64, got %T", value)
 					}
-					sb.WriteString(fmt.Sprintf("'%d'", v))
+					fmt.Fprintf(&sb, "'%d'", v)
 				case "CHAR", "VARCHAR", "TINYTEXT", "TEXT", "MEDIUMTEXT", "LONGTEXT":
-					sb.WriteString(fmt.Sprintf("'%s'", strings.Replace(fmt.Sprintf("%s", value), "'", "''", -1)))
+					fmt.Fprintf(&sb, "'%s'", strings.ReplaceAll(fmt.Sprintf("%s", value), "'", "''"))
 				case "BINARY":
 					v, ok := value.([]uint8)
 					if !ok {
@@ -234,9 +234,9 @@ func (m *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string) err
 					}
 
 					v = bytes.TrimRight(v, "\x00") // skip trailing null value
-					sb.WriteString(fmt.Sprintf("'%s'", v))
+					fmt.Fprintf(&sb, "'%s'", v)
 				case "VARBINARY":
-					sb.WriteString(fmt.Sprintf("'%s'", value))
+					fmt.Fprintf(&sb, "'%s'", value)
 				case "BIT":
 					v, ok := value.([]uint8)
 					if !ok {
@@ -247,9 +247,9 @@ func (m *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string) err
 						return fmt.Errorf("failed to parse BIT type, expected length 1, got %d", len(v))
 					}
 
-					sb.WriteString(fmt.Sprintf("b'%d'", v[0]))
+					fmt.Fprintf(&sb, "b'%d'", v[0])
 				case "TINYBLOB", "BLOB", "MEDIUMBLOB", "LONGBLOB", "ENUM", "SET":
-					sb.WriteString(fmt.Sprintf("'%s'", value))
+					fmt.Fprintf(&sb, "'%s'", value)
 				case "BOOL", "BOOLEAN":
 					if value.(bool) {
 						sb.WriteString("true")
@@ -265,7 +265,7 @@ func (m *MysqlNativeDump) writeTableContent(buf *bufio.Writer, table string) err
 					json := string(v)
 
 					json = strings.ReplaceAll(json, `"`, `\"`)
-					sb.WriteString(fmt.Sprintf("'%s'", json))
+					fmt.Fprintf(&sb, "'%s'", json)
 				default:
 					return fmt.Errorf("unsupported database type: %s", typeName)
 				}
@@ -349,7 +349,7 @@ func (m *MysqlNativeDump) writeTableStructure(buf *bufio.Writer, table string) e
 	var sb strings.Builder
 
 	if !m.options.isEnabled(skipAddDropTable) {
-		sb.WriteString(fmt.Sprintf("DROP TABLE IF EXISTS `%s`;\n", table))
+		fmt.Fprintf(&sb, "DROP TABLE IF EXISTS `%s`;\n", table)
 	}
 
 	var name string
@@ -425,7 +425,6 @@ func (m *MysqlNativeDump) Dump(storage io.Writer) error {
 	}
 
 	buf := bufio.NewWriter(storage)
-	defer buf.Flush()
 
 	err = m.writeHeader(buf)
 	if err != nil {
@@ -450,6 +449,11 @@ func (m *MysqlNativeDump) Dump(storage io.Writer) error {
 	err = m.writeFooter(buf)
 	if err != nil {
 		return fmt.Errorf("failed to write dump footer, error: %v", err)
+	}
+
+	err = buf.Flush()
+	if err != nil {
+		return fmt.Errorf("failed to flush dump, error: %v", err)
 	}
 
 	return nil

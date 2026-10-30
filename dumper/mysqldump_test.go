@@ -8,7 +8,7 @@ import (
 
 	"github.com/liweiyi88/onedump/config"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/slices"
+	"slices"
 )
 
 var testDBDsn = "admin:my_password@tcp(127.0.0.1:3306)/dump_test"
@@ -18,7 +18,7 @@ func TestDefaultGetDumpCommand(t *testing.T) {
 	job := config.NewJob("test", "mysql", testDBDsn)
 
 	mysql, _ := NewMysqlDump(job)
-	defer mysql.close()
+	defer func() { assert.NoError(mysql.close()) }()
 
 	args, err := mysql.getDumpCommandArgs()
 	assert.Nil(err)
@@ -33,7 +33,7 @@ func TestGetDumpCommandWithOptions(t *testing.T) {
 		assert := assert.New(t)
 		job := config.NewJob("test", "mysql", testDBDsn, config.WithDumpOptions("--all-databases"))
 		mysql, _ := NewMysqlDump(job)
-		defer mysql.close()
+		defer func() { assert.NoError(mysql.close()) }()
 
 		args, err := mysql.getDumpCommandArgs()
 		assert.Nil(err)
@@ -46,7 +46,7 @@ func TestGetDumpCommandWithOptions(t *testing.T) {
 		assert := assert.New(t)
 		job := config.NewJob("test", "mysql", testDBDsn, config.WithDumpOptions("--skip-comments", "--extended-insert", "--no-create-info", "--default-character-set=utf-8", "--single-transaction", "--skip-lock-tables", "--quick", "--set-gtid-purged=ON"))
 		mysql, _ := NewMysqlDump(job)
-		defer mysql.close()
+		defer func() { assert.NoError(mysql.close()) }()
 
 		args, err := mysql.getDumpCommandArgs()
 		assert.Nil(err)
@@ -97,7 +97,7 @@ func TestGetSshDumpCommand(t *testing.T) {
 	job := config.NewJob("test", "mysql", testDBDsn)
 	mysql, _ := NewMysqlDump(job)
 
-	defer mysql.close()
+	defer func() { assert.NoError(mysql.close()) }()
 
 	command, err := mysql.getSshDumpCommand()
 	assert.Nil(err)
@@ -108,7 +108,7 @@ func TestGetDumpCommand(t *testing.T) {
 	assert := assert.New(t)
 	job := config.NewJob("test", "mysql", testDBDsn)
 	mysql, _ := NewMysqlDump(job)
-	defer mysql.close()
+	defer func() { assert.NoError(mysql.close()) }()
 
 	mysqldumpPath, err := exec.LookPath(mysql.path)
 	assert.Nil(err)
@@ -123,7 +123,7 @@ func TestMysqlGetDumpCommandArgs(t *testing.T) {
 	assert := assert.New(t)
 	job := config.NewJob("test", "mysql", testDBDsn, config.WithSshHost("ssh"), config.WithSshKey("key"), config.WithSshUser("user"))
 	mysql, _ := NewMysqlDump(job)
-	defer mysql.close()
+	defer func() { assert.NoError(mysql.close()) }()
 
 	_, err := exec.LookPath(mysql.path)
 	assert.Nil(err)

@@ -21,8 +21,8 @@ func TestRootCmdWithCron(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer os.Remove(filename)
-	file.Close()
+	defer func() { assert.NoError(os.Remove(filename)) }()
+	assert.NoError(file.Close())
 
 	config := `
 maxjobs: 20	
@@ -42,7 +42,7 @@ jobs:
 	err = os.WriteFile(filename, []byte(config), 0644)
 	assert.Nil(err)
 
-	newFd.Close()
+	assert.NoError(newFd.Close())
 	o := bytes.NewBufferString("")
 	cmd.SetOut(o)
 	cmd.SetArgs([]string{"-f", filename, "-c", "1s"})
@@ -66,8 +66,8 @@ func TestRootCmdWithInvalidMaxJob(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer os.Remove(filename)
-	file.Close()
+	defer func() { assert.NoError(os.Remove(filename)) }()
+	assert.NoError(file.Close())
 
 	config := `
 maxjobs: 0	
@@ -87,7 +87,7 @@ jobs:
 	err = os.WriteFile(filename, []byte(config), 0644)
 	assert.Nil(err)
 
-	newFd.Close()
+	assert.NoError(newFd.Close())
 	o := bytes.NewBufferString("")
 	cmd.SetOut(o)
 	cmd.SetArgs([]string{"-f", filename, "-c", "1s"})
@@ -127,14 +127,14 @@ func TestRootCmd(t *testing.T) {
 		file, err := os.Create(filename)
 		assert.Nil(err)
 
-		defer os.Remove(filename)
-		file.Close()
+		defer func() { assert.NoError(os.Remove(filename)) }()
+		assert.NoError(file.Close())
 
 		cmd := RootCmd
 		cmd.SetArgs([]string{"-f", filename})
 		b := bytes.NewBufferString("")
 		cmd.SetErr(b)
-		cmd.Execute()
+		assert.Error(cmd.Execute())
 
 		out, err := io.ReadAll(b)
 		assert.Nil(err)
@@ -159,7 +159,7 @@ func TestRootCmd(t *testing.T) {
 		err = os.WriteFile(filename, []byte(config), 0644)
 		assert.Nil(err)
 
-		newFd.Close()
+		assert.NoError(newFd.Close())
 		o := bytes.NewBufferString("")
 		cmd.SetOut(o)
 		err = cmd.Execute()

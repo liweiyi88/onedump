@@ -119,7 +119,7 @@ func getConfigContent() ([]byte, error) {
 
 func init() {
 	RootCmd.Flags().StringVarP(&file, "file", "f", "", "jobs yaml file path.")
-	RootCmd.MarkFlagRequired("file")
+	cobra.CheckErr(RootCmd.MarkFlagRequired("file"))
 
 	RootCmd.Flags().StringVarP(&cron, "cron", "c", "", "run onedump with cron mode by passing cron experssions. e.g. --cron '1h' (optional)")
 	RootCmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "read config file from a s3 bucket (optional)")

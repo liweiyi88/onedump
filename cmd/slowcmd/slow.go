@@ -21,7 +21,7 @@ func init() {
 	SlowCmd.Flags().StringVarP(&pattern, "pattern", "p", "", "only read files that follow the same pattern, for example *slow.log . (optional)")
 	SlowCmd.Flags().IntVarP(&limit, "limit", "l", 0, "limit the number of results. no limit is set by default. (optional)")
 	SlowCmd.Flags().BoolVarP(&mask, "mask", "m", true, "mask query values. enabled by default. (optional)")
-	SlowCmd.MarkFlagRequired("file")
+	cobra.CheckErr(SlowCmd.MarkFlagRequired("file"))
 }
 
 func isValidDatabase(db string) bool {

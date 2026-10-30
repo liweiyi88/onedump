@@ -387,8 +387,8 @@ func ParseBinlogFilePosition(reader io.Reader) (string, int, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return "", 0, errors.New("fail to scan while extracting binlog file and position.")
+		return "", 0, errors.New("fail to scan while extracting binlog file and position")
 	}
 
-	return "", 0, errors.New("could not extract binlog file and position.")
+	return "", 0, errors.New("could not extract binlog file and position")
 }

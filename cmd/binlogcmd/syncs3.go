@@ -20,8 +20,8 @@ func init() {
 	// The command also needs the DATABASE_URL, AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY as environment variables.
 	BinlogSyncS3Cmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "AWS S3 bucket name that used for saving binlog files (required)")
 	BinlogSyncS3Cmd.Flags().StringVarP(&s3Prefix, "s3-prefix", "p", "", "AWS S3 file prefix (folder) that used for saving binlog files (required)")
-	BinlogSyncS3Cmd.MarkFlagRequired("s3-bucket")
-	BinlogSyncS3Cmd.MarkFlagRequired("s3-prefix")
+	cobra.CheckErr(BinlogSyncS3Cmd.MarkFlagRequired("s3-bucket"))
+	cobra.CheckErr(BinlogSyncS3Cmd.MarkFlagRequired("s3-prefix"))
 	BinlogSyncS3Cmd.Flags().BoolVar(&checksum, "checksum", false, "whether to save the checksum to avoid repeating file transfers, default: false (optional)")
 	BinlogSyncS3Cmd.Flags().StringVar(&checksumFile, "checksum-file", "", "save checksum results in a specific file if --checksum=true, default: /path/to/sync/folder/checksum.onedump (optional)")
 	BinlogSyncS3Cmd.Flags().BoolVar(&saveLog, "save-log", false, "whether to save the sync results in a log file, default: false (optional)")

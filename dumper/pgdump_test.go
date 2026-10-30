@@ -90,7 +90,7 @@ func TestExecDumpEnvironPostgresql(t *testing.T) {
 	assert := assert.New(t)
 	job := config.NewJob("test", "postgresql", testPsqlDBDsn)
 	pgdump, _ := NewPgDump(job)
-	defer pgdump.close()
+	defer func() { assert.NoError(pgdump.close()) }()
 
 	envs, err := pgdump.execDumpEnviron()
 	assert.Nil(err)

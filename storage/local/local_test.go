@@ -23,5 +23,5 @@ func TestSave(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, expected, string(data))
-	defer os.Remove(filename)
+	defer func() { assert.NoError(t, os.Remove(filename)) }()
 }
