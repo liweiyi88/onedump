@@ -12,7 +12,7 @@ func TestExecRunner(t *testing.T) {
 
 	var b bytes.Buffer
 
-	runner.Run(&b)
+	assert.NoError(t, runner.Run(&b))
 	assert.Equal(t, "hello\n", b.String())
 
 	runner = NewExecRunner("echo hello", nil, []string{"APP_ENV=test"})

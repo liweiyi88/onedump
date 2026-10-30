@@ -29,7 +29,7 @@ func init() {
 	BinlogRestoreCmd.Flags().StringVar(&dumpFilePath, "dump-file", "", "A Database dump file that contains binlog file and position (optional if --start-binlog and --start-position are provided)")
 	BinlogRestoreCmd.Flags().BoolVar(&dryRun, "dry-run", false, "If true, output the parsed binlog events instead of applying them. default: false (optional)")
 	BinlogRestoreCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "prints additional debug information (optional)")
-	BinlogRestoreCmd.MarkFlagRequired("dir")
+	cobra.CheckErr(BinlogRestoreCmd.MarkFlagRequired("dir"))
 	BinlogRestoreCmd.MarkFlagsRequiredTogether("start-binlog", "start-position")
 	BinlogRestoreCmd.MarkFlagsOneRequired("start-binlog", "dump-file")
 }

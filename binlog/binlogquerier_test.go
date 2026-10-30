@@ -13,9 +13,12 @@ import (
 func TestNewBinlogInfoQuerier(t *testing.T) {
 	assert := assert.New(t)
 
-	db, _, err := sqlmock.New()
+	db, mock, err := sqlmock.New()
 	assert.NoError(err)
-	defer db.Close()
+	defer func() {
+		mock.ExpectClose()
+		assert.NoError(db.Close())
+	}()
 
 	querier := NewBinlogQuerier(db)
 	assert.NotNil(querier)
@@ -27,7 +30,10 @@ func TestQueryLogBinSuccess(t *testing.T) {
 
 	db, mock, err := sqlmock.New()
 	assert.NoError(err)
-	defer db.Close()
+	defer func() {
+		mock.ExpectClose()
+		assert.NoError(db.Close())
+	}()
 
 	querier := NewBinlogQuerier(db)
 
@@ -45,7 +51,10 @@ func TestQueryLogBinFailure(t *testing.T) {
 	assert := assert.New(t)
 	db, mock, err := sqlmock.New()
 	assert.NoError(err)
-	defer db.Close()
+	defer func() {
+		mock.ExpectClose()
+		assert.NoError(db.Close())
+	}()
 
 	querier := NewBinlogQuerier(db)
 
@@ -78,7 +87,10 @@ func TestQueryLogBinBasenameSuccess(t *testing.T) {
 	assert := assert.New(t)
 	db, mock, err := sqlmock.New()
 	assert.NoError(err)
-	defer db.Close()
+	defer func() {
+		mock.ExpectClose()
+		assert.NoError(db.Close())
+	}()
 
 	querier := NewBinlogQuerier(db)
 
@@ -97,7 +109,10 @@ func TestQueryLogBinBasenameFailure(t *testing.T) {
 	assert := assert.New(t)
 	db, mock, err := sqlmock.New()
 	assert.NoError(err)
-	defer db.Close()
+	defer func() {
+		mock.ExpectClose()
+		assert.NoError(db.Close())
+	}()
 
 	querier := NewBinlogQuerier(db)
 
@@ -130,7 +145,10 @@ func TestQueryBinlogStatusSuccess(t *testing.T) {
 
 	db, mock, err := sqlmock.New()
 	assert.NoError(err)
-	defer db.Close()
+	defer func() {
+		mock.ExpectClose()
+		assert.NoError(db.Close())
+	}()
 
 	querier := NewBinlogQuerier(db)
 
@@ -154,7 +172,10 @@ func TestQueryBinlogStatusFailure(t *testing.T) {
 
 	db, mock, err := sqlmock.New()
 	assert.NoError(err)
-	defer db.Close()
+	defer func() {
+		mock.ExpectClose()
+		assert.NoError(db.Close())
+	}()
 
 	querier := NewBinlogQuerier(db)
 
@@ -198,7 +219,10 @@ func TestRowsCloseError(t *testing.T) {
 	assert := assert.New(t)
 	db, mock, err := sqlmock.New()
 	assert.NoError(err)
-	defer db.Close()
+	defer func() {
+		mock.ExpectClose()
+		assert.NoError(db.Close())
+	}()
 
 	querier := NewBinlogQuerier(db)
 
@@ -322,7 +346,10 @@ func TestGetBinlogInfo(t *testing.T) {
 	t.Run("version < 8.2 uses SHOW MASTER STATUS", func(t *testing.T) {
 		db, mock, err := sqlmock.New()
 		assert.NoError(err)
-		defer db.Close()
+		defer func() {
+			mock.ExpectClose()
+			assert.NoError(db.Close())
+		}()
 
 		querier := NewBinlogQuerier(db)
 
@@ -343,7 +370,10 @@ func TestGetBinlogInfo(t *testing.T) {
 	t.Run("version >= 8.2 uses SHOW BINARY LOG STATUS", func(t *testing.T) {
 		db, mock, err := sqlmock.New()
 		assert.NoError(err)
-		defer db.Close()
+		defer func() {
+			mock.ExpectClose()
+			assert.NoError(db.Close())
+		}()
 
 		querier := NewBinlogQuerier(db)
 

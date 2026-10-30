@@ -31,13 +31,14 @@ func TestNewMultiCloser(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	multiCloser.Close()
+	assert.NoError(t, multiCloser.Close())
 
-	w.Close()
+	assert.NoError(t, w.Close())
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, err := io.Copy(&buf, r)
+	assert.NoError(t, err)
 
 	expected := buf.String()
 	actual := "closeclose"

@@ -11,6 +11,7 @@ import (
 	"github.com/liweiyi88/onedump/filesync"
 	"github.com/liweiyi88/onedump/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSyncSftpCmd(t *testing.T) {
@@ -39,13 +40,13 @@ func TestSyncSftpCmd(t *testing.T) {
 
 			cmd.SetOut(readWriter)
 			cmd.SetErr(readWriter)
-			cmd.Execute()
+			assert.Error(cmd.Execute())
 
 			assert.Contains(readWriter.String(), "Error: detination should not be a file when transfer multiple files from the source")
 			finishCh <- struct{}{}
 		}
 
-		testutils.StartSftpServer("0.0.0.0:20005", 1, onServerReady)
+		require.NoError(t, testutils.StartSftpServer("0.0.0.0:20005", 1, onServerReady))
 		<-finishCh
 	})
 
@@ -54,11 +55,12 @@ func TestSyncSftpCmd(t *testing.T) {
 		assert.Nil(err)
 
 		defer func() {
-			source.Close()
-			os.Remove("single_source.txt")
+			assert.NoError(source.Close())
+			assert.NoError(os.Remove("single_source.txt"))
 		}()
 
-		source.WriteString("source content")
+		_, err = source.WriteString("source content")
+		assert.NoError(err)
 
 		currentDir, err := os.Getwd()
 		assert.Nil(err)
@@ -67,7 +69,7 @@ func TestSyncSftpCmd(t *testing.T) {
 
 		onServerReady := func(privateKey string) {
 			destPath := filepath.ToSlash(filepath.Join(currentDir, "dest.txt"))
-			defer os.Remove(destPath)
+			defer func() { assert.NoError(os.Remove(destPath)) }()
 
 			cmd.SetArgs([]string{
 				"sync", "sftp",
@@ -83,13 +85,13 @@ func TestSyncSftpCmd(t *testing.T) {
 
 			cmd.SetOut(readWriter)
 			cmd.SetErr(readWriter)
-			cmd.Execute()
+			assert.NoError(cmd.Execute())
 
 			assert.Equal(strings.ReplaceAll(readWriter.String(), "\x00", ""), "")
 			finishCh <- struct{}{}
 		}
 
-		testutils.StartSftpServer("0.0.0.0:20005", 2, onServerReady)
+		require.NoError(t, testutils.StartSftpServer("0.0.0.0:20005", 2, onServerReady))
 		<-finishCh
 	})
 
@@ -101,14 +103,16 @@ func TestSyncSftpCmd(t *testing.T) {
 		assert.Nil(err)
 
 		defer func() {
-			source1.Close()
-			source2.Close()
-			os.Remove("mf_source1.txt")
-			os.Remove("mf_source2.txt")
+			assert.NoError(source1.Close())
+			assert.NoError(source2.Close())
+			assert.NoError(os.Remove("mf_source1.txt"))
+			assert.NoError(os.Remove("mf_source2.txt"))
 		}()
 
-		source1.WriteString("source1 content")
-		source2.WriteString("source2 content")
+		_, err = source1.WriteString("source1 content")
+		assert.NoError(err)
+		_, err = source2.WriteString("source2 content")
+		assert.NoError(err)
 
 		currentDir, err := os.Getwd()
 		assert.Nil(err)
@@ -145,13 +149,13 @@ func TestSyncSftpCmd(t *testing.T) {
 
 			cmd.SetOut(readWriter)
 			cmd.SetErr(readWriter)
-			cmd.Execute()
+			assert.NoError(cmd.Execute())
 
 			assert.Equal(strings.ReplaceAll(readWriter.String(), "\x00", ""), "")
 			finishCh <- struct{}{}
 		}
 
-		testutils.StartSftpServer("0.0.0.0:20005", 3, onServerReady)
+		require.NoError(t, testutils.StartSftpServer("0.0.0.0:20005", 3, onServerReady))
 		<-finishCh
 	})
 
@@ -160,11 +164,12 @@ func TestSyncSftpCmd(t *testing.T) {
 		assert.Nil(err)
 
 		defer func() {
-			source.Close()
-			os.Remove("single_source.txt")
+			assert.NoError(source.Close())
+			assert.NoError(os.Remove("single_source.txt"))
 		}()
 
-		source.WriteString("source content")
+		_, err = source.WriteString("source content")
+		assert.NoError(err)
 
 		currentDir, err := os.Getwd()
 		assert.Nil(err)
@@ -173,7 +178,7 @@ func TestSyncSftpCmd(t *testing.T) {
 
 		onServerReady := func(privateKey string) {
 			destPath := currentDir + "/dest.txt"
-			defer os.Remove(destPath)
+			defer func() { assert.NoError(os.Remove(destPath)) }()
 
 			cmd.SetArgs([]string{
 				"sync", "sftp",
@@ -190,7 +195,7 @@ func TestSyncSftpCmd(t *testing.T) {
 
 			cmd.SetOut(readWriter)
 			cmd.SetErr(readWriter)
-			cmd.Execute()
+			assert.NoError(cmd.Execute())
 
 			assert.Equal(strings.ReplaceAll(readWriter.String(), "\x00", ""), "")
 			finishCh <- struct{}{}
@@ -209,7 +214,7 @@ func TestSyncSftpCmd(t *testing.T) {
 			}()
 		}
 
-		testutils.StartSftpServer("0.0.0.0:20005", 2, onServerReady)
+		require.NoError(t, testutils.StartSftpServer("0.0.0.0:20005", 2, onServerReady))
 		<-finishCh
 	})
 
@@ -218,11 +223,12 @@ func TestSyncSftpCmd(t *testing.T) {
 		assert.Nil(err)
 
 		defer func() {
-			source.Close()
-			os.Remove("single_source.txt")
+			assert.NoError(source.Close())
+			assert.NoError(os.Remove("single_source.txt"))
 		}()
 
-		source.WriteString("source content")
+		_, err = source.WriteString("source content")
+		assert.NoError(err)
 
 		checksum := filesync.NewChecksum(source.Name(), "")
 		err = checksum.SaveState()
@@ -241,7 +247,6 @@ func TestSyncSftpCmd(t *testing.T) {
 
 		onServerReady := func(privateKey string) {
 			destPath := currentDir + "/dest.txt"
-			defer os.Remove(destPath)
 
 			cmd.SetArgs([]string{
 				"sync", "sftp",
@@ -258,13 +263,14 @@ func TestSyncSftpCmd(t *testing.T) {
 
 			cmd.SetOut(readWriter)
 			cmd.SetErr(readWriter)
-			cmd.Execute()
+			assert.NoError(cmd.Execute())
 
 			assert.Equal(strings.ReplaceAll(readWriter.String(), "\x00", ""), "")
+			assert.NoFileExists(destPath)
 			finishCh <- struct{}{}
 		}
 
-		testutils.StartSftpServer("0.0.0.0:20005", 1, onServerReady)
+		require.NoError(t, testutils.StartSftpServer("0.0.0.0:20005", 1, onServerReady))
 		<-finishCh
 	})
 }

@@ -7,6 +7,17 @@ on:
 
   workflow_dispatch:
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.14.0
+
   test:
     strategy:
       matrix:

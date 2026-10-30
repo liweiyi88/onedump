@@ -36,11 +36,11 @@ func init() {
 	SyncSftpCmd.Flags().StringVar(&checksumFile, "checksum-file", "", "save checksum results in a specific file if --checksum=true, default: /path/to/sync/folder/checksum.onedump (optional)")
 	SyncSftpCmd.Flags().StringVarP(&pattern, "pattern", "p", "", "only read files that follow the same pattern, for example binlog.* (optional)")
 
-	SyncSftpCmd.MarkFlagRequired("source")
-	SyncSftpCmd.MarkFlagRequired("destination")
-	SyncSftpCmd.MarkFlagRequired("ssh-host")
-	SyncSftpCmd.MarkFlagRequired("ssh-user")
-	SyncSftpCmd.MarkFlagRequired("ssh-key")
+	cobra.CheckErr(SyncSftpCmd.MarkFlagRequired("source"))
+	cobra.CheckErr(SyncSftpCmd.MarkFlagRequired("destination"))
+	cobra.CheckErr(SyncSftpCmd.MarkFlagRequired("ssh-host"))
+	cobra.CheckErr(SyncSftpCmd.MarkFlagRequired("ssh-user"))
+	cobra.CheckErr(SyncSftpCmd.MarkFlagRequired("ssh-key"))
 }
 
 func syncFiles(sources []string, destination string, checksum bool, checksumFile string, isDestinationDir bool, config *sftp.SftpConifg) error {

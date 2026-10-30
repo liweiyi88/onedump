@@ -16,9 +16,9 @@ func init() {
 	DownloadS3Cmd.Flags().StringVarP(&bucket, "bucket", "b", "", "AWS S3 bucket name that used for saving binlog files (required)")
 	DownloadS3Cmd.Flags().StringVarP(&prefix, "prefix", "p", "", "AWS S3 file prefix (folder) that used for saving binlog files (required)")
 	DownloadS3Cmd.Flags().StringVarP(&dir, "dir", "d", "", "A local directory that stores the objects (required)")
-	DownloadS3Cmd.MarkFlagRequired("bucket")
-	DownloadS3Cmd.MarkFlagRequired("prefix")
-	DownloadS3Cmd.MarkFlagRequired("dir")
+	cobra.CheckErr(DownloadS3Cmd.MarkFlagRequired("bucket"))
+	cobra.CheckErr(DownloadS3Cmd.MarkFlagRequired("prefix"))
+	cobra.CheckErr(DownloadS3Cmd.MarkFlagRequired("dir"))
 }
 
 var DownloadS3Cmd = &cobra.Command{

@@ -26,11 +26,12 @@ func TestSlowCmd(t *testing.T) {
 	assert := assert.New(t)
 	cmd := cmd.RootCmd
 	cmd.SetArgs([]string{"slow", "-f", "../../testutils/slowlogs/short"})
-	cmd.Execute()
+	assert.NoError(cmd.Execute())
 
-	w.Close()
+	assert.NoError(w.Close())
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, err := io.Copy(&buf, r)
+	assert.NoError(err)
 
 	// Get the captured output
 	out := buf.String()

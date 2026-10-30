@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEnsureFileName(t *testing.T) {
@@ -64,7 +65,7 @@ func TestListFiles(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "testdir")
 	assert.NoError(err)
 
-	defer os.RemoveAll(tempDir) // Clean up after test
+	defer func() { assert.NoError(os.RemoveAll(tempDir)) }()
 
 	files := []string{"file1.txt", "file2.log", "file3.txt"}
 	for _, f := range files {
@@ -120,8 +121,10 @@ func TestIsGzipped(t *testing.T) {
 		t.Fatalf("Failed to create temp gzip file: %v", err)
 	}
 
-	defer gzFile.Close()
-	defer os.Remove(gzFile.Name())
+	defer func() {
+		assert.NoError(t, gzFile.Close())
+		assert.NoError(t, os.Remove(gzFile.Name()))
+	}()
 
 	// Write gzip header and some content
 	gzWriter := gzip.NewWriter(gzFile)
@@ -131,7 +134,7 @@ func TestIsGzipped(t *testing.T) {
 		t.Fatalf("Failed to write to gzip file: %v", err)
 	}
 
-	gzWriter.Close()
+	require.NoError(t, gzWriter.Close())
 
 	if !IsGzipped(gzFile.Name()) {
 		t.Errorf("Expected true for gzip file, got false")
@@ -143,7 +146,7 @@ func TestIsGzipped(t *testing.T) {
 		t.Fatalf("Failed to create temp text file: %v", err)
 	}
 
-	defer os.Remove(txtFile.Name())
+	defer func() { assert.NoError(t, os.Remove(txtFile.Name())) }()
 
 	_, err = txtFile.Write([]byte("this is a plain text file"))
 
@@ -151,7 +154,7 @@ func TestIsGzipped(t *testing.T) {
 		t.Fatalf("Failed to write to text file: %v", err)
 	}
 
-	txtFile.Close()
+	require.NoError(t, txtFile.Close())
 
 	if IsGzipped(txtFile.Name()) {
 		t.Errorf("Expected false for non-gzip file, got true")

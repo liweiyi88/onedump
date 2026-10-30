@@ -101,7 +101,7 @@ func TestDo(t *testing.T) {
 	// "session" and ServerShell may be used to present a simple
 	// terminal interface.
 	if newChannel.ChannelType() != "session" {
-		newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
+		assert.NoError(newChannel.Reject(ssh.UnknownChannelType, "unknown channel type"))
 		t.Fatal("unknown channel type")
 	}
 
@@ -109,7 +109,7 @@ func TestDo(t *testing.T) {
 	assert.Nil(err)
 
 	req := <-requests
-	req.Reply(true, nil)
+	assert.NoError(req.Reply(true, nil))
 
 	_, err = channel.Write([]byte("ssh dump"))
 	assert.Nil(err)
